@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * System 37: eight-section catalogue validation and streaming overlays.
  */
-#include "libc.h"
 #include "section_catalog.h"
 
 static uint32_t project_offset(uint32_t record)
