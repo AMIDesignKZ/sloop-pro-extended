@@ -24,7 +24,7 @@ int main(void)
 
     old.magic = PROJ_V6_MAGIC;
     old.size = sizeof old;
-    old.sel = 2;
+    old.sel = 3;
     old.drdly = 37;
     for (k = 0; k < 32u; ++k) old.g[k] = (int16_t)(k * 3u - 12u);
 
@@ -63,7 +63,7 @@ int main(void)
                  sizeof old == 3816u && sizeof now == 5108u && sizeof(proj_trk_v7_t) == 838u);
     bad += check("valid FUN6 image migrates to valid FUN7", proj_v6_to_v7(&now, &old, sizeof old, &lock_loss, common_defaults, analog_defaults) && proj_v7_valid(&now));
     bad += check("lock truncation warning identifies all four migrated tracks (including drums)", lock_loss == 0x27u);
-    ok = now.sel == old.sel && now.drdly == old.drdly && !memcmp(now.g, old.g, sizeof old.g);
+    ok = now.sel == 5u && now.drdly == old.drdly && !memcmp(now.g, old.g, sizeof old.g);
     for (t = 0; t < 4u; ++t) {
         uint32_t dest = (t == 3u) ? 5u : t;
         const proj_trk_v6_t *a = &old.t[t];
