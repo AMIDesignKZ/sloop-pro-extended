@@ -1266,7 +1266,7 @@ const LIVE = { STATE: 0, PLAY: 1, KEY: 2, FX: 3, REC: 4, UNDO: 5, LY_KEY: 5, LY_
     "ALIAS", "GATE", "ECHO", "WOBBLE", "KILL LOW", "KILL MID", "KILL HIGH", "REWIND", "OCT UP", "FLANGER", "AUTO-PAN", "FREEZE",
     "LOOP 8T", "MONO", "FADE OUT"],
   /* the GLO keys (ui_layers.c layer_key): 1..4 mute, 5..8 solo, 9 fill while held, 10 fill next bar, 16 tap tempo;
-     the SAVE keys: 1..4 play A..D, 5..8 store into A..D, 13 loop / song, 14 SONG REC */
+     the SAVE keys: FM-1 1..4 play A..D / 5..8 store; System 37 1..8 play A..H / 9..16 store */
   MUTE: 0, SOLO: 4, FILL: 8, FILL_BAR: 9, TAP: 15, SEC: 0, STORE: 4, SONG: 12, SONG_REC: 13 };
 /* ---- LIVE pro (editor only: the 2.7 firmware as it is, every value through TRACK_MIX / TRACK_PARAM / SET).
    Scenes: what a track and the master sound like, kept in the browser, recalled at once or morphed over bars, or mixed
@@ -10735,7 +10735,8 @@ function lvRenderPl() {
   };
   U.plList.replaceChildren(...pl.songs.map((f, i) => {
     const cur = i === pl.cur, at = pl.loading && pl.at === i;
-    const secs = (f.objects || []).filter((o) => o.id >= 2).map((o) => "ABCD"[o.id - 2]).join("");
+    const secs = (f.objects || []).filter((o) => (o.id >= 2 && o.id <= 5) || (o.id >= 12 && o.id <= 15))
+      .map((o) => "ABCDEFGH"[o.id >= 12 ? o.id - 8 : o.id - 2]).join("");
     return el("li", { class: (cur ? "cur" : "") + (at ? " at" : "") },
       el("button", { type: "button", class: "lvplgo", disabled: pl.loading, onclick: () => lvSongGo(i), title: t("plLoad") },
         el("b", { text: f.name || "SONG" }), el("small", { text: at ? `${t("sfLoading")}${pl.pct} %` : secs + (f.live && f.live.bpm ? ` · ${f.live.bpm}` : "") })),
