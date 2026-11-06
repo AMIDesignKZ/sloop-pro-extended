@@ -564,7 +564,9 @@ UI_SMALL static void layer_knobs(uint32_t layer)
             }
             break;
         case LY_MIX: {
-            int16_t *lv = k == TRK_DRUM ? &song.g[G_DRLVL] : &trk[k].p[P_LEVEL];
+            uint32_t first = NTRK > 4u && song.sel >= 4u ? NTRK - 4u : 0u;
+            uint32_t track = first + k;
+            int16_t *lv = track == TRK_DRUM ? &song.g[G_DRLVL] : &trk[track].p[P_LEVEL];
             *lv = (int16_t)clamp(*lv + accel(EN_K1 + k, s, 127), 0, 127);
             break;
         }
