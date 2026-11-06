@@ -1745,7 +1745,7 @@ UI_SMALL static void arrangement_save(void)
  * stops the audio for ~50 ms); a song recorded with SONG REC is saved the same way. */
 UI_SMALL static void section_store(uint32_t s)
 {
-    s &= 3u;
+    s &= (BOARD_SMK37 ? 7u : 3u);
     fm1_irq_off();                                      /* (the audio ISR may be applying a section) */
     proj_capture(&proj_slot[s]);
     live_sec = (int8_t)s;
@@ -1754,37 +1754,50 @@ UI_SMALL static void section_store(uint32_t s)
 }
 UI_SMALL static void section_load(uint32_t s)                    /* stopped: the section is the loop now */
 {
-    s &= 3u;
+    s &= (BOARD_SMK37 ? 7u : 3u);
     project_apply(&proj_slot[s]);
     live_sec = (int8_t)s;
 }
 UI_SMALL static void sections_write(void)                        /* the dirty sections and song into flash */
 {
-    uint32_t i;
 #if FELUCCA_FLASH
+#if BOARD_SMK37
+    if (flash_ok && (sec_dirty || s37_migrate_pending) && !s37_cat_uncertain) {
+        if (s37_catalog_write_full() == 0)
+            sec_dirty = 0u;
+    }
+#else
+    uint32_t i;
     if (flash_ok)
         for (i = 0; i < 4u; i++)
             if (((sec_dirty >> i) & 1u) && st_save(OBJ_PROJECT0 + i, &proj_slot[i], sizeof proj_slot[i]) == 0)
-                sec_dirty &= (uint8_t)~(1u << i);       /* (a failed write stays dirty: tried again later) */
+                sec_dirty &= (uint8_t)~(1u << i);
     if (!flash_ok)
+        sec_dirty = 0u;
 #endif
-        sec_dirty = 0;
-    (void)i;
-    if (song_dirty || fav_dirty) {                      /* (2.7: the favourites too) */
+#endif
+    if (song_dirty || fav_dirty) {
         song_dirty = 0;
         settings_save();
     }
 }
+
 /* before an intentional reset (an update, UPDATE MODE, UBOOT from the host): the audio is stopped, so
  * whatever is only in RAM goes to flash now: the live sections, the song, the working project */
 UI_SMALL static void persist_flush_now(void)
 {
     sections_write();
 #if FELUCCA_FLASH
-    if (flash_ok && !arrangement_clock.running) {     /* (a song playing: the tracks hold a section) */
+    if (flash_ok && !arrangement_clock.running) {
         proj_capture(&autosave_buf);
+#if BOARD_SMK37
+        if (project_valid(&autosave_buf) && autosave_buf.sum != autosave_hash &&
+            s37_catalog_store_working(&autosave_buf) == 0)
+            autosave_hash = autosave_buf.sum;
+#else
         if (autosave_buf.sum != autosave_hash && st_save(OBJ_AUTOSAVE, &autosave_buf, sizeof autosave_buf) == 0)
             autosave_hash = autosave_buf.sum;
+#endif
     }
 #endif
 }
@@ -1831,7 +1844,11 @@ UI_SMALL static void sections_flush(void)                        /* main loop */
         settings_later = 0;
         song_dirty = 1;                                 /* (settings_save when quiet, with the song) */
     }
-    if ((!sec_dirty && !song_dirty) || song.playing || transport_req || !audio_quiet() || fm1_ms - ui_input_ms < 1500u ||
+    if ((!sec_dirty && !song_dirty
+#if BOARD_SMK37
+         && !s37_migrate_pending
+#endif
+        ) || song.playing || transport_req || !audio_quiet() || fm1_ms - ui_input_ms < 1500u ||
         fm1_ms - tried < 5000u)
         return;
     tried = fm1_ms;                                     /* (a failed write: again in 5 s, not every frame) */
