@@ -5,7 +5,7 @@
 #   tests/run_tests.sh
 #
 # Regression suite (tests/regress.c, tests/target_budget.py; details at the top of regress.c):
-#   golden renders  every engine x preset, the drum kit, voice modes, FX sends, a 4-track mix: one hash
+#   golden renders  every selectable synth engine x preset, the drum kit, voice modes, FX sends, a 4-track mix: one hash
 #                   each in tests/golden.txt. A change of the sound fails with the list of renders.
 #   health          clipping, DC, peak level, voices free after the release, silence at the end.
 #   CPU             cost / sample per preset and mix, relative to the idle + drums mix (tests/cpu_baseline.txt,
@@ -75,8 +75,6 @@ $CC -O2 -w -Ibuild/gen -Ifirmware/src -Ifirmware/hal -o "$OUT/len_test" tests/le
 run "2.8.3: SEQ > NOTES, LEN under later notes, MONO / STEP FULL, shorter, delete" "$OUT/len_test"
 $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/drum_steal_test" tests/drum_steal_test.c -lm
 run "2.8.3: drum voices on a busy beat, every kit: no kick cut by another sound" "$OUT/drum_steal_test"
-$CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/chop_attack_test" tests/chop_attack_test.c -lm
-run "2.8.3: a sample played again starts from silence with its ATK (POLY same note, MONO, LEGATO, UNISON), no click" "$OUT/chop_attack_test"
 $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/fade_noise_test" tests/fade_noise_test.c -lm
 run "SLOOP Pro #4: a note fading out keeps 16-bit resolution (DAC, MASTER 2048, USB FULL, 808 SLIDE): no 16 LSB floor" "$OUT/fade_noise_test"
 
@@ -282,14 +280,6 @@ run "SLICER: no clicks, timing, sync with the sequencer, STUT, cost, demos" "$OU
 $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/fm6_test" tests/fm6_test.c -lm
 mkdir -p build/fm6_demo
 run "FM6: algorithms, envelopes, retrigger, DC, clipping, macros, patch formats, voices, the bank, demos" "$OUT/fm6_test" build/fm6_demo
-$CC -O2 -w -Ibuild/gen -Ifirmware/src -Ifirmware/hal -o "$OUT/noise_clock_test" tests/noise_clock_test.c -lm
-run "NOISE LFSR: the clock follows the keys past the sample rate (NZ ARCADE, clipper-fm1 #10)" "$OUT/noise_clock_test"
-$CC -O2 -w -Ibuild/gen -Ifirmware/src -Ifirmware/hal -o "$OUT/sample_pitch_test" tests/sample_pitch_test.c -lm
-run "SAMPLE, GRAIN: the pitch follows the keys to the top of the keyboard (up to the decode bound)" "$OUT/sample_pitch_test"
-$CC -O2 -w -Ibuild/gen -Ifirmware/src -Ifirmware/hal -o "$OUT/grain_release_test" tests/grain_release_test.c -lm
-run "GRAIN: a note played in the release of the one before is not starved of grains" "$OUT/grain_release_test"
-$CC -O2 -w -Ibuild/gen -Ifirmware/src -Ifirmware/hal -o "$OUT/phys_tune_test" tests/phys_tune_test.c -lm
-run "PHYS: every pitched preset in tune (+-5 cents; a curved bridge +-20), notes 28..100" "$OUT/phys_tune_test"
 $CC -O2 -w -Ibuild/gen -Ifirmware/src -Ifirmware/hal -o "$OUT/unison_level_test" tests/unison_level_test.c -lm
 run "UNISON: every engine spreads its voices' phases (no stack of voices in phase over POLY)" "$OUT/unison_level_test"
 run "the editor protocol and the other inputs (USB / TRS MIDI, damaged flash) fuzzed under ASan + UBSan, and its reproducers" sh tests/editor_fuzz.sh "${EDFZ_N:-2000}" 1
@@ -322,6 +312,6 @@ fi
 # the browser audio preview (web editor): the same engines in WASM as on the host, when it is built
 # (python3 tools/build_preview.py: Emscripten, or clang + wasm-ld)
 if [ -f build/preview/sloop-preview.wasm ]; then
-    run "the editor's audio preview: WASM == host, all 12 engines" sh tests/run_preview_tests.sh
+    run "the editor's audio preview: WASM == host, the selectable Analog and FM6 engines" sh tests/run_preview_tests.sh
 fi
 [ $fail -eq 0 ] && echo "ALL HOST TESTS PASSED" || { echo "HOST TESTS FAILED"; exit 1; }
