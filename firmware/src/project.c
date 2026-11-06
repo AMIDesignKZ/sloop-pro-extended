@@ -743,7 +743,7 @@ UI_SMALL static void proj_fetch(uint32_t slot)
 #include "fm6_bank.c"                           /* the FM6 patch bank (eng_fm6.c PTCH B1..B27): staged in proj_tmp */
 #endif
 
-static const char *const SEC_NAME[8] = {"A", "B", "C", "D", "E", "F", "G", "H"}   /* (2.7: the slots named as the song's sections) */
+static const char *const SEC_NAME[8] = {"A", "B", "C", "D", "E", "F", "G", "H"};   /* (2.7: the slots named as the song's sections) */
 #if BOARD_SMK37
 static uint8_t proj_save_err;                   /* SLOOP Pro: the last project_save could not write the flash (editor.c) */
 #endif
@@ -1201,7 +1201,7 @@ UI_SMALL static void persist_boot(void)                    /* before settings_in
 #endif
 }
 
-UI_SMALL static int project_used(uint32_t slot) { return proj_ok(&proj_slot[slot & 3u]); }
+UI_SMALL static int project_used(uint32_t slot) { return project_valid(&proj_slot[slot & (BOARD_SMK37 ? 7u : 3u)]); }
 
 #if FELUCCA_FLASH
 /* SLOOP 2.5: the settings object holds the SYN kits after persist_t (drum_synth.c dsu): firmware before 2.5 reads
