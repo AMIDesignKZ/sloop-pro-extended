@@ -46,14 +46,18 @@ split "CORES=1" CORES=1
 split "CORES=2" CORES=2
 split "CORES=2 CHAOS=7" CORES=2 CHAOS=7
 split "CORES=2 CPU1_TIMEOUT_AT=700" CORES=2 CPU1_TIMEOUT_AT=700
-TSAN="${CC_UB:-cc} -O1 -g -w -fsanitize=thread -Ibuild/gen -Ifirmware/src"
-if $TSAN -o "$OUT/mix_split_tsan" tests/mix_split_test.c -lm 2>/dev/null; then
-    if env CORES=2 CHAOS=3 TSAN_OPTIONS="halt_on_error=1" "$OUT/mix_split_tsan" QUICK > "$OUT/split_tsan.log" 2>&1; then
-        echo "   under ThreadSanitizer (CORES=2 CHAOS=3, the splits 0, 15, -1): $(tail -n 1 "$OUT/split_tsan.log" | sed 's/.*: //'), no race"
+if [ -z "$SKIP_TSAN" ]; then
+    TSAN="${CC_UB:-cc} -O1 -g -w -fsanitize=thread -Ibuild/gen -Ifirmware/src"
+    if $TSAN -o "$OUT/mix_split_tsan" tests/mix_split_test.c -lm 2>/dev/null; then
+        if env CORES=2 CHAOS=3 TSAN_OPTIONS="halt_on_error=1" "$OUT/mix_split_tsan" QUICK > "$OUT/split_tsan.log" 2>&1; then
+            echo "   under ThreadSanitizer (CORES=2 CHAOS=3, the splits 0, 15, -1): $(tail -n 1 "$OUT/split_tsan.log" | sed 's/.*: //'), no race"
+        else
+            echo "   under ThreadSanitizer: FAIL"; grep -A 12 "WARNING: ThreadSanitizer" "$OUT/split_tsan.log" | head -40; grep -v " same$" "$OUT/split_tsan.log" | head; fail=1
+        fi
     else
-        echo "   under ThreadSanitizer: FAIL"; grep -A 12 "WARNING: ThreadSanitizer" "$OUT/split_tsan.log" | head -40; grep -v " same$" "$OUT/split_tsan.log" | head; fail=1
+        echo "   (under ThreadSanitizer: this compiler has none, skipped)"
     fi
 else
-    echo "   (under ThreadSanitizer: this compiler has none, skipped)"
+    echo "   (under ThreadSanitizer: SKIP_TSAN=1, skipped)"
 fi
 [ $fail -eq 0 ] && echo "   the render split: every mode gives the same output" || { echo "   the render split: FAILED"; exit 1; }
