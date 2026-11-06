@@ -33,8 +33,8 @@ int main(void)
         for (k = 0; k < PROJ_V6_NC; ++k) tr->p[k] = (int16_t)(t * 100u + k);
         for (k = 0; k < 8u; ++k) tr->e[k] = (int16_t)(-((int32_t)t * 10 + (int32_t)k));
         for (k = 0; k < PROJ_V6_NX; ++k) tr->x[k] = (uint8_t)(k + t);
-        tr->engine = (uint8_t)(t + 2u);
-        tr->preset = (uint8_t)(t + 10u);
+        tr->engine = t == PROJ_V6_DRUM_TRACK ? 0u : (uint8_t)(t + 2u);
+        tr->preset = t == PROJ_V6_DRUM_TRACK ? 0u : (uint8_t)(t + 10u);
         for (s = 0; s < NSTEP; ++s) {
             tr->mf[s] = (uint8_t)(((s + t) & 63u) | ((s % 4u) << 6));
             tr->step[s].note[0] = (uint8_t)(36u + s);
