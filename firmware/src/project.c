@@ -481,7 +481,7 @@ static int proj_v7_capture_track(void *context, uint8_t index, proj_trk_v7_t *ou
     uint32_t i;
     (void)context;
     if (index >= NTRK)
-        return -1;
+        return;
     t = &trk[index];
     for (i = 0; i < PROJ_V6_NC; i++)
         out->p[i] = (int8_t)clamp(t->p[i], -128, 127);
@@ -498,9 +498,10 @@ static int proj_v7_capture_track(void *context, uint8_t index, proj_trk_v7_t *ou
     memcpy(out->lock, t->lock, sizeof out->lock);
     return 0;
 }
-static int proj_v7_validate_globals(void *context, const project_v7_t *in)
+static int proj_v7_validate_globals(void *context, const project_v7_t *in, int all)
 {
     (void)context;
+    (void)all;
     return in->sel < NTRK ? 0 : -1;
 }
 static int proj_v7_validate_track(void *context, uint8_t index, const proj_trk_v7_t *in)
@@ -509,7 +510,7 @@ static int proj_v7_validate_track(void *context, uint8_t index, const proj_trk_v
     (void)in;
     return index < NTRK ? 0 : -1; /* unsupported legacy engines are safely substituted during apply */
 }
-static int proj_v7_apply_globals(void *context, const project_v7_t *in, int all)
+static void proj_v7_apply_globals(void *context, const project_v7_t *in, int all)
 {
     uint32_t i;
     (void)context;
@@ -521,9 +522,8 @@ static int proj_v7_apply_globals(void *context, const project_v7_t *in, int all)
     song.g[G_DRDLY] = (int16_t)clamp(in->drdly, GP[G_DRDLY].min, GP[G_DRDLY].max);
     proj_tx_get(in);
     drum_tw_get(in);
-    return 0;
 }
-static int proj_v7_apply_track(void *context, uint8_t index, const proj_trk_v7_t *s)
+static void proj_v7_apply_track(void *context, uint8_t index, const proj_trk_v7_t *s)
 {
     track_t *t;
     uint32_t i, e;
@@ -582,9 +582,9 @@ static int proj_v7_apply_track(void *context, uint8_t index, const proj_trk_v7_t
                 st->note[j] &= 127u;
         }
     fm6_track_loaded(t);
-    return 0;
 }
 static const s37_project_v7_live_ops_t proj_v7_live_ops = {
+    .context = 0,
     .capture_globals = proj_v7_capture_globals,
     .capture_track = proj_v7_capture_track,
     .validate_globals = proj_v7_validate_globals,
