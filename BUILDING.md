@@ -1,7 +1,7 @@
 # Building System 37 (and SLOOP)
 
-System 37 is the SMK-37 product build, based on the SLOOP/Felucca codebase. On Windows, `INSTALL-SLOOP-PRO.bat` builds the three System 37 packages in WSL
-(`build-sloop-pro.ps1`: `SLOOP_WSL_DISTRO`, `SLOOP_TOOLCHAIN`, `SLOOP_SDK`, defaults as SLOOP's own script; the SDK
+System 37 is the SMK-37 product build, based on the SLOOP/Felucca codebase. On Windows, `INSTALL-SYSTEM37.bat` builds the three System 37 packages in WSL
+(`build-system37.ps1` (compatibility backend: `build-sloop-pro.ps1`): `SLOOP_WSL_DISTRO`, `SLOOP_TOOLCHAIN`, `SLOOP_SDK`, defaults as SLOOP's own script; the SDK
 files are taken from `build\deps\ac79` here or in a `sloop-fm1` folder next to this one), writes them with their
 SHA-256 to `build\release\`, and opens the installer on <http://localhost:8767/webapp/installer/>. On Linux or
 WSL: `tools/build_pro.sh` (the three packages, the site in `build/system37-site/`, then the FM-1 reference build
@@ -142,7 +142,7 @@ The standalone downloaded HTML editor does not include the WASM asset.
 
 ## Install
 
-System 37 on Windows: `INSTALL-SLOOP-PRO.bat` builds and opens the web installer (Chrome or Edge). The `.fwsc` of
+System 37 on Windows: `INSTALL-SYSTEM37.bat` builds and opens the web installer (Chrome or Edge). The `.fwsc` of
 each release is on the GitHub releases page. System 37's site: `python3 web/make_site.py --pro X.Y OUT
 system37.fwsc system37-elite.fwsc system37-mke.fwsc`.
 
