@@ -90,11 +90,10 @@ int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length, uint8_t 
         proj_trk_v7_t *b = &out->t[t];
         uint32_t kept = 0, valid_locks = 0;
 
-        /* Only the three legacy synth tracks migrate. The two additional
-         * synth tracks and the new dedicated drum track start from defaults;
-         * legacy drum pattern, kit, locks and parameters are intentionally
-         * not carried into the new drum architecture. */
-        if (t >= 3u) {
+        /* The two new synth tracks start empty. Preserve all four legacy tracks:
+         * the three synths keep their indices and the old drum track moves from
+         * index 3 to the dedicated drum slot at index 5. */
+        if (t == 3u || t == 4u) {
             uint32_t id;
             b->engine = 0u;
             b->preset = 0xFFu;
@@ -107,8 +106,6 @@ int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length, uint8_t 
             }
             for (id = 0; id < 8u; ++id)
                 b->e[id] = analog_defaults[id].def;
-            if (t == 5u)
-                b->e[0] = 0; /* DRUM_KIT_DESC default: kit 0, not Analog E0 */
             for (s = 0; s < NSTEP; ++s)
                 b->step[s].time = ST_REST;
             for (k = 0; k < PROJ_V7_LOCKS; ++k)
@@ -116,7 +113,7 @@ int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length, uint8_t 
             continue;
         }
 
-        source_track = t;
+        source_track = t == PROJ_V7_DRUM_TRACK ? PROJ_V6_DRUM_TRACK : t;
         {
             const uint8_t *a = raw + offsetof(project_v6_t, t) + source_track * sizeof(proj_trk_v6_t);
             plock_t lock;
