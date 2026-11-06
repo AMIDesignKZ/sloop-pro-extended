@@ -224,6 +224,39 @@ int s37_cat_prepare_overlay(s37_cat_overlay_t *o,
     return 0;
 }
 
+int s37_cat_prepare_erase_overlay(s37_cat_overlay_t *o,
+                                  const sm_io_t *io, const sm_map_t *map,
+                                  const sm_state_t *state, project_v7_t *scratch,
+                                  uint8_t section)
+{
+    s37_cat_header_t h;
+    sm_state_t latest;
+    uint32_t i;
+    if (!o || !scratch || !state || state->uncertain || section >= S37_CAT_SECTIONS ||
+        sm_scan(io, map, &latest) || latest.uncertain || latest.copy != state->copy ||
+        latest.sequence != state->sequence || latest.length != state->length ||
+        latest.payload_crc != state->payload_crc || s37_cat_validate(io, map, state, scratch, &h) ||
+        !(h.present_mask & (uint8_t)(1u << section)))
+        return -1;
+    h.present_mask &= (uint8_t)~(1u << section);
+    memset(&h.section[section], 0, sizeof h.section[section]);
+    if (h.default_section == section) {
+        h.default_section = 0xFFu;
+        for (i = 0; i < S37_CAT_SECTIONS; i++)
+            if (h.present_mask & (uint8_t)(1u << i)) {
+                h.default_section = (uint8_t)i;
+                break;
+            }
+    }
+    o->io = io;
+    o->map = map;
+    o->base = *state;
+    o->replacement = 0;
+    o->header = h;
+    o->section = section;
+    return 0;
+}
+
 int s37_cat_prepare_working_overlay(s37_cat_overlay_t *o,
                                     const sm_io_t *io, const sm_map_t *map,
                                     const sm_state_t *state, project_v7_t *scratch,
@@ -251,56 +284,33 @@ int s37_cat_overlay_read(void *context, uint32_t offset,
                          uint8_t *dst, uint32_t length)
 {
     s37_cat_overlay_t *o = (s37_cat_overlay_t *)context;
-    uint32_t end, record_start, record_end;
-    if (!o || !o->io || !o->map || !o->replacement || o->section > S37_CAT_WORKING || !dst ||
-        !proj_v7_valid(o->replacement) || !s37_cat_header_valid(&o->header) ||
-        (o->section < S37_CAT_SECTIONS && (!(o->header.section[o->section].flags & S37_CAT_PRESENT) ||
-         o->header.section[o->section].project_sum != o->replacement->sum)) ||
-        (o->section == S37_CAT_WORKING && o->header.working_sum != o->replacement->sum) ||
-        offset > S37_CAT_PAYLOAD_SIZE ||
-        length > S37_CAT_PAYLOAD_SIZE - offset)
+    uint32_t record_start, end;
+    if (!o || !o->io || !o->map || o->section > S37_CAT_WORKING || !dst ||
+        !s37_cat_header_valid(&o->header) ||
+        (o->replacement && !proj_v7_valid(o->replacement)) ||
+        (o->section < S37_CAT_SECTIONS &&
+         (o->replacement ? (!(o->header.section[o->section].flags & S37_CAT_PRESENT) ||
+                            o->header.section[o->section].project_sum != o->replacement->sum) :
+                           ((o->header.section[o->section].flags & S37_CAT_PRESENT) ||
+                            o->header.section[o->section].project_sum || o->header.section[o->section].bars))) ||
+        (o->section == S37_CAT_WORKING &&
+         (!o->replacement || o->header.working_sum != o->replacement->sum)) ||
+        offset > S37_CAT_PAYLOAD_SIZE || length > S37_CAT_PAYLOAD_SIZE - offset)
         return -1;
     if (sm_read(o->io, o->map, &o->base, offset, dst, length))
-        return -2;
-
+        return -1;
     end = offset + length;
     if (offset < S37_CAT_HEADER_SIZE && end > 0u) {
-        uint32_t from = offset;
-        uint32_t to = end < S37_CAT_HEADER_SIZE ? end : S37_CAT_HEADER_SIZE;
-        memcpy(dst, (const uint8_t *)&o->header + from, to - from);
+        uint32_t from = offset, to = end < S37_CAT_HEADER_SIZE ? end : S37_CAT_HEADER_SIZE;
+        memcpy(dst + (from - offset), (const uint8_t *)&o->header + from, to - from);
     }
-
-    record_start = project_offset(o->section);
-    record_end = record_start + sizeof(project_v7_t);
-    if (offset < record_end && end > record_start) {
-        uint32_t from = offset > record_start ? offset : record_start;
-        uint32_t to = end < record_end ? end : record_end;
-        memcpy(dst + (from - offset),
-               (const uint8_t *)o->replacement + (from - record_start),
-               to - from);
-    }
-    return 0;
-}
-
-int s37_cat_blank_read(void *context, uint32_t offset,
-                       uint8_t *dst, uint32_t length)
-{
-    s37_cat_header_t h;
-    (void)context;
-    if (!dst || offset > S37_CAT_PAYLOAD_SIZE ||
-        length > S37_CAT_PAYLOAD_SIZE - offset)
-        return -1;
-    memset(dst, 0xFF, length);
-    memset(&h, 0, sizeof h);
-    h.magic = S37_CAT_MAGIC;
-    h.version = S37_CAT_VERSION;
-    h.header_size = S37_CAT_HEADER_SIZE;
-    h.payload_size = S37_CAT_PAYLOAD_SIZE;
-    h.default_section = 0xFFu;
-    if (offset < sizeof h && offset + length > 0u) {
-        uint32_t from = offset;
-        uint32_t to = offset + length < sizeof h ? offset + length : sizeof h;
-        memcpy(dst, (const uint8_t *)&h + from, to - from);
+    if (o->replacement) {
+        record_start = project_offset(o->section);
+        if (offset < record_start + sizeof(project_v7_t) && end > record_start) {
+            uint32_t from = offset > record_start ? offset : record_start;
+            uint32_t to = end < record_start + sizeof(project_v7_t) ? end : record_start + sizeof(project_v7_t);
+            memcpy(dst + (from - offset), (const uint8_t *)o->replacement + (from - record_start), to - from);
+        }
     }
     return 0;
 }
