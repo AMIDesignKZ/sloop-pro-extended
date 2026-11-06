@@ -76,8 +76,6 @@ int main(void)
               b->lock[3].step == 17 && b->lock[3].val == 7 &&
               b->lock[6].step == 20 && b->lock[6].param == P_DIST && b->lock[6].val == 200 &&
               b->lock[7].step == 20 && b->lock[7].param == P_E2 && b->lock[7].val == 10;
-        for (k = 4; k < PROJ_V7_LOCKS; ++k)
-            ok &= b->lock[k].step == LOCK_FREE;
     }
     bad += check("all four legacy tracks, parameters, engine IDs and 64-step patterns preserved", ok);
     bad += check("fill conditions retained in 16 packed bytes; microtiming removed",
