@@ -30,7 +30,9 @@ CC="${CC:-cc} -O1 -Wall -Wno-unused-function"
 fail=0
 run() { echo "== $1"; shift; "$@" || fail=1; }
 
-[ -f build/felucca.fwsc ] || { echo "run ./build.sh first"; exit 1; }
+FWSC=build/felucca.fwsc
+[ -f "$FWSC" ] || FWSC=build/sloop-pro.fwsc
+[ -f "$FWSC" ] || { echo "run ./build.sh first"; exit 1; }
 # the generated headers the FM6 engine needs (tools/build.py generate() makes them too; no Pillow needed)
 mkdir -p build/gen
 [ build/gen/felucca_tables.h -nt tools/gen_tables.py ] || python3 tools/gen_tables.py build/gen/felucca_tables.h
@@ -239,12 +241,12 @@ uac_in_app() { ${CC%% *} -E -Ibuild/gen -Ifirmware/hal -Ifirmware/src firmware/s
 run "USB audio input: built into the firmware (FELUCCA_UAC set before usb.c)" uac_in_app
 
 $CC -o "$OUT/ota_test" tests/ota_test.c
-run "M-UPGRADE entry" "$OUT/ota_test" build/felucca.fwsc
+run "M-UPGRADE entry" "$OUT/ota_test" "$FWSC"
 
 head -c 200000 build/felucca.bin > "$OUT/old_app.bin"
 python3 tools/fm1pkg_make.py "$OUT/old_app.bin" build/loader/ota.bin "$OUT/old.fwsc" >/dev/null
 $CC -o "$OUT/ldr_test" tests/ldr_test.c
-run "update loader: other app -> this build" "$OUT/ldr_test" "$OUT/old.fwsc" build/felucca.fwsc
+run "update loader: other app -> this build" "$OUT/ldr_test" "$OUT/old.fwsc" "$FWSC"
 
 # SMK-37 Pro (BOARD_SMK37): the flash map, the OTA staging and the loader windows on SMK-layout packages
 # (made here from the FM-1 binaries: only the layout and the protocol are under test)
@@ -303,7 +305,7 @@ run "the offline editor (one file, nothing next to it); the offline site (sw.js,
 if command -v node >/dev/null 2>&1; then
     run "web pages: editor protocol, samples, packages, update protocol" node web/test_web.mjs
     run "SLOOP Pro installer page: one package per model, resume, refusals, fr / en / ja (make_site --pro)" node web/test_pro.mjs
-    rm -rf "$OUT/pwa-site" && python3 web/make_site.py build/felucca.fwsc 2.7 "$OUT/pwa-site" >/dev/null &&
+    rm -rf "$OUT/pwa-site" && python3 web/make_site.py "$FWSC" 2.7 "$OUT/pwa-site" >/dev/null &&
         run "the site without internet in Chromium (skipped without Playwright)" node tests/pwa_test.mjs "$OUT/pwa-site"
 else
     echo "== skip web tests (no node)"
