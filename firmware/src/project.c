@@ -481,9 +481,8 @@ static int proj_v7_capture_track(void *context, uint8_t index, proj_trk_v7_t *ou
 {
     const track_t *t;
     uint32_t i;
-    (void)context;
     if (index >= NTRK)
-        return;
+        return -1;
     t = &trk[index];
     for (i = 0; i < PROJ_V6_NC; i++)
         out->p[i] = (int8_t)clamp(t->p[i], -128, 127);
@@ -532,7 +531,7 @@ static void proj_v7_apply_track(void *context, uint8_t index, const proj_trk_v7_
     track_t *t;
     uint32_t i, e;
     if (index >= NTRK)
-        return -1;
+        return;
     t = &trk[index];
     e = index < NPART ? (s->engine < NENGINES ? s->engine : trk_def_engine(index)) : 0u;
     t->eng_req = (uint8_t)e;
