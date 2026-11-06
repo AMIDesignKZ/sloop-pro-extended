@@ -30,7 +30,7 @@ int main(void)
 
     for (t = 0; t < 4u; ++t) {
         proj_trk_v6_t *tr = &old.t[t];
-        for (k = 0; k < PROJ_V6_NC; ++k) tr->p[k] = (int16_t)(t * 100u + k);
+        for (k = 0; k < PROJ_V6_NC; ++k) tr->p[k] = (int16_t)((int32_t)t * 10 + (int32_t)k - 40);
         for (k = 0; k < 8u; ++k) tr->e[k] = (int16_t)(-((int32_t)t * 10 + (int32_t)k));
         for (k = 0; k < PROJ_V6_NX; ++k) tr->x[k] = (uint8_t)(k + t);
         tr->engine = t == PROJ_V6_DRUM_TRACK ? 0u : (uint8_t)(t + 2u);
@@ -68,18 +68,22 @@ int main(void)
     old.sum = proj_v7_hash(&old, sizeof old - 4u);
 
     bad += check("wire layouts: FUN6 3816 bytes; FUN7 5396 bytes; 6 tracks x 886", 
-                 sizeof old == 3816u && sizeof now == 5396u && sizeof(proj_trk_v7_t) == 886u);
+                 sizeof old == 3816u && sizeof now == 5366u && sizeof(proj_trk_v7_t) == 881u);
     bad += check("valid FUN6 image migrates to valid FUN7", proj_v6_to_v7(&now, &old, sizeof old, &lock_loss, common_defaults, analog_defaults) && proj_v7_valid(&now));
     bad += check("all valid legacy locks fit without migration loss", lock_loss == 0u);
     ok = now.sel == 5u && now.drdly == old.drdly && !memcmp(now.g, old.g, sizeof old.g);
     for (t = 0; t < 3u; ++t) {
         const proj_trk_v6_t *a = &old.t[t];
         const proj_trk_v7_t *b = &now.t[t];
-        ok &= !memcmp(a->p, b->p, sizeof a->p) && !memcmp(a->e, b->e, sizeof a->e) &&
+        ok &= !memcmp(a->e, b->e, sizeof a->e) &&
               !memcmp(a->x, b->x, sizeof a->x) && a->engine == b->engine && a->preset == b->preset &&
               !memcmp(a->step, b->step, sizeof a->step);
-        for (s = 0; s < NSTEP; ++s)
+        for (s = 0; s < NSTEP; ++s) {
+            int32_t micro = a->mf[s] & 63u;
+            if (micro >= 32) micro -= 64;
+            ok &= proj_v7_micro_get(b, s) == micro;
             ok &= ((b->fill[s / 4u] >> (2u * (s % 4u))) & 3u) == (a->mf[s] >> 6);
+        }
         ok &= b->lock[0].step == 1 && b->lock[0].val == 17 &&
               b->lock[1].step == 3 && b->lock[1].val == 34 &&
               b->lock[2].step == 3 && b->lock[2].val == 35 &&
@@ -88,8 +92,8 @@ int main(void)
               b->lock[7].step == 20 && b->lock[7].param == P_E2 && b->lock[7].val == 10;
     }
     bad += check("three legacy synth tracks, parameters, engine IDs and 64-step patterns preserved", ok);
-    bad += check("fill conditions retained in 16 packed bytes; microtiming removed",
-                 now.t[0].fill[0] != 0 && now.t[0].fill[15] != 0);
+    bad += check("fill conditions and signed six-bit microtiming both retained",
+                 now.t[0].fill[0] != 0 && now.t[0].fill[15] != 0 && proj_v7_micro_get(&now.t[0], 0u) == 0 && proj_v7_micro_get(&now.t[0], 63u) == -1);
     bad += check("locks sorted by step with stable ties; all 22 valid locks retained",
                  now.t[0].lock[0].step == 1 && now.t[0].lock[1].step == 3 &&
                  now.t[0].lock[2].step == 3 && now.t[0].lock[3].step == 17 &&
@@ -106,13 +110,17 @@ int main(void)
     {
         const proj_trk_v6_t *a = &old.t[3];
         const proj_trk_v7_t *b = &now.t[PROJ_V7_DRUM_TRACK];
-        ok = !memcmp(a->p, b->p, sizeof a->p) && !memcmp(a->e, b->e, sizeof a->e) &&
+        ok = !memcmp(a->e, b->e, sizeof a->e) &&
              !memcmp(a->x, b->x, sizeof a->x) && a->engine == b->engine && a->preset == b->preset &&
              !memcmp(a->dstep, b->dstep, sizeof a->dstep) &&
              b->lock[0].step == 1 && b->lock[21].step == 63 &&
              b->lock[22].step == LOCK_FREE && b->lock[23].step == LOCK_FREE;
-        for (s = 0; s < NSTEP; ++s)
+        for (s = 0; s < NSTEP; ++s) {
+            int32_t micro = a->mf[s] & 63u;
+            if (micro >= 32) micro -= 64;
+            ok &= proj_v7_micro_get(b, s) == micro;
             ok &= ((b->fill[s / 4u] >> (2u * (s % 4u))) & 3u) == (a->mf[s] >> 6);
+        }
     }
     bad += check("legacy drum kit, parameters, 64-step lane pattern and fill move to track 6", ok);
     /* All 24 valid legacy locks now fit in FUN7 without truncation. */
