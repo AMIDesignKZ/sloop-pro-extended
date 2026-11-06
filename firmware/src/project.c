@@ -164,13 +164,14 @@ project_t proj_slot[4] __attribute__((section(".noinit")));
 static uint8_t s37_cat_ready, s37_migrate_pending, s37_cat_uncertain;
 /* Catalogue objects are used by the boot/migration routines above their
  * initialised definitions below; keep their declarations visible first. */
-static sm_map_t s37_cat_map;
+static const sm_map_t s37_cat_map;
 static sm_state_t s37_cat_state;
 static s37_cat_header_t s37_cat_header;
 static project_v7_t s37_cat_scratch __attribute__((section(".noinit")));
 static s37_cat_overlay_t s37_cat_overlay;
 static s37_cat_image_t s37_cat_image;
 static const sm_io_t s37_cat_io;
+static project_t autosave_buf __attribute__((section(".pool")));
 static void s37_catalog_boot(void);
 static int s37_catalog_load_section(uint32_t slot, project_t *p);
 #endif
@@ -998,7 +999,7 @@ UI_SMALL static void project_load(uint32_t slot)
  * ~50 ms: never while something plays); loaded at power-on (autosave_resume) */
 #define AUTOSAVE_IDLE 2500u                    /* ms without input */
 #define AUTOSAVE_GAP 20000u                    /* ms between two saves at least */
-static project_t autosave_buf __attribute__((section(".pool")));
+
 
 #if BOARD_SMK37
 /* System 37 catalogue: two independent 12-sector copies. All four sample slots,
@@ -1148,47 +1149,7 @@ static int s37_catalog_store_working(const project_t *p)
     return 0;
 }
 
-static void s37_catalog_boot(void)
-{
-    uint32_t i;
-    int rc = sm_scan(&s37_cat_io, &s37_cat_map, &s37_cat_state);
-    s37_cat_ready = 0u;
-    s37_migrate_pending = 0u;
-    s37_cat_uncertain = 0u;
-    if (rc == 0) {
-        if (s37_cat_state.uncertain)
-            s37_cat_uncertain = 1u;
-        if (s37_cat_state.length == S37_CAT_PAYLOAD_SIZE &&
-            s37_cat_validate(&s37_cat_io, &s37_cat_map, &s37_cat_state,
-                             &s37_cat_scratch, &s37_cat_header) == 0 &&
-            s37_cat_header.working_sum != 0u) {
-            for (i = 0; i < S37_CAT_SECTIONS; i++) {
-                if (s37_cat_header.present_mask & (uint8_t)(1u << i)) {
-                    if (s37_cat_load_section(&s37_cat_io, &s37_cat_map, &s37_cat_state,
-                                             (uint8_t)i, &proj_slot[i], 0))
-                        break;
-                } else {
-                    memset(&proj_slot[i], 0, sizeof proj_slot[i]);
-                }
-            }
-            if (i == S37_CAT_SECTIONS &&
-                s37_cat_load_working(&s37_cat_io, &s37_cat_map, &s37_cat_state, &autosave_buf) == 0) {
-                s37_cat_ready = 1u;
-                return;
-            }
-        }
-        /* A storage-valid but semantically invalid catalogue is not safe to overwrite automatically. */
-        s37_cat_uncertain = 1u;
-        return;
-    }
-    if (rc == -2) {
-        s37_cat_uncertain = 1u;
-        return;
-    }
-    for (i = 0; i < S37_CAT_SECTIONS; i++)
-        proj_fetch(i); /* imports the four legacy project slots; E-H start empty */
-    s37_migrate_pending = 1u;
-}
+
 #endif
 static uint32_t autosave_hash, autosave_ms, autosave_checked;
 
