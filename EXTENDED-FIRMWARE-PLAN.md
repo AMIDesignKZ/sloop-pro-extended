@@ -344,3 +344,14 @@ Capture calls the global callback and each of the six track callbacks, then calc
 `tests/project_v7_live_test.c` covers six-track capture, globals and track round-trip, full-project apply, section-mode apply, validation failure on track index 5 with zero mutations, unsupported engine rejection, bad checksum rejection, and a failed capture callback. It is wired into `tests/run_tests.sh`.
 
 **Scope boundary:** this is the live-project adapter contract and host test, not yet the board-specific `track_t` callback implementation. The current runtime still has four `track_t` entries and 24 runtime locks. No `NTRK`, `NPART`, `NLOCK`, audio, UI, voice, linker, flash-map or live project apply changes have been made. The adapter test and full host runner have not yet been executed in this session, and no target build has been run. The next gate is to implement the board callbacks against the six-track runtime model, after the target memory audit and coordinated runtime-array migration. Do not connect `seq.c`/`arranger.c` until that board apply path exists.
+
+
+## Progress checkpoint — six-track live runtime dependency audit (6 November 2026)
+
+Added `EXTENDED-FIRMWARE-RUNTIME-AUDIT.md`, a source-level audit of the current four-track implementation. It separates the five synth-part count from the six sequenced-track count and identifies the concrete dependencies in voice allocation, engine arenas, FX/audio scheduling, MIDI/recording, project migration, UI/editor protocol and arrangement transitions.
+
+The audit found an important remaining FUN6 compatibility issue: although the project structs are now explicit FUN6 wire types, several legacy project loops still use live `NTRK`, `NPART`, `NLOCK` and `TRK_DRUM`. Those loops must be changed to explicit legacy constants before any runtime count changes; in particular, the old drum index remains 3 in FUN6 even though the new runtime drum index will be 5.
+
+A memory-design candidate is to move synth `voice_t` slots out of `track_t` into a dedicated five-part voice pool. The current drum `track_t` embeds an unused synth voice array while the actual drum engine owns `drums.v[]` separately. This candidate must be implemented and regression-tested without changing current three-part behaviour before expanding to five synth parts. Engine arena growth and the target linker map remain hard gates.
+
+**No runtime source or constants changed.** The next safe implementation unit is to isolate FUN6 decode/conversion loops from the live constants and add regression assertions for the frozen four-track/24-lock wire format. Target sizes and stack/CPU measurements are still required before the six-track runtime patch.
