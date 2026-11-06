@@ -26,7 +26,7 @@ int s37_cat_header_valid(const s37_cat_header_t *h)
             if (!e->bars)
                 return 0;
             mask |= (uint8_t)(1u << i);
-        } else if (e->bars || e->project_crc) {
+        } else if (e->bars || e->project_sum) {
             return 0;
         }
     }
@@ -55,7 +55,7 @@ int s37_cat_validate(const sm_io_t *io, const sm_map_t *map,
         if (!(h.section[i].flags & S37_CAT_PRESENT))
             continue;
         if (sm_read(io, map, state, project_offset(i), scratch, sizeof *scratch) ||
-            !proj_v7_valid(scratch) || scratch->sum != h.section[i].project_crc)
+            !proj_v7_valid(scratch) || scratch->sum != h.section[i].project_sum)
             return -2;
     }
     *header = h;
@@ -73,7 +73,7 @@ int s37_cat_load_section(const sm_io_t *io, const sm_map_t *map,
         !(h.section[section].flags & S37_CAT_PRESENT))
         return -1;
     if (sm_read(io, map, state, project_offset(section), out, sizeof *out) ||
-        !proj_v7_valid(out) || out->sum != h.section[section].project_crc)
+        !proj_v7_valid(out) || out->sum != h.section[section].project_sum)
         return -2;
     if (header)
         *header = h;
@@ -95,7 +95,7 @@ int s37_cat_prepare_create(s37_cat_overlay_t *o,
     h.payload_size = S37_CAT_PAYLOAD_SIZE;
     h.present_mask = (uint8_t)(1u << section);
     h.default_section = default_section;
-    h.section[section].project_crc = replacement->sum;
+    h.section[section].project_sum = replacement->sum;
     h.section[section].bars = bars;
     h.section[section].flags = S37_CAT_PRESENT;
     o->io = NULL;
@@ -121,7 +121,7 @@ int s37_cat_prepare_overlay(s37_cat_overlay_t *o,
         return -1;
     h.section[section].flags = S37_CAT_PRESENT;
     h.section[section].bars = bars;
-    h.section[section].project_crc = replacement->sum;
+    h.section[section].project_sum = replacement->sum;
     h.section[section].reserved = 0u;
     h.present_mask |= (uint8_t)(1u << section);
     h.default_section = default_section;
@@ -144,7 +144,7 @@ int s37_cat_overlay_read(void *context, uint32_t offset,
     if (!o || !o->io || !o->map || !o->replacement || o->section >= S37_CAT_SECTIONS || !dst ||
         !proj_v7_valid(o->replacement) || !s37_cat_header_valid(&o->header) ||
         !(o->header.section[o->section].flags & S37_CAT_PRESENT) ||
-        o->header.section[o->section].project_crc != o->replacement->sum ||
+        o->header.section[o->section].project_sum != o->replacement->sum ||
         offset > S37_CAT_PAYLOAD_SIZE ||
         length > S37_CAT_PAYLOAD_SIZE - offset)
         return -1;
@@ -202,7 +202,7 @@ int s37_cat_create_read(void *context, uint32_t offset,
         !proj_v7_valid(o->replacement) || !o->header.section[o->section].bars ||
         !s37_cat_header_valid(&o->header) ||
         !(o->header.section[o->section].flags & S37_CAT_PRESENT) ||
-        o->header.section[o->section].project_crc != o->replacement->sum ||
+        o->header.section[o->section].project_sum != o->replacement->sum ||
         offset > S37_CAT_PAYLOAD_SIZE ||
         length > S37_CAT_PAYLOAD_SIZE - offset)
         return -1;
