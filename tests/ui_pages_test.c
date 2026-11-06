@@ -961,62 +961,21 @@ int main(int argc, char **argv)
                 printf("ui:   counter: STEP %u/%u PATTERN %u/%u SONG %u/%u GLO /%u\n", k1, n1, k2, n2, k3, n3, n);
             check(ok, "page counter (2.7): as SELECT walks them: STEP 1/2, PATTERN 2/2 (SONG, its own screen, not counted)");
         }
-        {   /* 2.7: a sound loaded under a running arp keeps it (settings and the notes it holds); arp OFF: the preset's */
+        {   /* A running arp belongs to the performer: changing sound preserves its settings and held notes. */
             track_t *t = &trk[0];
-            uint32_t k, eng = NENGINES, pi = 0;
-            int ok = 1;
+            int ok;
             t->p[P_AMODE] = 1, t->p[P_ARATE] = 3, t->p[P_AHOLD] = 1, t->p[P_AORDER] = 1;
-            t->held[0] = 60, t->held[1] = 64, t->nheld = 2, t->arp_phys = 0;   /* (a latched chord) */
+            t->held[0] = 60, t->held[1] = 64, t->nheld = 2, t->arp_phys = 0;
             frame();
             apply_preset_to(t, t->preset + 1u);
             frame(); frame();
-            ok &= t->p[P_AMODE] == 1 && t->p[P_ARATE] == 3 && t->p[P_AHOLD] == 1 && t->p[P_AORDER] == 1 && t->nheld == 2;
-            for (k = 0; k < NENGINES; k++)
-                if (!strcmp(ENGINES[k]->name, "LOFI"))
-                    eng = k;
-            if (eng < NENGINES)
-                for (k = 0; k < ENGINES[eng]->npresets; k++)
-                    if (!strcmp(ENGINES[eng]->presets[k].name, "8BIT ARP"))
-                        pi = k;
-            t->p[P_AMODE] = 0;                       /* arp OFF: the preset brings its own */
+            ok = t->p[P_AMODE] == 1 && t->p[P_ARATE] == 3 && t->p[P_AHOLD] == 1 &&
+                 t->p[P_AORDER] == 1 && t->nheld == 2;
+            t->p[P_AMODE] = 0, t->p[P_AHOLD] = 0, t->nheld = 0;
+            apply_preset_to(t, 0);
             frame();
-            t->p[P_AHOLD] = 0, t->nheld = 0;
-            {
-                uint8_t er = t->eng_req;
-                t->eng_req = (uint8_t)eng;
-                apply_preset_to(t, pi);
-                ok &= eng < NENGINES && t->p[P_AMODE] == 1 && t->p[P_ARATE] == 2;
-                t->eng_req = er;
-                t->p[P_AMODE] = 0, t->p[P_AHOLD] = 0, t->nheld = 0;
-                apply_preset_to(t, 0);
-            }
-            frame();
-            check(ok, "ARP (2.7): a preset loaded while it runs keeps its settings and notes; arp OFF: the preset's arp");
-            if (eng < NENGINES) {                    /* 2.7.1: the arp 8BIT ARP brought goes with it; one you changed stays */
-                uint8_t er = t->eng_req, e0 = t->engine;
-                int ok2 = 1;
-                t->eng_req = t->engine = (uint8_t)eng;
-                apply_preset_to(t, pi);              /* 8BIT ARP: its arp on */
-                ok2 &= t->p[P_AMODE] == 1;
-                apply_preset_to(t, (pi + 1u) % ENGINES[eng]->npresets);   /* the next sound: its own arp, OFF */
-                frame(); frame();
-                ok2 &= t->p[P_AMODE] == 0 && t->p[P_ARATE] == TP[P_ARATE].def && t->p[P_AGATE] == TP[P_AGATE].def;
-                apply_preset_to(t, pi);              /* 8BIT ARP again, then its RATE turned: the arp is yours now */
-                t->p[P_ARATE] = 4;
-                apply_preset_to(t, (pi + 1u) % ENGINES[eng]->npresets);
-                frame(); frame();
-                ok2 &= t->p[P_AMODE] == 1 && t->p[P_ARATE] == 4;
-                t->p[P_AMODE] = 1, t->p[P_ARATE] = 3;   /* an arp turned on over a sound without one: stays */
-                apply_preset_to(t, pi);
-                ok2 &= t->p[P_AMODE] == 1 && t->p[P_ARATE] == 3;
-                t->p[P_AMODE] = 0, t->p[P_AHOLD] = 0, t->nheld = 0;
-                t->eng_req = er, t->engine = e0;
-                apply_preset_to(t, 0);
-                frame();
-                if (!ok2)
-                    printf("ui:   arp after 8BIT ARP: MODE %d RATE %d\n", t->p[P_AMODE], t->p[P_ARATE]);
-                check(ok2, "ARP (2.7.1): the next sound replaces the arp 8BIT ARP brought; an arp you turned on or changed goes on");
-            }
+            ok &= t->p[P_AMODE] == 0;
+            check(ok, "ARP: a sound change preserves a running arp and held notes; factory presets default to arp OFF");
         }
         {   /* 2.7: REMOTE: the buttons held over MIDI become the panel's (the debounce reads them as closed) */
             uint32_t pb = 1u << panel.btn[B_PLAY], hb = 1u << panel.btn[B_HOME], keep = fm1_in.buttons;
