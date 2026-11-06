@@ -23,7 +23,7 @@ int s37_cat_header_valid(const s37_cat_header_t *h)
         if ((e->flags & (uint8_t)~S37_CAT_PRESENT) || e->reserved)
             return 0;
         if (e->flags & S37_CAT_PRESENT) {
-            if (!e->bars || !e->project_crc)
+            if (!e->bars)
                 return 0;
             mask |= (uint8_t)(1u << i);
         } else if (e->bars || e->project_crc) {
