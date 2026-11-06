@@ -269,3 +269,19 @@ The target linker script and RAM notes have now been inspected. The relevant con
 - Song-mode backup and autosave are not live at the same time in the current control flow: autosave refuses to run while `song.playing`, and section flush avoids autosaving while the arrangement clock runs. A shared backup/autosave buffer is therefore a plausible optimisation, but it must be verified against every reset, editor, import and save path before implementation.
 
 This points to a leaner architecture than two full section caches: keep the eight-section catalogue in flash, use one FUN7 staging project for prefetch and boundary application, and investigate sharing the song-backup/autosave buffer. The active section is already copied into the live track state by `proj_apply()`; it does not need to remain as a second resident project snapshot. This is a design candidate, not yet an approved memory layout. The RAM audit values are a prior measured baseline, not measurements of the System 37 build. The next step is to confirm the actual current target build's map and stack/pool headroom before allocating anything.
+
+
+## Progress checkpoint — section prefetch state machine (6 November 2026)
+
+Added an isolated, hardware-independent hand-off module:
+
+- `firmware/src/section_prefetch.h/.c` defines IDLE, REQUESTED, LOADING, READY and FAILED states.
+- Main/UI code requests a section and receives a non-zero generation ticket. The main loop claims the request, reads into the single staging buffer, validates the complete FUN7 record, and only then publishes READY.
+- The audio-boundary side can consume a READY record only when its section matches the section due to play. Consumption is one-shot. It performs no I/O and does not copy the project itself.
+- A newer request supersedes an older generation; stale completions are rejected. Failed reads/validation are not published and can be retried. Cancel invalidates all outstanding tickets. Repeating the same in-flight request is idempotent.
+- The state fields use volatile accesses and compiler publication barriers for the intended main-loop/audio-ISR hand-off. This is designed for the firmware's single-core interrupt model, not as a general multi-threaded C11 synchronisation primitive.
+- `tests/section_prefetch_test.c` covers request, idempotence, no visibility while loading, matching/one-shot consume, failed-load retry, superseded completion, cancel, ready replacement, invalid section and generation wrap. It is wired into `tests/run_tests.sh`.
+
+Local isolated host validation completed: strict C11 build with `-Wall -Wextra -Werror` passed, and the test passed. UBSan build and run also passed. ASan could not run in this environment because its runtime was not first in the process library list; this is an environment limitation, not a test failure. The full repository runner and SMK-37 target build were not run.
+
+This is only the tested hand-off primitive. It is not yet called by `seq.c` or `arranger.c`, and there is no flash loader or runtime staging buffer allocated. Before wiring it in, the integration must define how the next arrangement/quick-chain/live-jump section is predicted early enough to load before the boundary, and how PLAY is gated until the first song section is ready. A section that misses its boundary must never be partially applied; the integration policy must explicitly decide whether to hold the boundary/clock or report a prefetch underrun.
