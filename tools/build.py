@@ -355,7 +355,7 @@ def main():
         raise SystemExit(f"MODEL={model}: pro, elite or mke, with BOARD=smk37")
     fm1pkg_make.set_board(BOARD)
     APP_SLOT = fm1pkg_make.APP_SLOT
-    stem = "felucca" if BOARD == "fm1" else "sloop-pro"   # SLOOP Pro: the SMK-37 build
+    stem = "felucca" if BOARD == "fm1" else "system37"   # System 37: the SMK-37 build
     PRODUCT = fm1pkg_make.BOARDS[BOARD][2]
     if model != "pro":              # another model name: identity, loader and update record (fm1_cc.h SMK_MODEL)
         BOARD_DEFS[BOARD] = [*BOARD_DEFS[BOARD], f'-DSMK_MODEL="{MODELS[model]}"']
