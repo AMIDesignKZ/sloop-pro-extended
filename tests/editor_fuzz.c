@@ -406,16 +406,15 @@ static void fz_seq_step(void)
 }
 
 
-static uint32_t eng_by_name(const char *n) { uint32_t e; for (e = 0; e < NENGINES; e++) if (!strcmp(ENGINES[e]->name, n)) return e; return 0; }
-/* the user sample slots played: SAMPLE / GRAIN on a part, the drum kit USRn, the TEXTURE bed, notes and the transport */
+/* The user sample slots are played through USR drum kits and the TEXTURE bed; System 37 has no SAMPLE / GRAIN
+ * synth engines. */
 static void play_slots(void)
 {
     uint8_t a[16];
-    uint32_t t = rn(NPART), e = rn(2) ? eng_by_name("SAMPLE") : eng_by_name("GRAIN"), i;
+    uint32_t t = rn(NPART), e = rn(NENGINES), i;
     a[0] = (uint8_t)t; cmdv(ED_TRACK, a, 1);
-    a[0] = (uint8_t)e; a[1] = (uint8_t)rn(8); cmdv(ED_PRESET, a, 2);
-    a[0] = (uint8_t)t; a[1] = P_E0; v14(a + 2, (int32_t)(SMP_NSETS + rn(SMP_USER_SLOTS))); cmdv(ED_TRACK_PARAM, a, 4);
-    a[0] = TRK_DRUM; a[1] = P_E0; v14(a + 2, (int32_t)(DRUM_USR + rn(5))); cmdv(ED_TRACK_PARAM, a, 4);
+    a[0] = (uint8_t)e; a[1] = (uint8_t)rn(ENGINES[e]->npresets); cmdv(ED_PRESET, a, 2);
+    a[0] = TRK_DRUM; a[1] = P_E0; v14(a + 2, (int32_t)(DRUM_USR + rn(SMP_USER_SLOTS))); cmdv(ED_TRACK_PARAM, a, 4);
     a[0] = 1; a[1] = G_TXSRC; v14(a + 2, (int32_t)(7 + rn(4))); cmdv(ED_SET, a, 4);
     a[0] = 1; a[1] = G_TXWHEN; v14(a + 2, 1); cmdv(ED_SET, a, 4);
     if (rn(2)) { a[0] = 1; a[1] = 1; cmdv(ED_LIVE, a, 2); }
