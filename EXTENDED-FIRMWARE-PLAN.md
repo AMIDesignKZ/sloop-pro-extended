@@ -20,31 +20,21 @@ Target hardware: M-VAVE SMK-37.
 - The browser editor contains independent assumptions for four tracks and four sections. Firmware and editor formats must remain aligned.
 
 
-## Accepted design preferences (6 November 2026)
+## Accepted product and instrument decisions (6 November 2026)
 
-- Retain **two** user sample slots rather than four. The SMK-37 implementation currently allocates four 40 KiB slots in the separate USRFLASH range; reducing this to two is an accepted trade-off, subject to confirming which slots are retained and remapping the released sectors safely.
-- Do not assume the released sample flash automatically solves project storage. It is a separate flash window; any reassignment must update the flash allow-list, storage map, upload/editor protocol, and recovery/stock-firmware safeguards together.
-- First engine candidate to make optional/remove if measured RAM pressure requires it: **PHYS** (physical modelling), because its per-part engine arena can be substantial. Do not remove it pre-emptively; measure the compiled RAM/CPU impact of five synth parts first.
-- DRAWBAR is a secondary candidate only if firmware code/flash size becomes a constraint and the user accepts losing tonewheel organ sounds. Preserve engine indices as reserved values if any engine is disabled or removed; never renumber stored engine IDs.
-- Retain ANALOG, DIGITAL, PHASE, LOFI, SAMPLE, FORMANT, TRIO, GRAIN, FM6, and NOISE by default.
-- Sequencer direction: 12 parameter locks per track; remove per-step micro-timing/nudge; retain fill conditions; keep 64-step patterns and the existing 16-entry arrangement chain. Eight sections A–H remain the target.
+- System 37 is an alternative firmware based on SLOOP, not a backwards-compatible SLOOP release.
+- The five synth parts are freely assignable between exactly two internal engines: Analog and FM6.
+- System 37 uses compact engine IDs in its own project format: Analog = 0, FM6 = 1. Historical SLOOP engine IDs are not retained.
+- No SLOOP FUN1–FUN6 project import, legacy engine mapper or old-project migration is required. New System 37 projects start from defaults.
+- Retain the dedicated drum synthesiser and its existing kit library, explicitly including 808 and 909, plus the four editable SYN1–SYN4 kits.
+- Retain sampled drum playback independently of the synth-engine list.
+- Retain two 40 KiB user sample slots, USR1 and USR2. Retire USR3/USR4 from the new interface, but do not overwrite existing user data until its retention/export path and flash allocation are validated.
+- FM6 remains a six-operator DX7-style engine with 32 algorithms. The target is four complete 32-patch user banks (128 patches), standard DX7 SysEx bank import/export and factory patches.
+- The external FM-1 remains a separate future MIDI instrument, not an internal SMK-37 engine.
+- Sequencer direction remains 12 parameter locks per track, no per-step micro-timing, fill conditions retained, 64-step patterns and a 16-entry arrangement chain. Eight sections A–H remain the target.
+- Keep the stock firmware and V16 recovery route untouched.
 
-These are design decisions and constraints, not implemented firmware changes.
-
-
-## Accepted instrument architecture (6 November 2026)
-
-- The five synth parts are **freely assignable**: each part can select either FM6 or Analog independently. Do not reserve fixed tracks for either engine.
-- The sixth track remains the dedicated drum track, independent of the synth engine selection.
-- Prioritise FM6 as a DX7-style six-operator engine, including full standard 32-voice SysEx bank import/export and a bank library design that can retain complete 32-patch banks. Current implementation supports standard 32-voice bank parsing but only 27 persistent user slots; expansion is a design requirement, not an existing capability.
-- Prioritise Analog as the main subtractive engine for bass, leads and pads.
-- Retain sample playback support for sampled drum kits and two user sample slots. Removing the general SAMPLE synth engine must not remove drum sample playback or user drum-kit functionality.
-- Drum direction: retain the dedicated synthesised drum engine and organise/refine kits around 808, 909, hybrid and experimental/electronic characters, after auditing existing SYN1–SYN4 kits. Retain sampled kits.
-- Proposed engine simplification: remove or make optional DIGITAL, PHASE, LOFI, FORMANT/VOICE, TRIO, DRAWBAR, GRAIN, PHYS and NOISE, subject to dependency and memory/flash measurement. FM6, ANALOG, drum synthesis and sample playback remain.
-- Preserve old engine numeric IDs as reserved/disabled values; never renumber IDs stored in existing projects or presets.
-- The incoming external FM-1 is outside this SMK-37 firmware's internal engine budget; consider it later as a separate MIDI instrument.
-
-These are accepted product-direction decisions and proposed scope. No firmware source has been changed to implement them.
+These are accepted product decisions. They do not claim that any runtime or UI implementation has changed.
 
 ## Implementation phases
 
@@ -371,3 +361,14 @@ The changes are committed, but the project regression test and full host suite h
 The actual SMK-37 control mapping is now confirmed from `main.c`, `ui_fbank.c` and `ui_layers.c`: the four physical faders use five parameter banks (LEVEL, FILTER, REVERB, DELAY and selected-track ENVELOPE). Banks A–D address tracks 1–4; bank E addresses the selected synth track's ADSR. The GLO layer also exposes mute/solo and level controls for only tracks 1–4. These are not already a two-layer six-track mixer. Moving drums from index 3 to index 5 would also invalidate the current fader-bank drum special cases, which only iterate fader indices 0–3.
 
 The six-track mixer control mapping is therefore still an explicit design gate; no button/fader behaviour has been changed. The build script confirms that a baseline SMK-37 build reports image size, .data+.bss, lowram and .pool usage, and enforces at least 8 KiB of .pool headroom. The next measurement gate is an unchanged baseline build with the exact JieLi toolchain/SDK before any runtime memory-layout changes.
+
+
+## Progress checkpoint — standalone engine scope and target baseline (6 November 2026)
+
+The user has confirmed that System 37 needs only Analog and FM6 as internal synth engines, while retaining the dedicated 808/909-capable drum synthesiser and sampled drum playback. SLOOP project-file backwards compatibility and historical engine-ID mapping are explicitly out of scope.
+
+The unchanged SMK-37 baseline build succeeded on the user's Mac with the JieLi toolchain and AC79 SDK. Reported values: 601,512-byte app image; 63,948 / 98,304 bytes `.data + .bss`; 22,772 / 29,360 bytes `.lowram`; 335,756 / 344,064 bytes `.pool` (8,308 bytes free). ELF symbols show 8,576 bytes for four current tracks, 25,776 bytes for three legacy engine arenas, and 15,264 bytes for the four legacy project slots in `.noinit`. Source-derived sizes are 2,144 bytes per `track_t`, 84 bytes per `voice_t`, and 1,720 bytes per FM6 part state.
+
+### Next isolated implementation milestone
+
+Refactor synth voice ownership out of `track_t` and reduce the selectable engine/state model to Analog and FM6 while preserving the current three-synth/four-track runtime counts. Keep drum voices, drum synthesis and sampled drum playback separate. Do not yet change track counts, lock count, microtiming, UI, editor protocol, flash map or project runtime integration. Run the host regression suite and rebuild the SMK-37 target after the source change; compare the linker report against this baseline before beginning six-track expansion.
