@@ -74,7 +74,7 @@ _Static_assert(sizeof(project_v7_t) == 5396u, "format 7 project wire size");
 uint32_t proj_v7_hash(const void *data, uint32_t length);
 int proj_v7_valid(const project_v7_t *project);
 /* Defaults arrays: common_defaults has P_E0 entries; analog_defaults has eight.
- * The dedicated drum track uses the default drum kit (0) for E0. */
+ * New synth tracks use the Analog defaults; legacy drum data is copied to track 6. */
 int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length, uint8_t *lock_loss_mask, const param_desc_t *common_defaults, const param_desc_t *analog_defaults);
 
 #endif
