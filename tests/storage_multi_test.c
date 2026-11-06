@@ -18,7 +18,8 @@ static uint32_t operations;
 static int nor_read(void *ctx, uint32_t off, void *dst, uint32_t n)
 {
     (void)ctx;
-    if (read_failure || (off < read_fail_sector + 4096u && off + n > read_fail_sector)) return -8;
+    if (read_failure || (read_fail_sector != UINT32_MAX &&
+        off < read_fail_sector + 4096u && off + n > read_fail_sector)) return -8;
     if (off > NOR_SIZE || n > NOR_SIZE - off) return -1;
     memcpy(dst, nor + off, n);
     return 0;
@@ -92,6 +93,50 @@ static int overlay_read(void *ctx, uint32_t off, uint8_t *dst, uint32_t n)
     return 0;
 }
 
+static int target_layout_check(void)
+{
+    static const sm_map_t objects[3] = {
+        { .object_id=0x2001u, .max_length=40944u,
+          .sectors={{0xD6000u,0xD7000u,0xD8000u,0xD9000u,0xDA000u,0xDB000u,0xDC000u,0xDD000u,0xDE000u,0xDF000u,0xE0000u},
+                    {0x9D000u,0x9E000u,0x9F000u,0xA0000u,0xA1000u,0xA2000u,0xA3000u,0xA4000u,0xB7000u,0xB8000u,0xB9000u}},
+          .sector_count={11u,11u} },
+        { .object_id=0x2002u, .max_length=16400u,
+          .sectors={{0xE1000u,0xE2000u,0xE3000u,0xE4000u,0xE5000u},
+                    {0xAB000u,0xAC000u,0xE6000u,0xE7000u,0xBA000u}},
+          .sector_count={5u,5u} },
+        { .object_id=0x2003u, .max_length=5108u,
+          .sectors={{0xE8000u,0xE9000u},{0xA9000u,0xAA000u}},
+          .sector_count={2u,2u} }
+    };
+    uint32_t i, c, j, d, total = 0u, reused = 0u;
+    for (i = 0; i < 3u; i++) {
+        if (!sm_map_valid(&objects[i])) return 0;
+        for (c = 0; c < 2u; c++) {
+            for (j = 0; j < objects[i].sector_count[c]; j++) {
+                uint32_t a = objects[i].sectors[c][j];
+                total++;
+                if ((a >= 0x9D000u && a <= 0xA4000u) ||
+                    (a >= 0xA9000u && a <= 0xAA000u) ||
+                    (a >= 0xAB000u && a <= 0xAC000u)) reused++;
+                if (!((a >= 0x9D000u && a <= 0xA4000u) ||
+                      (a >= 0xA9000u && a <= 0xAA000u) ||
+                      (a >= 0xAB000u && a <= 0xAC000u) ||
+                      (a >= 0xB7000u && a <= 0xBA000u) ||
+                      (a >= 0xD6000u && a <= 0xE9000u))) return 0;
+                for (d = 0; d <= i; d++) {
+                    uint32_t cc, jj;
+                    for (cc = 0; cc < 2u; cc++) {
+                        uint32_t limit = d == i && cc == c ? j : objects[d].sector_count[cc];
+                        for (jj = 0; jj < limit; jj++)
+                            if (objects[d].sectors[cc][jj] == a) return 0;
+                    }
+                }
+            }
+        }
+    }
+    return total == 36u && reused == 12u;
+}
+
 int main(void)
 {
     static const sm_map_t map = {
@@ -112,6 +157,8 @@ int main(void)
     for (i = 0; i < sizeof patch; i++) patch[i] = (uint8_t)(255u - i);
     memset(nor, 0xFF, sizeof nor);
     bad += check("layout: three non-contiguous sectors per A/B copy", sm_map_valid(&map) && sm_capacity(&map,0)==12032u);
+    bad += check("SMK-37 proposal: all 36 catalogue/FM6/autosave sectors are unique and within candidate regions",
+                 target_layout_check());
     {
         sm_map_t overlap = map;
         overlap.sectors[1][2] = overlap.sectors[0][1];
