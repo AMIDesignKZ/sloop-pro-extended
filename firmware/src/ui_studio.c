@@ -45,7 +45,7 @@ UI_SMALL static int on_drum_page(void) { return !ui.home && cur_page()->scope ==
 /* TE_G1 .. TE_G4: the greys (tiles, empty steps, labels, secondary text), gfx.c (2.7: on a theme's background) */
 #define TE_RED RGB(255, 44, 52)          /* recording, erasing */
 /* TE_COL, TE_MID, TE_DIM: the tracks' colours, gfx.c (2.7: a theme may set them) */
-#define TE_DRUM TE_COL[3]
+#define TE_DRUM TE_COL[TRK_DRUM]
 
 UI_SMALL static void te_disc(int32_t cx, int32_t cy, int32_t r, uint16_t c)     /* filled circle */
 {
@@ -325,7 +325,7 @@ static const char *const LV_NAME[4] = {"norm", "ghost", "soft", "hard"};
 UI_SMALL static uint32_t lvl_rank(uint32_t lvl);                 /* (below) ghost 0, soft 1, norm 2, hard 3 */
 UI_SMALL static uint16_t lvl_col(uint32_t lvl)                   /* a hit's colour by its level */
 {
-    return lvl == LV_GHOST ? TE_DIM[3] : lvl == LV_SOFT ? TE_MID[3] : lvl == LV_HARD ? C_WHITE : TE_DRUM;
+    return lvl == LV_GHOST ? TE_DIM[TRK_DRUM] : lvl == LV_SOFT ? TE_MID[TRK_DRUM] : lvl == LV_HARD ? C_WHITE : TE_DRUM;
 }
 static uint16_t pad_lit[DRUM_LANES];                   /* pads and key LEDs: frames left lit */
 static uint8_t key_lit[27];                             /* menu NOTES, a synth track: frames its key stays lit */
@@ -445,7 +445,7 @@ UI_SMALL static void drum_screen_draw(void)
                     r[1] = (char)('1' + dstep_rat(s, drum_lane));
                 fmt_int(nu, m);
                 if (m > 0) { nu[0] = '+'; fmt_int(nu + 1, m); }
-                sheet_bar(84, DSHEET_N, val, ui.sheet - 1u, TE_DIM[3]);
+                sheet_bar(84, DSHEET_N, val, ui.sheet - 1u, TE_DIM[TRK_DRUM]);
             }
         } else {                                       /* KIT: 16 pads, lit on each hit; SOUND (2.7): the one KNOB 1 picks
                                                         * framed, a tuned or shortened / lengthened one marked */
@@ -826,7 +826,7 @@ UI_SMALL static void rec_screen_draw(void)
             uint32_t n = secs > 99u ? 99u : secs;
             body = sig;
             cv_begin(240, 106, C_BLACK);
-            te_disc(18, 30, 9, blink ? TE_RED : TE_DIM[3]);
+            te_disc(18, 30, 9, blink ? TE_RED : TE_DIM[TRK_DRUM]);
             if (n >= 10u)
                 te_digit(36, 4, 32, 56, 7, n / 10u, C_WHITE);
             te_digit(76, 4, 32, 56, 7, n % 10u, C_WHITE);
@@ -872,7 +872,7 @@ UI_SMALL static void rec_screen_draw(void)
             cv_text(144, 14, &FONT_S, "count-in", TE_G4);
             cv_text(144, 34, &FONT_S, "rec: cancel", TE_G3);
         } else {
-            te_disc(28, 30, 18, blink ? TE_RED : TE_DIM[3]);
+            te_disc(28, 30, 18, blink ? TE_RED : TE_DIM[TRK_DRUM]);
             te_disc(28, 30, 7, C_BLACK);
             cv_text(60, 6, &FONT_S, L1[m], C_WHITE);
             cv_text(60, 24, &FONT_S, L2[m], TE_G4);
