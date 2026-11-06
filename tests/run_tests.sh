@@ -48,6 +48,9 @@ run "System 37 project format 7: FUN6 migration, packed fill, 12 ordered locks, 
 $CC -Ifirmware/src -o "$OUT/section_catalog_test" tests/section_catalog_test.c firmware/src/section_catalog.c firmware/src/project_v7.c firmware/src/storage_multi.c
 run "System 37 A-H catalogue: eight project records, directory, streaming section overlays, validation" "$OUT/section_catalog_test"
 
+$CC -Ifirmware/src -o "$OUT/section_prefetch_test" tests/section_prefetch_test.c firmware/src/section_prefetch.c
+run "System 37 section prefetch: request, validated publish, consume, retry, supersede and cancel" "$OUT/section_prefetch_test"
+
 $CC -o "$OUT/recovery_test" tests/recovery_test.c
 run "application USB recovery and boot-loop guard" "$OUT/recovery_test"
 
