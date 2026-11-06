@@ -80,7 +80,7 @@ int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length, uint8_t 
         /* System 37 orders five synth parts first and the dedicated drums
          * last. The old SLOOP drum track (index 3) therefore moves to 5. */
         if (t == 3u || t == 4u) {
-            b->engine = 0u;       /* ANALOG is the neutral initial synth engine */
+            b->engine = 0u;       /* ANALOG is the initial default synth engine */
             b->preset = 0xFFu;    /* runtime resolves this as the default sound */
             for (s = 0; s < NSTEP; ++s)
                 b->step[s].time = ST_REST;
