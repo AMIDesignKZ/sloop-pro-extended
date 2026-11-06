@@ -37,7 +37,7 @@ int main(int argc, char **argv)
     check(!strcmp(a, "PAD") && !b[0], "short names: a short word, one line");
 
     np = pick_walk(0, &pg, 0xFFFFu, 0);
-    check(pg.first == 0 && pg.len == 16 && pg.kind == 0 && pg.nsub == 2, "page 1: the first 16 basses, BASS 1/2");
+    check(pg.first == 0 && pg.len == 12 && pg.kind == 0 && pg.nsub == 1, "page 1: the 12 factory basses, BASS");
     for (i = 0; i < np; i++) {
         pick_walk(i, &pg, 0xFFFFu, 0);
         if (pg.first != sum || pg.len == 0 || pg.len > 16) break;
@@ -55,10 +55,13 @@ int main(int argc, char **argv)
     check(pick_page == of, "< > step the pages and back");
     pick_page = 0; pick_turn(-1);
     check(pick_page == np - 1u, "< on the first page: the last");
-    pick_page = 1;
+    for (i = 0; i < np; i++) {
+        pick_walk(i, &pg, 0xFFFFu, 0);
+        if (pg.kind == BK_PAD) { pick_page = (uint16_t)i; break; }
+    }
     pick_select(3);
     pick_info(&pg);
-    check(pick_cur() == pg.first + 3u, "a pad loads its sound (as PRESETS)");
+    check(i < np && pick_cur() == pg.first + 3u, "a pad loads its sound (as PRESETS)");
     fm1_ms += PICK_MS + 10u;
     check(!pick_shown(), "closes by itself after PICK_MS");
     pick_pin_toggle();
