@@ -2,9 +2,7 @@
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
 /* System 37 engine table: Analog and FM6 only. */
 #include "dsp.c"
-/* SLOOP 2.5: the big per-part state of GRAIN, FM6 and PHYS shares one arena per synth part (a part plays one
- * engine at a time: on a switch the old engine fades out, its voices end, then the new one starts, voice.c
- * engine_block). The first engine to ask for it after another one gets it cleared, as at power-on. */
+/* FM6 has one bounded state arena per synth part. Analog keeps its state in voice_t; drums use drums.v[]. */
 static void *eng_arena_of(const track_t *t, uint32_t eng);
 /* (pitch_inc: felucca_tables.h, SLOOP 2.5: from the top octave) */
 /* (after Clipper 1.2) UNISON's start-phase spread (voice.c unison_spread): r (Q32: a turn of the note at pitch p16,
