@@ -31,7 +31,7 @@ int main(int argc, char **argv)
     song.g[G_BPM] = 120;
     host_preset(&trk[0], 0, 4);
     host_preset(&trk[1], 1, 5);
-    host_preset(&trk[2], 3, 0);
+    host_preset(&trk[2], ENGI_FM6, 0);
     TDRUM->p[P_E0] = DRUM_SAMPLED;
     for (k = LY_FX; k < LY_COUNT; k++)                        /* the layer buttons (SLOOP 2.0): bits 8.. */
         ly_bit[k] = 1u << (7u + k);
