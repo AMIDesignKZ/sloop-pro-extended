@@ -58,7 +58,7 @@ int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length, uint8_t 
 {
     const uint8_t *raw = (const uint8_t *)data;
     uint32_t magic, size, sum;
-    uint32_t t, s, k;
+    uint32_t t, s, k, id;
     if (!out || !data || !common_defaults || !analog_defaults || length != sizeof(project_v6_t))
         return 0;
 
@@ -117,17 +117,27 @@ int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length, uint8_t 
         {
             const uint8_t *a = raw + offsetof(project_v6_t, t) + source_track * sizeof(proj_trk_v6_t);
             plock_t lock;
-            memcpy(b->p, a + offsetof(proj_trk_v6_t, p), sizeof b->p);
+            for (id = 0; id < PROJ_V6_NC; ++id) {
+                int16_t value;
+                memcpy(&value, a + offsetof(proj_trk_v6_t, p) + id * sizeof value, sizeof value);
+                if (value < -128) value = -128;
+                if (value > 127) value = 127;
+                b->p[id] = (int8_t)value;
+            }
             memcpy(b->e, a + offsetof(proj_trk_v6_t, e), sizeof b->e);
             memcpy(b->x, a + offsetof(proj_trk_v6_t, x), sizeof b->x);
             memcpy(&b->engine, a + offsetof(proj_trk_v6_t, engine), sizeof b->engine);
             memcpy(&b->preset, a + offsetof(proj_trk_v6_t, preset), sizeof b->preset);
             memcpy(b->step, a + offsetof(proj_trk_v6_t, step), sizeof b->step);
 
-            /* Preserve all fill conditions, discard the six-bit microtiming. */
+            /* Preserve both the signed six-bit microtiming and two-bit fill condition. */
             for (s = 0; s < NSTEP; ++s) {
-                uint8_t fill = (uint8_t)(a[offsetof(proj_trk_v6_t, mf) + s] >> 6);
-                b->fill[s / 4u] |= (uint8_t)(fill << (2u * (s % 4u)));
+                uint8_t mf = a[offsetof(proj_trk_v6_t, mf) + s];
+                int32_t micro = mf & 63u;
+                if (micro >= 32)
+                    micro -= 64;
+                proj_v7_micro_set(b, s, micro);
+                b->fill[s / 4u] |= (uint8_t)(((mf >> 6) & 3u) << (2u * (s % 4u)));
             }
 
             for (k = 0; k < PROJ_V6_LOCKS; ++k) {
