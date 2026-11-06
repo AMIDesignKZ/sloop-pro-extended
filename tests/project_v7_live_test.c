@@ -35,7 +35,7 @@ static void make_live(fixture_t *f)
     memset(f, 0, sizeof *f);
     for (track = 0; track < PROJ_V7_TRACKS; ++track) {
         proj_trk_v7_t *t = &f->live.t[track];
-        t->engine = (uint8_t)(track % 4u);
+        t->engine = (uint8_t)(track % NENGINES);
         t->preset = (uint8_t)(track + 2u);
         for (step = 0; step < NSTEP; ++step) {
             t->step[step].time = ST_REST;
@@ -89,7 +89,7 @@ static int validate_track(void *ctx, uint8_t track, const proj_trk_v7_t *in)
     f->validate_tracks++;
     if (track == f->fail_validate_track)
         return -1;
-    return in->engine >= 12u ? -1 : 0;
+    return in->engine >= NENGINES ? -1 : 0;
 }
 
 static void apply_globals(void *ctx, const project_v7_t *in, int all)
@@ -167,7 +167,7 @@ int main(void)
     f.fail_validate_track = 0xFFu;
 
     bad = captured;
-    bad.t[5].engine = 12u;
+    bad.t[5].engine = NENGINES;
     seal(&bad);
     f.validate_tracks = f.apply_tracks = f.apply_globals = 0;
     failures += check("unsupported engine rejected during preflight without partial apply",
