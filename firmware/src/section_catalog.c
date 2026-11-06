@@ -15,11 +15,12 @@ int s37_cat_header_valid(const s37_cat_header_t *h)
     uint8_t mask = 0u;
     if (!h || h->magic != S37_CAT_MAGIC || h->version != S37_CAT_VERSION ||
         h->header_size != S37_CAT_HEADER_SIZE || h->payload_size != S37_CAT_PAYLOAD_SIZE ||
-        (h->default_section > 7u && h->default_section != 0xFFu))
+        (h->default_section > 7u && h->default_section != 0xFFu) ||
+        h->reserved[0] || h->reserved[1])
         return 0;
     for (i = 0; i < S37_CAT_SECTIONS; ++i) {
         const s37_cat_entry_t *e = &h->section[i];
-        if (e->flags & (uint8_t)~S37_CAT_PRESENT)
+        if ((e->flags & (uint8_t)~S37_CAT_PRESENT) || e->reserved)
             return 0;
         if (e->flags & S37_CAT_PRESENT) {
             if (!e->bars || !e->project_crc)
@@ -140,7 +141,11 @@ int s37_cat_overlay_read(void *context, uint32_t offset,
 {
     s37_cat_overlay_t *o = (s37_cat_overlay_t *)context;
     uint32_t end, record_start, record_end;
-    if (!o || !dst || offset > S37_CAT_PAYLOAD_SIZE ||
+    if (!o || !o->io || !o->map || !o->replacement || !dst ||
+        !proj_v7_valid(o->replacement) || !s37_cat_header_valid(&o->header) ||
+        !(o->header.section[o->section].flags & S37_CAT_PRESENT) ||
+        o->header.section[o->section].project_crc != o->replacement->sum ||
+        offset > S37_CAT_PAYLOAD_SIZE ||
         length > S37_CAT_PAYLOAD_SIZE - offset)
         return -1;
     if (sm_read(o->io, o->map, &o->base, offset, dst, length))
@@ -195,7 +200,10 @@ int s37_cat_create_read(void *context, uint32_t offset,
     uint32_t end, record_start, record_end;
     if (!o || !o->replacement || !dst || o->section >= S37_CAT_SECTIONS ||
         !proj_v7_valid(o->replacement) || !o->header.section[o->section].bars ||
-        !s37_cat_header_valid(&o->header) || offset > S37_CAT_PAYLOAD_SIZE ||
+        !s37_cat_header_valid(&o->header) ||
+        !(o->header.section[o->section].flags & S37_CAT_PRESENT) ||
+        o->header.section[o->section].project_crc != o->replacement->sum ||
+        offset > S37_CAT_PAYLOAD_SIZE ||
         length > S37_CAT_PAYLOAD_SIZE - offset)
         return -1;
     if (s37_cat_blank_read(NULL, offset, dst, length))
