@@ -930,10 +930,11 @@ static uint32_t units_split(void)
         return 0;
     for (k = 0; k < NPART; k++) {
         const track_t *t = &trk[k];
-        uint32_t inc;
+        uint32_t fade = t->xf_on && t->xf, inc;
+        const int16_t *p = fade && t->pold ? t->p_old : t->p;
         if (!(mask & (1u << k)))
             continue;
-        inc = t->p[P_LSYNC] ? lfo_sync_inc(t->p) : LFO_INC[t->p[P_LRATE] & 127];
+        inc = p[P_LSYNC] ? lfo_sync_inc(p) : LFO_INC[p[P_LRATE] & 127];
         if (t->lfo_ph + inc < t->lfo_ph)
             mask &= ~(1u << k);
     }
