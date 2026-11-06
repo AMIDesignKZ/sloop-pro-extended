@@ -187,3 +187,19 @@ Required evidence before the next milestone:
 2. SMK-37 target build passes.
 3. .pool, .data + .bss, .lowram and app-image deltas are recorded against the baseline above.
 4. No change to audio scheduling, drum voice allocation or flash writes is introduced by this refactor.
+
+
+## Implementation checkpoint — Analog/FM6-only engine model (6 November 2026)
+
+Committed source changes now implement the first part of the revised memory milestone:
+
+- core.h defines two System 37 engine IDs: Analog 0 and FM6 1.
+- engines.c includes only eng_analog.c and eng_fm6.c. Its per-part state array is now fm6_part_t[NPART], with engine-switch invalidation; the previous union containing GRAIN, DRAWBAR, FM6 and PHYS has been removed from the active build.
+- voice.c no longer dispatches to the removed synth engines or applies sample-engine retrigger behaviour.
+- seq.c no longer has SAMPLE/SLICE synth keyboard mapping.
+- fx.c no longer applies PHYS/FORMANT-specific core-splitting constraints.
+- tests/project_test.c now checks the two-engine System 37 table while retaining the frozen FUN6 wire-format regression assertions.
+
+The drum code was deliberately left alone: drum_synth.c, drums.c, generated 32-kit source and sampled-drum paths are unchanged. The 808 and 909 kits therefore remain in scope.
+
+This is a source change only. No host test or target build has yet verified it. The synth voice slots are still in track_t; their separation is the next memory optimisation. All runtime counts remain NPART=3, NTRK=4, TRK_DRUM=3 and NLOCK=24. Flash, linker, UI and editor protocol are unchanged.
