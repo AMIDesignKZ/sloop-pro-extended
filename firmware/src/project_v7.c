@@ -70,38 +70,48 @@ int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length)
     out->drdly = src->drdly;
     memcpy(out->rsv, src->rsv, sizeof out->rsv);
 
-    for (t = 0; t < 4u; ++t) {
-        const proj_trk_v6_t *a = &src->t[t];
+    for (t = 0; t < PROJ_V7_TRACKS; ++t) {
+        uint32_t source_track;
         proj_trk_v7_t *b = &out->t[t];
         uint32_t kept = 0;
-        memcpy(b->p, a->p, sizeof b->p);
-        memcpy(b->e, a->e, sizeof b->e);
-        memcpy(b->x, a->x, sizeof b->x);
-        b->engine = a->engine;
-        b->preset = a->preset;
-        memcpy(b->step, a->step, sizeof b->step);
 
-        /* Preserve all fill conditions, discard the six-bit microtiming. */
-        for (s = 0; s < NSTEP; ++s) {
-            uint8_t fill = (uint8_t)(a->mf[s] >> 6);
-            b->fill[s / 4u] |= (uint8_t)(fill << (2u * (s % 4u)));
+        /* System 37 orders five synth parts first and the dedicated drums
+         * last. The old SLOOP drum track (index 3) therefore moves to 5. */
+        if (t == 3u || t == 4u) {
+            b->engine = 0u;       /* ANALOG is the neutral initial synth engine */
+            b->preset = 0xFFu;    /* runtime resolves this as the default sound */
+            for (s = 0; s < NSTEP; ++s)
+                b->step[s].time = ST_REST;
+            for (k = 0; k < PROJ_V7_LOCKS; ++k)
+                b->lock[k].step = LOCK_FREE;
+            continue;
         }
+        source_track = (t == 5u) ? 3u : t;
+        {
+            const proj_trk_v6_t *a = &src->t[source_track];
+            memcpy(b->p, a->p, sizeof b->p);
+            memcpy(b->e, a->e, sizeof b->e);
+            memcpy(b->x, a->x, sizeof b->x);
+            b->engine = a->engine;
+            b->preset = a->preset;
+            memcpy(b->step, a->step, sizeof b->step);
 
-        for (k = 0; k < NLOCK; ++k)
-            keep_lock(b, &a->lock[k], &kept);
-        for (; kept < PROJ_V7_LOCKS; ++kept) {
-            b->lock[kept].step = LOCK_FREE;
-            b->lock[kept].param = 0;
-            b->lock[kept].val = 0;
+            /* Preserve all fill conditions, discard the six-bit microtiming. */
+            for (s = 0; s < NSTEP; ++s) {
+                uint8_t fill = (uint8_t)(a->mf[s] >> 6);
+                b->fill[s / 4u] |= (uint8_t)(fill << (2u * (s % 4u)));
+            }
+
+            for (k = 0; k < NLOCK; ++k)
+                keep_lock(b, &a->lock[k], &kept);
+            for (; kept < PROJ_V7_LOCKS; ++kept) {
+                b->lock[kept].step = LOCK_FREE;
+                b->lock[kept].param = 0;
+                b->lock[kept].val = 0;
+            }
         }
     }
 
-    /* Tracks 5 and 6 are initialised as empty, neutral tracks. The runtime
-     * layer will apply engine-specific defaults when it instantiates them. */
-    for (t = 4u; t < PROJ_V7_TRACKS; ++t) {
-        for (k = 0; k < PROJ_V7_LOCKS; ++k)
-            out->t[t].lock[k].step = LOCK_FREE;
-    }
     out->sum = proj_v7_hash(out, (uint32_t)sizeof *out - 4u);
     return 1;
 }
