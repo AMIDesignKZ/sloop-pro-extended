@@ -15,11 +15,12 @@
 #define PROJ_V6_PARTS 3u
 #define PROJ_V6_DRUM_TRACK 3u
 #define PROJ_V6_STEPS 64u
+#define PROJ_V7_STEPS 64u
 #define PROJ_V6_GLOBALS 32u
 #define PROJ_V6_LOCKS 24u
 #define PROJ_V7_LOCKS 12u
 #define PROJ_V7_TRACKS 6u
-#define PROJ_V7_FILL_BYTES (NSTEP / 4u)
+#define PROJ_V7_FILL_BYTES (PROJ_V7_STEPS / 4u)
 
 #define PROJ_V6_NC ((uint32_t)P_ITYPE)
 #define PROJ_V6_NX ((uint32_t)(P_E0 - P_ITYPE))
@@ -29,8 +30,8 @@ typedef struct {
     int16_t e[8];
     uint8_t x[PROJ_V6_NX];
     uint8_t engine, preset;
-    union { step_t step[NSTEP]; dstep_t dstep[NSTEP]; };
-    uint8_t mf[NSTEP]; /* low 6 bits: microtiming; high 2 bits: fill condition */
+    union { step_t step[PROJ_V6_STEPS]; dstep_t dstep[PROJ_V6_STEPS]; };
+    uint8_t mf[PROJ_V6_STEPS]; /* low 6 bits: microtiming; high 2 bits: fill condition */
     plock_t lock[PROJ_V6_LOCKS];
 } proj_trk_v6_t;
 
@@ -47,7 +48,7 @@ typedef struct {
     int16_t e[8];
     uint8_t x[PROJ_V6_NX];
     uint8_t engine, preset;
-    union { step_t step[NSTEP]; dstep_t dstep[NSTEP]; };
+    union { step_t step[PROJ_V7_STEPS]; dstep_t dstep[PROJ_V7_STEPS]; };
     uint8_t fill[PROJ_V7_FILL_BYTES]; /* four 2-bit FC_* values per byte */
     plock_t lock[PROJ_V7_LOCKS];
 } proj_trk_v7_t;
@@ -61,7 +62,7 @@ typedef struct {
 } project_v7_t;
 
 _Static_assert(PROJ_V6_TRACKS == 4u && PROJ_V6_PARTS == 3u && PROJ_V6_DRUM_TRACK == 3u && PROJ_V6_STEPS == 64u && PROJ_V6_LOCKS == 24u, "format 6 counts are frozen");
-_Static_assert(NSTEP == PROJ_V6_STEPS && PROJ_V6_NC == 53u && PROJ_V6_NX == 10u && G_DRDLY == PROJ_V6_GLOBALS, "format 6 field identities are frozen");
+_Static_assert(NSTEP == PROJ_V6_STEPS && NSTEP == PROJ_V7_STEPS && PROJ_V6_NC == 53u && PROJ_V6_NX == 10u && G_DRDLY == PROJ_V6_GLOBALS, "format 6 field identities are frozen");
 _Static_assert(sizeof(plock_t) == 4u, "parameter lock wire size");
 _Static_assert(sizeof(proj_trk_v6_t) == 934u, "format 6 track wire size");
 _Static_assert(sizeof(project_v6_t) == 3816u, "format 6 project wire size");
