@@ -86,9 +86,9 @@ Do not allocate eight independent A/B objects. Store all eight format-7 projects
 - Eleven sectors per copy: 44,800 bytes available after the first-sector 256-byte header area.
 - A/B catalogue: 22 sectors total.
 
-The catalogue directory should include format version, section-presence bits and compact metadata needed by the arranger (for example, cached section bar lengths). Project records retain their own magic/checksum; the outer storage record has its own length and CRC.
+The catalogue directory should include format version, section-presence bits and compact metadata needed by the arranger (for example, cached section bar lengths). Project records retain their own magic/checksum; the outer storage record has its own length and CRC. Section reads load one 5,108-byte record from the selected catalogue copy into a RAM cache buffer and validate its project checksum.
 
-Saving one section is a whole-catalogue copy-on-write transaction: read the current valid catalogue, replace the selected section in the inactive copy, write all payload bytes, verify the complete payload CRC, then program the commit header last. The old copy remains untouched until the new one is committed and read back. This costs more writes per section save but gives a single atomic A/B snapshot for A–H.
+Saving one section is a whole-catalogue copy-on-write transaction: stream the current valid catalogue into the inactive copy using a 256-byte page buffer, overlay the changed section record and its directory metadata, calculate the complete payload CRC, verify the written payload, then program the commit header last. Do not stage the 40 KiB catalogue in RAM. The old copy remains untouched until the new one is committed and read back. This costs more writes per section save but gives a single atomic A/B snapshot for A–H.
 
 ## 4. Section RAM/cache strategy
 
@@ -111,6 +111,8 @@ The existing song-restore snapshot and autosave buffer also become format 7. Thi
 The current storage layer supports one 4 KiB sector per copy and a maximum 3,840-byte payload. It must not be enlarged by simply changing ST_PAYLOAD_MAX.
 
 Add a separate multi-sector object API (name is provisional) with:
+
+- A distinct storage magic and header version, separate from the legacy one-sector ST_MAGIC, so old firmware cannot mistake a new multi-sector record for a legacy object. Header fields include object type, copy, sequence, logical length, sector count, payload CRC and header CRC.
 
 - A fixed extent list for each logical object and each A/B copy. An extent is a sector-aligned flash address; extents may be physically non-contiguous.
 - A logical payload stream across the ordered sector list. The first sector reserves bytes 0–255 for header/commit metadata; subsequent sectors contribute their full payload area.
