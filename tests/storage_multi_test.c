@@ -11,11 +11,14 @@
 static uint8_t nor[NOR_SIZE];
 static int fail_after = -1;
 static int partial_failure;
+static int read_failure;
+static uint32_t read_fail_sector = UINT32_MAX;
 static uint32_t operations;
 
 static int nor_read(void *ctx, uint32_t off, void *dst, uint32_t n)
 {
     (void)ctx;
+    if (read_failure || (off < read_fail_sector + 4096u && off + n > read_fail_sector)) return -8;
     if (off > NOR_SIZE || n > NOR_SIZE - off) return -1;
     memcpy(dst, nor + off, n);
     return 0;
@@ -119,9 +122,20 @@ int main(void)
         bad += check("layout: capacity overflow rejected", !sm_map_valid(&overlap));
     }
     bad += check("empty store: no valid copy", sm_scan(&io,&map,&state) != 0 && state.copy == -1);
-
+    read_failure = 1;
+    bad += check("read uncertainty: scan reports I/O failure", sm_scan(&io,&map,&state) == -2);
     src.data = a; src.length = sizeof a;
+    bad += check("read uncertainty: save refuses to erase when scan cannot inspect copies",
+                 sm_save_stream(&io,&map,memory_read,&src,sizeof a,&state) == -9);
+    read_failure = 0;
+
     bad += check("first save: commits copy A", sm_save_stream(&io,&map,memory_read,&src,sizeof a,&state)==0 && state.copy==0 && state.sequence==1u);
+    read_fail_sector = map.sectors[1][0];
+    bad += check("degraded scan: readable copy remains available but is marked uncertain",
+                 sm_scan(&io,&map,&state)==0 && state.copy==0 && state.uncertain);
+    bad += check("degraded scan: save refuses to overwrite either copy under uncertainty",
+                 sm_save_stream(&io,&map,memory_read,&src,sizeof a,&after)==-9);
+    read_fail_sector = UINT32_MAX;
     bad += check("first read: crosses first-sector payload boundary", sm_read(&io,&map,&state,3700u,got,800u)==0 && !memcmp(got,a+3700u,800u));
     src.data = b; src.length = sizeof b;
     bad += check("second save: commits copy B", sm_save_stream(&io,&map,memory_read,&src,sizeof b,&state)==0 && state.copy==1 && state.sequence==2u);
