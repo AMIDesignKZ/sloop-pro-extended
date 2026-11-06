@@ -160,6 +160,11 @@ project_t proj_slot[8] __attribute__((section(".noinit")));
 #else
 project_t proj_slot[4] __attribute__((section(".noinit")));
 #endif
+#if BOARD_SMK37
+static uint8_t s37_cat_ready, s37_migrate_pending, s37_cat_uncertain;
+static void s37_catalog_boot(void);
+static int s37_catalog_load_section(uint32_t slot, project_t *p);
+#endif
 
 UI_SMALL static uint32_t proj_hash(const void *p, uint32_t n)   /* FNV-1a over n bytes */
 {
@@ -728,8 +733,14 @@ UI_SMALL static void proj_fetch(uint32_t slot)
 {
 #if BOARD_SMK37
     project_t *q = &proj_slot[slot & 7u];
-    int n = slot < 4u ? st_load(OBJ_PROJECT0 + slot, &proj_tmp, sizeof proj_tmp) : 0;
+    int n;
     uint8_t loss = 0;
+    if (s37_cat_ready) {
+        if (s37_catalog_load_section(slot & 7u, q))
+            memset(q, 0, sizeof *q);
+        return;
+    }
+    n = slot < 4u ? st_load(OBJ_PROJECT0 + slot, &proj_tmp, sizeof proj_tmp) : 0;
     if (n <= 0 || !proj_import(&proj_tmp.v6, &proj_tmp, n) ||
         !proj_v6_to_v7(q, &proj_tmp.v6, sizeof proj_tmp.v6, &loss, TP, ENGINES[ENGI_ANALOG]->edit))
         memset(q, 0, sizeof *q);
