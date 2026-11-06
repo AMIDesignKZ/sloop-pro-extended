@@ -165,7 +165,7 @@ The current source map identifies these candidate areas, all of which still requ
 
 Total candidate capacity: **34 sectors / 136 KiB**. This is six sectors / 24 KiB short of the 40-sector estimate for eight sections plus eight FM6 banks. The 0xEA000 stock-marker sector and all protected stock/resource, OTA, BTIF, calibration, key_mac and recovery regions remain excluded.
 
-This means the original eight-bank target cannot currently be promised alongside the eight-section design using only the identified free/released sectors. Options to evaluate are: reduce the FM6 bank count, reduce project storage through a more compact format, identify additional genuinely unused flash after a full image/partition audit, or use a different storage scheme. Do not choose one by silently weakening A/B power-loss protection.
+The 34 candidate sectors leave 10 additional sectors for FM6 after the estimated 24-sector project expansion. The existing FM6 A/B pair already occupies two sectors, so five complete banks (20,480 bytes of patch records) would require six sectors per copy: 12 sectors total, or 10 additional sectors. Five banks are therefore the theoretical maximum under this allocation, with no spare sectors for growth. Four banks would leave two candidate sectors; six banks would exceed the allocation by four sectors. These are capacity ceilings before metadata and safety margin. The eight-bank target cannot currently be promised alongside eight sections using only the identified sectors. Do not weaken A/B power-loss protection to force a fit.
 
 #### RAM consequence
 
