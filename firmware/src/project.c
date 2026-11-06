@@ -25,6 +25,9 @@
 #define UI_SMALL
 #endif
 #include "project_v7.h"                 /* frozen FUN6 wire layout and isolated FUN7 format */
+#include "project_v7_live.h"
+#include "section_catalog.h"
+#include "storage_multi.h"
 
 #define PROJ_MAGIC PROJ_V6_MAGIC                 /* "FUN6": frozen legacy project image */
 #define PROJ_MAGIC_V5 0x46554E35u              /* "FUN5": format 4 + per-step nudge, parameter locks, fill conditions (SLOOP 2.4) */
@@ -52,6 +55,7 @@ _Static_assert(PROJ_NC6 == PROJ_NP_V5 - 8u && PROJ_NX6 == 10u, "format 6: format
 typedef proj_trk_v6_t proj_trk_t;
 typedef project_v6_t project_v6_legacy_t;
 typedef project_v7_t project_t;
+_Static_assert(sizeof(project_t) == 5366u, "FUN7 live project image");
 _Static_assert(sizeof(project_v6_legacy_t) == 3816u && sizeof(project_v6_legacy_t) <= 3840u,
                "FUN6 remains a 3,816-byte legacy flash object");
 /* Historical FUN1-FUN5 wire layouts. These are read-only migration inputs:
