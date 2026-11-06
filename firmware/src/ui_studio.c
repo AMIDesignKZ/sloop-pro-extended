@@ -233,11 +233,12 @@ UI_SMALL static void swing_str(char *b, int32_t v)            /* 0 straight .. 1
 
 UI_SMALL static void studio_tracks_draw(void)
 {
-    static uint32_t head, rows[NTRK], footer;
-    uint32_t i, j;
+    static uint32_t head, rows[4], footer;
+    uint32_t i, j, slot, first = NTRK > 4u && song.sel >= 4u ? NTRK - 4u : 0u;
     int32_t sect = song.playing && live_sec >= 0 ? live_sec : (int32_t)song.g[G_SLOT] - 1;   /* (2.7.2) the section playing */
     te_header("tracks", TE_G3, &head, sect);
-    for (i = 0; i < NTRK; i++) {
+    for (slot = 0; slot < 4u; slot++) {
+        i = first + slot;
         track_t *t = &trk[i];
         char b[24], e[16];
         uint32_t selected = song.sel == i, len = (uint32_t)clamp(t->p[P_SLEN], 1, 64);
@@ -299,7 +300,7 @@ UI_SMALL static void studio_tracks_draw(void)
         cv_rect(198, 23, 38, 5, TE_G1);                /* the level */
         if (!silent)
             cv_rect(198, 23, (int32_t)level * 38 / 127, 5, selected ? col : TE_G3);
-        cv_blit(0, 40 + i * 36);
+        cv_blit(0, 40 + slot * 36);
     }
     {   /* KNOB 1 swing (the global groove), 2 level, 3 steps, 4 pan of the selected track */
         track_t *t = TSEL;
@@ -766,7 +767,8 @@ static uint8_t rec_shown;
 /* the four tracks, compact, from y0: the one that records is framed in red */
 UI_SMALL static void rec_rows(uint32_t rt, uint32_t take, uint32_t y0, uint32_t *cache)
 {
-    uint32_t sig = rt * 3u + rec_wait + take * 5u + drum_kit() * 977u + y0, i, j;
+    uint32_t sig = rt * 3u + rec_wait + take * 5u + drum_kit() * 977u + y0, i, j, slot;
+    uint32_t first = NTRK > 4u && rt >= 4u ? NTRK - 4u : 0u;
     for (i = 0; i < NTRK; i++) {
         char b[16];
         if (i == TRK_DRUM) str_cpy(b, DRUM_KIT_NAMES[drum_kit()], sizeof b);
@@ -778,10 +780,11 @@ UI_SMALL static void rec_rows(uint32_t rt, uint32_t take, uint32_t y0, uint32_t 
         return;
     *cache = sig;
     cv_begin(240, 76, C_BLACK);
-    for (i = 0; i < NTRK; i++) {
+    for (slot = 0; slot < 4u; slot++) {
+        i = first + slot;
         const track_t *t = &trk[i];
         uint32_t len = (uint32_t)clamp(t->p[P_SLEN], 1, 64), armed = i == rt;
-        int32_t y = (int32_t)i * 19;
+        int32_t y = (int32_t)slot * 19;
         char b[16];
         if (armed) cv_rect(0, y, 240, 18, TE_RED), cv_rect(1, y + 1, 238, 16, C_BLACK);
         cv_rect(4, y + 3, 12, 12, armed ? TE_COL[i] : TE_DIM[i]);
@@ -834,7 +837,7 @@ UI_SMALL static void rec_screen_draw(void)
             cv_rect(132, 6, 1, 54, TE_G1);
             if (bars) {
                 fmt_int(b, (int32_t)bars);
-                cv_text(146, 4, &FONT_L, b, TE_COL[rt & 3u]);
+                cv_text(146, 4, &FONT_L, b, TE_COL[rt]);
                 cv_text(146 + text_w(&FONT_L, b) + 6, 18, &FONT_S, bars == 1u ? "bar" : "bars", TE_G3);
                 fmt_int(b, (int32_t)bpm);
                 cv_text(146, 42, &FONT_S, b, C_WHITE);
