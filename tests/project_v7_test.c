@@ -88,7 +88,8 @@ int main(void)
                  now.t[0].lock[2].step == 3 && now.t[0].lock[3].step == 17 &&
                  now.t[0].lock[11].step == 24);
     bad += check("new synth tracks 4 and 5 are empty; legacy drum track is moved to track 6",
-                 now.t[3].engine == 0 && now.t[3].preset == 0xFFu && now.t[3].p[0] == common_defaults[0].def &&\n                 now.t[3].x[0] == common_defaults[PROJ_V6_NC].def && now.t[3].e[0] == analog_defaults[0].def && now.t[4].engine == 0 &&
+                 now.t[3].engine == 0 && now.t[3].preset == 0xFFu && now.t[3].p[0] == common_defaults[0].def &&
+                 now.t[3].x[0] == common_defaults[PROJ_V6_NC].def && now.t[3].e[0] == analog_defaults[0].def && now.t[4].engine == 0 &&
                  now.t[4].preset == 0xFFu && now.t[3].step[0].time == ST_REST &&
                  now.t[4].step[63].time == ST_REST && now.t[3].lock[0].step == LOCK_FREE &&
                  now.t[4].lock[11].step == LOCK_FREE && now.t[5].lock[11].step != LOCK_FREE);
