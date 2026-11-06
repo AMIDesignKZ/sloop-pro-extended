@@ -15,7 +15,7 @@ int s37_cat_header_valid(const s37_cat_header_t *h)
     uint8_t mask = 0u;
     if (!h || h->magic != S37_CAT_MAGIC || h->version != S37_CAT_VERSION ||
         h->header_size != S37_CAT_HEADER_SIZE || h->payload_size != S37_CAT_PAYLOAD_SIZE ||
-        h->default_section > 7u && h->default_section != 0xFFu)
+        (h->default_section > 7u && h->default_section != 0xFFu))
         return 0;
     for (i = 0; i < S37_CAT_SECTIONS; ++i) {
         const s37_cat_entry_t *e = &h->section[i];
@@ -157,6 +157,36 @@ int s37_cat_blank_read(void *context, uint32_t offset,
         uint32_t from = offset;
         uint32_t to = offset + length < sizeof h ? offset + length : sizeof h;
         memcpy(dst, (const uint8_t *)&h + from, to - from);
+    }
+    return 0;
+}
+
+int s37_cat_create_read(void *context, uint32_t offset,
+                        uint8_t *dst, uint32_t length)
+{
+    s37_cat_overlay_t *o = (s37_cat_overlay_t *)context;
+    uint32_t end, record_start, record_end;
+    if (!o || !o->replacement || !dst || o->section >= S37_CAT_SECTIONS ||
+        !proj_v7_valid(o->replacement) || !o->header.section[o->section].bars ||
+        !s37_cat_header_valid(&o->header) || offset > S37_CAT_PAYLOAD_SIZE ||
+        length > S37_CAT_PAYLOAD_SIZE - offset)
+        return -1;
+    if (s37_cat_blank_read(NULL, offset, dst, length))
+        return -1;
+    end = offset + length;
+    if (offset < S37_CAT_HEADER_SIZE && end > 0u) {
+        uint32_t from = offset;
+        uint32_t to = end < S37_CAT_HEADER_SIZE ? end : S37_CAT_HEADER_SIZE;
+        memcpy(dst, (const uint8_t *)&o->header + from, to - from);
+    }
+    record_start = project_offset(o->section);
+    record_end = record_start + sizeof(project_v7_t);
+    if (offset < record_end && end > record_start) {
+        uint32_t from = offset > record_start ? offset : record_start;
+        uint32_t to = end < record_end ? end : record_end;
+        memcpy(dst + (from - offset),
+               (const uint8_t *)o->replacement + (from - record_start),
+               to - from);
     }
     return 0;
 }
