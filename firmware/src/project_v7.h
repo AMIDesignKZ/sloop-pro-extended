@@ -18,8 +18,10 @@
 #define PROJ_V7_STEPS 64u
 #define PROJ_V6_GLOBALS 32u
 #define PROJ_V6_LOCKS 24u
-#define PROJ_V7_LOCKS 12u
+#define PROJ_V7_LOCKS 24u
 #define PROJ_V7_TRACKS 6u
+#define PROJ_V7_PARTS 5u
+#define PROJ_V7_DRUM_TRACK 5u
 #define PROJ_V7_FILL_BYTES (PROJ_V7_STEPS / 4u)
 
 #define PROJ_V6_NC ((uint32_t)P_ITYPE)
@@ -66,8 +68,8 @@ _Static_assert(NSTEP == PROJ_V6_STEPS && NSTEP == PROJ_V7_STEPS && PROJ_V6_NC ==
 _Static_assert(sizeof(plock_t) == 4u, "parameter lock wire size");
 _Static_assert(sizeof(proj_trk_v6_t) == 934u, "format 6 track wire size");
 _Static_assert(sizeof(project_v6_t) == 3816u, "format 6 project wire size");
-_Static_assert(sizeof(proj_trk_v7_t) == 838u, "format 7 track wire size");
-_Static_assert(sizeof(project_v7_t) == 5108u, "format 7 project wire size");
+_Static_assert(sizeof(proj_trk_v7_t) == 886u, "format 7 track wire size");
+_Static_assert(sizeof(project_v7_t) == 5396u, "format 7 project wire size");
 
 uint32_t proj_v7_hash(const void *data, uint32_t length);
 int proj_v7_valid(const project_v7_t *project);
