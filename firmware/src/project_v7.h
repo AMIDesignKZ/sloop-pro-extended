@@ -12,6 +12,9 @@
 #define PROJ_V6_MAGIC 0x46554E36u /* FUN6 */
 #define PROJ_V7_MAGIC 0x46554E37u /* FUN7 */
 #define PROJ_V6_TRACKS 4u
+#define PROJ_V6_PARTS 3u
+#define PROJ_V6_DRUM_TRACK 3u
+#define PROJ_V6_STEPS 64u
 #define PROJ_V6_GLOBALS 32u
 #define PROJ_V6_LOCKS 24u
 #define PROJ_V7_LOCKS 12u
@@ -57,7 +60,8 @@ typedef struct {
     uint32_t sum;
 } project_v7_t;
 
-_Static_assert(NSTEP == 64u && PROJ_V6_NC == 53u && PROJ_V6_NX == 10u && G_DRDLY == PROJ_V6_GLOBALS, "format 6 field identities are frozen");
+_Static_assert(PROJ_V6_TRACKS == 4u && PROJ_V6_PARTS == 3u && PROJ_V6_DRUM_TRACK == 3u && PROJ_V6_STEPS == 64u && PROJ_V6_LOCKS == 24u, "format 6 counts are frozen");
+_Static_assert(NSTEP == PROJ_V6_STEPS && PROJ_V6_NC == 53u && PROJ_V6_NX == 10u && G_DRDLY == PROJ_V6_GLOBALS, "format 6 field identities are frozen");
 _Static_assert(sizeof(plock_t) == 4u, "parameter lock wire size");
 _Static_assert(sizeof(proj_trk_v6_t) == 934u, "format 6 track wire size");
 _Static_assert(sizeof(project_v6_t) == 3816u, "format 6 project wire size");
