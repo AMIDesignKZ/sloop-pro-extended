@@ -4477,7 +4477,9 @@ const SMF = {
    are arranger.h arr_config_t: count, loop, 2 reserved, then 16 x {scene 0..3 = A..D, bars 1..64}. */
 const ARR = {
   OFF: 48, ORDER_MIN: 36, MAX_BARS: 64, PER3: 0x50455233, PER4: 0x50455234,
-  get SYSTEM37() { return !!(dev && dev.info && dev.info.ntrk >= 6); },
+  trackCount: 4,
+  setTrackCount(n) { this.trackCount = n >= 6 ? 6 : 4; },
+  get SYSTEM37() { return this.trackCount >= 6; },
   get STEPS() { return this.SYSTEM37 ? 32 : 16; },
   get SCENES() { return this.SYSTEM37 ? 8 : 4; },
   get SIZE() { return 4 + 2 * this.STEPS; },
@@ -6302,6 +6304,7 @@ async function load(d) {
   try {
     /* the first frame after opening the port can be lost: a few tries */
     d.info = parse[CMD.INFO](await d.link.request(req.info(), { timeout: 500, retries: 3 }));
+    ARR.setTrackCount(d.info.ntrk || 4);
     $("version").textContent = d.info.version;
     const total = d.info.pcount + d.info.gcount;
     for (let i = 0; i < d.info.pcount; i++) { sayK("reading", `${i + 1}/${total}`); d.pdesc[i] = await getDescOrNull(0, i); }
