@@ -833,8 +833,7 @@ static void daw_save(void)
 #define SMKSET_MAGIC 0x54534B53u                   /* "SKST" */
 typedef struct {
     uint32_t magic;
-    uint8_t vel, trs, bup, bdn, lim, klay, pad, rsv;   /* bup / bdn: smk_wheel.h bend_*_byte; pad: SLOOP Pro's PAD
-                                                       * LIGHTS (lcd.c padled_dim; 0 in older data: HIGH, as before) */
+    uint8_t vel, trs, bup, bdn, lim, klay, pad, midi_ch4, midi_ch5; /* MIDI channels for synth tracks 4 and 5 */
 } smkset_t;
 static smkset_t smkset_saved;
 static uint8_t smkset_old_ml[3], smkset_old_have;  /* the MIDI part's last three bytes as read (midi_part_read) */
@@ -849,11 +848,16 @@ static void smkset_fill(smkset_t *s)
     s->lim = (uint8_t)(lim_classic != 0u);
     s->klay = (uint8_t)(knob_layout != 0u);
     s->pad = (uint8_t)(padled_dim % 3u);
+    s->midi_ch4 = (uint8_t)(midi_set[10] <= 16u ? midi_set[10] : 4u);
+    s->midi_ch5 = (uint8_t)(midi_set[11] <= 16u ? midi_set[11] : 5u);
 }
 static void smkset_boot(void)                      /* after the settings (persist_boot, dsu_boot) */
 {
     smkset_t s;
-    if (st_load(OBJ_SMKSET, &s, sizeof s) == (int)sizeof s && s.magic == SMKSET_MAGIC) {
+    int n;
+    memset(&s, 0, sizeof s);
+    n = st_load(OBJ_SMKSET, &s, sizeof s);
+    if ((n == (int)sizeof s || n == (int)sizeof(s) - 1) && s.magic == SMKSET_MAGIC) {
         vel_mode = (uint8_t)(s.vel < VEL_N ? s.vel : VEL_DYNAMIC);
         trs_out = (uint8_t)(s.trs != 0u);
         bend_up = (uint8_t)bend_up_of_byte(s.bup);
@@ -862,33 +866,43 @@ static void smkset_boot(void)                      /* after the settings (persis
         knob_layout = (uint8_t)(s.klay & 1u);
         knob_layout_apply();
         padled_dim_set(s.pad < 3u ? s.pad : 0u);
-        smkset_fill(&smkset_saved);
+        if (n == (int)sizeof s) {
+            midi_set[10] = (uint8_t)(s.midi_ch4 <= 16u ? s.midi_ch4 : 4u);
+            midi_set[11] = (uint8_t)(s.midi_ch5 <= 16u ? s.midi_ch5 : 5u);
+            smkset_fill(&smkset_saved);
+        } else {
+            midi_set[10] = 4u;
+            midi_set[11] = 5u;
+            memset(&smkset_saved, 0, sizeof smkset_saved); /* write the extended record at the next settings save */
+            settings_later = 1;
+        }
+        song.g[G_CH4] = midi_set[10];
+        song.g[G_CH5] = midi_set[11];
         return;
     }
     /* none: an earlier SMK-37 build's settings, or none at all (the defaults stay) */
     if (persist_saved.magic == PERSIST_MAGIC) {
         uint32_t w = persist_saved.lights;
-        vel_mode = (uint8_t)vel_of_word(w);        /* bits 28..30 (older data: DYNAMIC) */
-        trs_out = (uint8_t)!(w >> 31);             /* bit 31, 1 = OFF (older data: ON) */
-        usb_rate = 0, theme_on = 0, rec_quant_off = 0;   /* (SLOOP 2.7's settings in those bits: their defaults, AUTO,
-                                                          * palette, QUANT ON; the next save writes them) */
-        cpu1_off = 1, cpu1_units = 0, knob_accel_off = 0;    /* (bits 26, 27: spare in the 2.6-based SMK-37 builds, so
-                                                              * 2ND CORE OFF (SLOOP Pro's default), KNOB ACCEL ON) */
+        vel_mode = (uint8_t)vel_of_word(w);
+        trs_out = (uint8_t)!(w >> 31);
+        usb_rate = 0, theme_on = 0, rec_quant_off = 0;
+        cpu1_off = 1, cpu1_units = 0, knob_accel_off = 0;
     }
     if (smkset_old_have) {
-        bend_up = (uint8_t)bend_up_of_byte(smkset_old_ml[0]);             /* (0: the default) */
-        bend_dn = (uint8_t)bend_dn_of_byte(smkset_old_ml[1], bend_up);    /* (2.6.4: 0, its BEND RANGE both ways) */
-        lim_classic = (uint8_t)(smkset_old_ml[2] & 1u);                   /* (0: SOFT) */
-        knob_layout = (uint8_t)((smkset_old_ml[2] >> 1) & 1u);            /* (0: FM-1) */
+        bend_up = (uint8_t)bend_up_of_byte(smkset_old_ml[0]);
+        bend_dn = (uint8_t)bend_dn_of_byte(smkset_old_ml[1], bend_up);
+        lim_classic = (uint8_t)(smkset_old_ml[2] & 1u);
+        knob_layout = (uint8_t)((smkset_old_ml[2] >> 1) & 1u);
         knob_layout_apply();
-        flt_reso = 0;                              /* (SLOOP Pro: 2.7.2's FILTER RESO bits sit in BEND DOWN's old byte) */
-        fm1_irq_off();                             /* (SLOOP 2.7's GLO > MIDI 3 in those bytes: FX CH, DR MAP, CLK OUT,
-                                                    * REMOTE off, their defaults; the ISR reads them) */
+        flt_reso = 0;
+        fm1_irq_off();
         midi_set[6] = midi_set[7] = midi_set[8] = midi_set[9] = 0;
         song.g[G_FXCH] = song.g[G_DRMAP] = song.g[G_CLKOUT] = song.g[G_RMCH] = 0;
         fm1_irq_on();
     }
-    memset(&smkset_saved, 0, sizeof smkset_saved); /* (written at the next save) */
+    song.g[G_CH4] = midi_set[10];
+    song.g[G_CH5] = midi_set[11];
+    memset(&smkset_saved, 0, sizeof smkset_saved); /* written at the next save */
 }
 static void smkset_save(void)
 {
