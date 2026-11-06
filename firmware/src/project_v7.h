@@ -75,8 +75,10 @@ _Static_assert(sizeof(project_v7_t) == 5366u, "format 7 project wire size");
 static inline void proj_v7_micro_set(proj_trk_v7_t *track, uint32_t step, int32_t value)
 {
     uint32_t bit = step * 6u, byte = bit >> 3, shift = bit & 7u;
-    uint32_t word = track->micro[byte] | (uint32_t)track->micro[byte + 1u] << 8;
+    uint32_t word = track->micro[byte];
     uint32_t raw = (uint32_t)value & 63u;
+    if (shift > 2u)
+        word |= (uint32_t)track->micro[byte + 1u] << 8;
     word = (word & ~(63u << shift)) | (raw << shift);
     track->micro[byte] = (uint8_t)word;
     if (shift > 2u)
@@ -86,7 +88,9 @@ static inline void proj_v7_micro_set(proj_trk_v7_t *track, uint32_t step, int32_
 static inline int32_t proj_v7_micro_get(const proj_trk_v7_t *track, uint32_t step)
 {
     uint32_t bit = step * 6u, byte = bit >> 3, shift = bit & 7u;
-    uint32_t word = track->micro[byte] | (uint32_t)track->micro[byte + 1u] << 8;
+    uint32_t word = track->micro[byte];
+    if (shift > 2u)
+        word |= (uint32_t)track->micro[byte + 1u] << 8;
     int32_t value = (int32_t)((word >> shift) & 63u);
     return value >= 32 ? value - 64 : value;
 }
