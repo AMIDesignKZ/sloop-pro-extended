@@ -41,7 +41,7 @@ $m = Select-String -Path firmware\src\felucca.c -Pattern 'define FELUCCA_VERSION
 if (-not $m) { throw "firmware\src\felucca.c: no SLOOP PRO version" }
 $ver = $m.Matches[0].Groups[1].Value
 Write-Host ""
-Write-Host "  S L O O P   P R O   $ver" -ForegroundColor White
+Write-Host "  S Y S T E M   3 7   $ver" -ForegroundColor White
 Write-Host "  ---- ---- ---- ----" -ForegroundColor DarkGray
 Write-Host "  WSL $distro, toolchain $tc, SDK $sdk" -ForegroundColor DarkGray
 Remove-Item Env:FELUCCA_SLICE -ErrorAction SilentlyContinue
@@ -49,7 +49,7 @@ New-Item -ItemType Directory -Force build\release | Out-Null
 $models = @(@('pro', 'system37.fwsc', 'SMK-37 Pro / Starrykey 37 Play'), @('elite', 'system37-elite.fwsc', 'SMK-37 Elite'), @('mke', 'system37-mke.fwsc', 'MKE-P37'))
 if ($SiteOnly) {
   foreach ($mdl in $models) {
-    if (-not (Test-Path (Join-Path build\release $mdl[1]))) { throw "build\release\$($mdl[1]) is missing: run INSTALL-SLOOP-PRO.bat once first" }
+    if (-not (Test-Path (Join-Path build\release $mdl[1]))) { throw "build\release\$($mdl[1]) is missing: run INSTALL-SYSTEM37.bat once first" }
   }
   $models = @()
   $pkOnly = $true
