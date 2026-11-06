@@ -49,6 +49,7 @@ typedef struct {
     uint32_t sequence;
     uint32_t length;
     uint32_t payload_crc;
+    uint8_t uncertain;       /* one peer copy could not be inspected; reads may proceed, saves must wait */
 } sm_state_t;
 
 uint32_t sm_crc32(const void *data, uint32_t length);
