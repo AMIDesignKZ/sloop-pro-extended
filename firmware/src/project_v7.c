@@ -2,7 +2,6 @@
  * System 37: host-testable FUN6 -> FUN7 migration.
  */
 #include <stddef.h>
-#include "libc.h"
 #include "project_v7.h"
 
 uint32_t proj_v7_hash(const void *data, uint32_t length)
