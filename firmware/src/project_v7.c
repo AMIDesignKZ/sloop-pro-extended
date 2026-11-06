@@ -53,11 +53,11 @@ static void keep_lock(proj_trk_v7_t *dst, const plock_t *src, uint32_t *count)
         ++*count;
 }
 
-int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length, uint8_t *lock_loss_mask)
+int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length, uint8_t *lock_loss_mask, const param_desc_t *common_defaults, const param_desc_t *analog_defaults)
 {
     const project_v6_t *src = (const project_v6_t *)data;
     uint32_t t, s, k;
-    if (!out || !data || length != sizeof(project_v6_t) ||
+    if (!out || !data || !common_defaults || !analog_defaults || length != sizeof(project_v6_t) ||
         src->magic != PROJ_V6_MAGIC || src->size != sizeof *src ||
         src->sum != proj_v7_hash(src, (uint32_t)sizeof *src - 4u))
         return 0;
@@ -80,8 +80,18 @@ int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length, uint8_t 
         /* System 37 orders five synth parts first and the dedicated drums
          * last. The old SLOOP drum track (index 3) therefore moves to 5. */
         if (t == 3u || t == 4u) {
+            uint32_t id;
             b->engine = 0u;       /* ANALOG is the initial default synth engine */
-            b->preset = 0xFFu;    /* runtime resolves this as the default sound */
+            b->preset = 0xFFu;    /* default preset selection */
+            for (id = 0; id < P_E0; ++id) {
+                int16_t value = common_defaults[id].def;
+                if (id < PROJ_V6_NC)
+                    b->p[id] = value;
+                else
+                    b->x[id - PROJ_V6_NC] = (uint8_t)value;
+            }
+            for (id = 0; id < 8u; ++id)
+                b->e[id] = analog_defaults[id].def;
             for (s = 0; s < NSTEP; ++s)
                 b->step[s].time = ST_REST;
             for (k = 0; k < PROJ_V7_LOCKS; ++k)
