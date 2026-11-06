@@ -85,7 +85,7 @@ int s37_cat_prepare_create(s37_cat_overlay_t *o,
                            uint16_t bars, uint8_t default_section)
 {
     s37_cat_header_t h;
-    if (!o || !replacement || !scratch || scratch == replacement || section >= S37_CAT_SECTIONS || !bars ||
+    if (!o || !replacement || section >= S37_CAT_SECTIONS || !bars ||
         default_section != section || !proj_v7_valid(replacement))
         return -1;
     memset(&h, 0, sizeof h);
@@ -114,7 +114,7 @@ int s37_cat_prepare_overlay(s37_cat_overlay_t *o,
                             uint16_t bars, uint8_t default_section)
 {
     s37_cat_header_t h;
-    if (!o || !replacement || section >= S37_CAT_SECTIONS || !bars ||
+    if (!o || !replacement || !scratch || scratch == replacement || section >= S37_CAT_SECTIONS || !bars ||
         default_section >= S37_CAT_SECTIONS ||
         s37_cat_validate(io, map, state, scratch, &h) ||
         !proj_v7_valid(replacement))
