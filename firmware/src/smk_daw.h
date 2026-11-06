@@ -49,7 +49,11 @@ static uint8_t daw_ch = 1;                /* CHANNEL 1..16: the keys, and every 
 static uint8_t daw_local;                 /* LOCAL: 1 ON (the keys and NOTE pads also play SLOOP), 0 OFF (the default) */
 static uint8_t daw_user;                  /* CC MAP: 0 DEFAULT, 1 USER */
 static uint8_t daw_rel;                   /* KNOBS: 0 ABSOLUTE (0..127), 1 RELATIVE (64 +- the steps) */
+#if defined(__APPLE__)                         /* the standalone host test uses Mach-O, which has no ".pool" section */
+static daw_ent_t daw_umap[DAW_N];
+#else
 static daw_ent_t daw_umap[DAW_N] __attribute__((section(".pool")));   /* the USER map (.pool: zeroed at boot) */
+#endif
 
 static uint32_t daw_class(uint32_t i)
 {
