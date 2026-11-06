@@ -165,6 +165,11 @@ static uint8_t s37_cat_ready, s37_migrate_pending, s37_cat_uncertain;
 /* Catalogue objects are used by the boot/migration routines above their
  * initialised definitions below; keep their declarations visible first. */
 static sm_map_t s37_cat_map;
+static sm_state_t s37_cat_state;
+static s37_cat_header_t s37_cat_header;
+static project_v7_t s37_cat_scratch __attribute__((section(".noinit")));
+static s37_cat_overlay_t s37_cat_overlay;
+static s37_cat_image_t s37_cat_image;
 static const sm_io_t s37_cat_io;
 static void s37_catalog_boot(void);
 static int s37_catalog_load_section(uint32_t slot, project_t *p);
@@ -1009,11 +1014,6 @@ static const sm_map_t s37_cat_map = {
     },
     .sector_count = {12u,12u}
 };
-static sm_state_t s37_cat_state;
-static s37_cat_header_t s37_cat_header;
-static project_v7_t s37_cat_scratch __attribute__((section(".noinit")));
-static s37_cat_overlay_t s37_cat_overlay;
-static s37_cat_image_t s37_cat_image;
 
 static int s37_flash_read(void *context, uint32_t offset, void *dst, uint32_t length)
 {
