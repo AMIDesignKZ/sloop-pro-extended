@@ -54,8 +54,8 @@ typedef struct {
 
 _Static_assert(sizeof(s37_cat_entry_t) == 8u, "catalogue directory entry layout");
 _Static_assert(sizeof(s37_cat_header_t) == S37_CAT_HEADER_SIZE, "catalogue header layout");
-_Static_assert(sizeof(project_v7_t) == 5396u, "catalogue project record layout");
-_Static_assert(S37_CAT_PAYLOAD_SIZE == 48648u, "eight sections plus working-project payload layout");
+_Static_assert(sizeof(project_v7_t) == 5366u, "catalogue project record layout");
+_Static_assert(S37_CAT_PAYLOAD_SIZE == 48378u, "eight sections plus working-project payload layout");
 
 int s37_cat_header_valid(const s37_cat_header_t *header);
 int s37_cat_validate(const sm_io_t *io, const sm_map_t *map,
