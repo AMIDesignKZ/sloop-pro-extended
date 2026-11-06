@@ -503,11 +503,11 @@ UI_SMALL static void graph_user(void)
     }
 }
 
-/* the sections A..D (the four slots): used / empty, the selected one in white */
+/* the sections A..H: used / empty, the selected one in white */
 UI_SMALL static void graph_slots(void)
 {
     uint32_t i;
-    for (i = 0; i < 4u; i++) {
+    for (i = 0; i < 8u; i++) {
         int32_t y = 8 + (int32_t)i * 26;
         char b[4];
         int sel = (int32_t)i + 1 == song.g[G_SLOT];
@@ -520,7 +520,7 @@ UI_SMALL static void graph_slots(void)
     }
 }
 
-/* TRACKS page: four channel strips (mixer style), one under each column: number +
+/* TRACKS page: four visible channel strips (mixer style), scrolls with the selected track: number +
  * REC / ARM / MUTE, the sound's short name, then a level fader with the output meter
  * (note activity), the pattern over its LEN (time running down; bar width = notes in
  * the step) and the play head. The selected track is drawn bright. Every part is
@@ -531,8 +531,8 @@ UI_SMALL static void graph_slots(void)
 #define TS_Y (Y_GRAPH + 38)
 #define TS_H 84                                      /* body: rows Y_GRAPH + 38 .. + 121 */
 static struct {
-    uint32_t head[NTRK], name[NTRK], fader[NTRK], ov[NTRK], mark[NTRK];
-    uint8_t meter[NTRK];
+    uint32_t head[4], name[4], fader[4], ov[4], mark[4];
+    uint8_t meter[4];
 } ts;
 
 UI_SMALL static int32_t meter_px(int32_t a)                   /* |sample| (Q15) -> px: 6 dB = TS_H / 10 */
@@ -567,15 +567,16 @@ UI_SMALL static void trk_short_name(uint32_t c, char *b)      /* the track's sou
 
 UI_SMALL static void draw_tracks(void)
 {
-    uint32_t c;
+    uint32_t slot, first = NTRK > 4u && song.sel >= 4u ? NTRK - 4u : 0u;
     if (ui.force) {
         lcd_fill(0, Y_GRAPH, 240, H_GRAPH, C_BLACK);
-        for (c = 0; c < NTRK; c++)
-            ts.meter[c] = 0;
+        for (slot = 0; slot < 4u; slot++)
+            ts.meter[slot] = 0;
     }
-    for (c = 0; c < NTRK; c++) {
+    for (slot = 0; slot < 4u; slot++) {
+        uint32_t c = first + slot;
         track_t *t = &trk[c];
-        uint32_t x0 = c * 60u + 4u, sel = c == song.sel, lvl = trk_level(c), mute = !lvl || t->p[P_MUTE];
+        uint32_t x0 = slot * 60u + 4u, sel = c == song.sel, lvl = trk_level(c), mute = !lvl || t->p[P_MUTE];
         uint32_t arm = (song.rec >> c) & 1u, st = arm ? (song.playing ? 1u : 2u) : mute ? 3u : 0u, sig;
         uint32_t len = t->p[P_SLEN] > 0 ? (uint32_t)t->p[P_SLEN] : 1u, row = 0xFFFFu;
         int32_t pk, m;
@@ -589,7 +590,7 @@ UI_SMALL static void draw_tracks(void)
         }
         /* head: number (white = selected), REC / ARM / MUTE */
         sig = 1u + sel + st * 2u;
-        if (ui.force || sig != ts.head[c]) {
+        if (ui.force || sig != ts.head[slot]) {
             ts.head[c] = sig;
             b[0] = (char)('1' + c);
             b[1] = 0;
@@ -610,7 +611,7 @@ UI_SMALL static void draw_tracks(void)
         while (b[0] && text_w(&FONT_S, b) > 54)
             b[str_len(b) - 1u] = 0;
         sig = str_hash(2u + sel, b);
-        if (ui.force || sig != ts.name[c]) {
+        if (ui.force || sig != ts.name[slot]) {
             ts.name[c] = sig;
             cv_begin(54, 16, C_BLACK);
             cv_text(0, 0, &FONT_S, b, sel ? C_HI : C_DIM);
@@ -618,12 +619,12 @@ UI_SMALL static void draw_tracks(void)
         }
         /* fader (LEVEL) + meter of the output */
         m = mute ? 0 : meter_px(pk);
-        if (m < ts.meter[c] - 3)
+        if (m < ts.meter[slot] - 3)
             m = ts.meter[c] - 3;                     /* falls ~20 dB/s */
         ts.meter[c] = (uint8_t)(m < 0 ? 0 : m);
         sig = 1u + lvl + ts.meter[c] * 128u + sel * 65536u + (sel && ui.hot_t && ui.hot_col == 1u) * 131072u +
               (t->p[P_MUTE] != 0) * 262144u;
-        if (ui.force || sig != ts.fader[c]) {
+        if (ui.force || sig != ts.fader[slot]) {
             int32_t fy = (int32_t)(TS_H - 2u) - (int32_t)lvl * (TS_H - 4) / 127;
             ts.fader[c] = sig;
             cv_begin(12, TS_H, C_BLACK);
@@ -640,7 +641,7 @@ UI_SMALL static void draw_tracks(void)
         }
         /* the pattern: one band per step over LEN, a note step as wide as its notes */
         sig = steps_hash(t) * 31u + len * 7u + sel;
-        if (ui.force || sig != ts.ov[c]) {
+        if (ui.force || sig != ts.ov[slot]) {
             uint32_t i;
             ts.ov[c] = sig;
             cv_begin(34, TS_H, C_BLACK);
@@ -665,7 +666,7 @@ UI_SMALL static void draw_tracks(void)
         if (song.playing)
             row = ((t->seq_idx % len) * 2u + 1u) * TS_H / (2u * len);
         sig = 1u + row + (st == 1u) * 65536u;
-        if (ui.force || sig != ts.mark[c]) {
+        if (ui.force || sig != ts.mark[slot]) {
             int32_t i;
             ts.mark[c] = sig;
             cv_begin(5, TS_H, C_BLACK);
