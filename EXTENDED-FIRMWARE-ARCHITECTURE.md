@@ -292,3 +292,16 @@ The implementation direction to evaluate is a bounded prefetch pipeline: read an
 The user has agreed that the FUN6-to-FUN7 migration may omit the old drum track's pattern and parameter data. This does **not** reduce the fixed FUN7 project size or the six-track runtime footprint: the new dedicated drum track still exists. It does simplify migration and avoids carrying old drum-channel state into the new drum architecture. The three legacy synth tracks remain mapped to synth tracks 0–2; new synth tracks 3–4 and the new drum track 5 are initialised from defaults. The old project remains recoverable through the untouched legacy firmware/backup route. The isolated converter and tests must be updated to reflect this decision before integration.
 
 No runtime, flash map, linker placement or audio behaviour has been changed by this audit.
+
+
+## Detailed RAM budget and single-buffer prefetch candidate (6 November 2026)
+
+The checked linker script defines `.noinit` as 0x3D50 (15,696 bytes). The four existing format-6 project slots consume 15,264 bytes, leaving only 432 bytes. Eight FUN7 section projects cannot be kept resident there (40,864 bytes). The checked RAM audit reports 333,900 of 344,064 bytes used in `.pool` (10,164 bytes free) and 58,220 of 98,304 bytes used in the ordinary RAM region (40,084 bytes free). These are baseline figures from the RAM audit, not measurements of a System 37 target build.
+
+A naïve pair of 5,108-byte section buffers would require 10,216 bytes, 52 bytes more than the reported free pool before accounting for the format growth of the song backup and autosave buffers. Each of those grows by 1,292 bytes, or 2,584 bytes combined. The ordinary RAM region has more reported headroom, but its import staging, track expansion and stack high-water marks still need measurement.
+
+The more promising candidate is one prefetch/staging project: the currently playing section is already materialised into live `trk[]` state by `proj_apply()`, so it need not remain as a second project object. Main-loop code can load and validate the next catalogue record into staging; the audio callback applies it at the boundary and signals that staging is reusable. The main loop then preloads the following arrangement entry. A strict ready/consumed handshake is required, and a late preload must never expose a partially written project to the audio callback.
+
+A second optimisation worth validating is sharing the full-project song-mode backup and autosave buffer. In the current code autosave exits while `song.playing`, and the reset/section flush path also avoids autosaving while the arrangement clock runs. That suggests their lifetimes do not overlap, but all editor import/export, reset and error paths must be checked before making them a union.
+
+No buffer has been allocated and no linker placement has changed. Before implementation, obtain a fresh SMK-37 target build/map and record `.bss`, `.pool`, `.noinit`, main-stack and supervisor-stack high-water marks. Then host-test the single-buffer state machine, including underrun, stale request, failed read, stop, loop, live jump and quick-chain cases.
