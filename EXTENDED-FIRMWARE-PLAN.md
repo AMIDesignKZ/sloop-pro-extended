@@ -66,3 +66,47 @@ These are accepted product-direction decisions and proposed scope. No firmware s
 ## Current status
 
 This is an implementation plan and audit checkpoint, not a completed firmware modification. No firmware source has been changed by this plan.
+
+
+## Verified source audit checkpoint (6 November 2026)
+
+The following details have now been checked against the current source, rather than inferred from the earlier plan:
+
+### Drum architecture and kits
+
+- The dedicated drum track already has a substantial synthesis engine in `drum_synth.c`. It synthesises tones, pitch drops, transient clicks, white/metal/cymbal/chip noise, clap bursts, resonant filtering, drive and sample-rate/bit-depth crushing. It is not dependent on the general SAMPLE synth engine.
+- The generated drum-kit source currently defines **31 synthesised kits**, including named `808`, `909`, `606`, `80S`, `VINTAGE`, `TECHNO`, `ELECTRO`, `SYNTHWV`, `CHIP`, `INDUSTR` and others. This already provides the requested 808 and 909 starting points, plus broad electronic coverage.
+- The drum UI also exposes four additional `SYN1`–`SYN4` kits through a separate `dsu_kit` path. These are distinct from the 31 generated `DS_KITS`; their definitions still need a separate audit before deciding whether to retain, rename or replace them.
+- Sampled drum kits and user-sample drum kits are handled separately in `drums.c`. Any removal of the selectable SAMPLE synth engine must leave this drum sample playback path intact.
+
+### FM6 bank capacity
+
+- FM6 is already a six-operator engine with 32 algorithms and standard DX7 128-byte voice packing/unpacking.
+- The standard 32-voice SysEx bank parser is not the limiting factor. The current persistent bank is limited to **27 user patches** because `FM6_BANK_N=27`, and its A/B storage object is 3,472 bytes.
+- One complete 32-patch bank requires 4,096 bytes of patch records alone, before metadata. It cannot fit in the current 3,840-byte storage-object payload.
+- The current editor labels patch slots B1–B27. The bank format, editor protocol, storage object allocation and backup/restore object numbering must all change together for multi-bank storage.
+- The requested number of complete banks is not yet fixed. Eight banks (256 patches) remains a possible target, not a confirmed flash allocation.
+
+### Track, project and memory constraints
+
+- The current source confirms `NPART=3`, `NTRK=4`, `TRK_DRUM=3`, `NLOCK=24`, and 64 steps. The project still stores a 6-bit micro-timing value plus a 2-bit fill condition for every step.
+- This differs from the accepted extended design of 12 locks and no micro-timing. Those reductions have not yet been implemented.
+- The current project structure is near the 3,840-byte object limit, and project sections are held in a four-element `.noinit` array. The linker reserves only 0x3D50 bytes for `.noinit`; simply doubling the section array is not viable. Eight sections need a deliberate RAM placement redesign as well as flash storage changes.
+- The arranger is already 16 entries, but `ARR_SCENES=4`; scene validation and UI are still hard-coded to A–D.
+- The four synth engines/parts and drum track are referenced across audio, FX, MIDI, project migration, UI and the browser editor. No global track-count change is safe until all of these references are audited.
+
+### Sample-slot map discrepancy to resolve before flash work
+
+- `eng_sample.c` currently defines four 40 KiB user slots at 0xC2000, 0xCC000, 0xD6000 and 0xE0000 (160 KiB total).
+- The SMK-37 flash-map comments describe the same 0xC2000–0xE9FFF region as two 80 KiB slots. The implementation and documentation therefore describe different logical layouts over the same physical range.
+- Before changing sample storage, choose between two 40 KiB slots (which would release two 40 KiB regions) and two 80 KiB slots (which would preserve total sample capacity but release no flash). No flash remapping has been made.
+
+### Immediate implementation order
+
+1. Finish the source-level dependency audit, including `SYN1`–`SYN4`, all engine IDs, RAM section placement, editor protocol and flash guard call sites.
+2. Add host-side size/layout checks and tests for the proposed project and FM6 bank formats before changing persistent structures.
+3. Design the six-track project representation and eight-section RAM/flash storage together. Keep the existing format readers for migration.
+4. Implement FM6 multi-bank storage as a versioned format with a safe A/B commit strategy; do not simply enlarge the current object.
+5. Only then begin changing the runtime track count and browser/device UI.
+
+No firmware source, flash address, stock region, recovery path or installed device has been changed by this audit.
