@@ -113,3 +113,15 @@ No exact byte saving or target fit is claimed. The next memory checkpoint must m
 ## 6. Current status
 
 This audit is source-derived and committed as a design checkpoint only. No board callbacks, runtime constants, `track_t`, voice pool, lock storage, engine arena, sequencer, UI, editor, flash map or linker layout have been changed. The project remains at the four-track runtime baseline. The next safe code change is step 1: isolate all FUN6 reader dependencies from live runtime constants and add explicit legacy regression checks.
+
+
+## Progress update — FUN6 count isolation completed
+
+The first recommended implementation step is now committed:
+
+- `project_v7.h` defines fixed FUN6 counts for four tracks, three synth parts, drum index 3, 64 steps and 24 locks, plus a fixed 64-step FUN7 dimension.
+- Compile-time assertions pin the historical counts and both wire sizes.
+- `project.c` and `tests/project_test.c` no longer refer to live `NTRK`, `NPART`, `NLOCK` or `TRK_DRUM` values.
+- The legacy project regression helper now uses the same frozen FUN6 constants.
+
+The change has been inspected at source/diff level. The project regression test and full test runner have not been compiled or executed. The next step is to obtain a baseline SMK-37 target build/map (the repository's build requires the JieLi Linux toolchain and SDK), then perform the synth-voice ownership refactor as an isolated change. Do not change runtime counts until those measurements and regression tests are available.
