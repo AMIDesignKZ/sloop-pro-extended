@@ -425,7 +425,7 @@ static int steal_test(const char *dir)
  * part 1 as a plain sine pad (ANALOG SINE KEY, filter open, slow release, no sends: smooth, so the largest
  * sample step is set by the pitches), (a) a chord held and released, the switch to DIGITAL in its release
  * tail; (b) twice a chord held, the switch to PHASE / LOFI while it is held (the preset change releases
- * it); (c) a switch to SAMPLE with a note in its second block: that note must sound on the new engine. As ui.c
+ * it); (c) a switch to FM6 with a note in its second block: that note must sound on the new engine. As ui.c
  * set_engine_of + apply_preset_to: eng_req, the new engine's values and panic_req at once (the main loop
  * writes them with the audio IRQ off). Compares the largest sample step in the 10 ms after (a) and (b)
  * with the largest one in the 0.1 s before (a hard cut of the voices: many times larger).
@@ -453,7 +453,7 @@ static int xfade_test(const char *dir)
     /* switches: (a) in a release tail, (b) twice with a chord held, (c) with a note right after it */
     const uint32_t sw[4] = {11u * B, 23u * B, 29u * B + 7u * CTL, 33u * B};
     const uint32_t on[3] = {B, 15u * B, 25u * B}, sine[3] = {14u * B, 24u * B, 32u * B};
-    const uint8_t to[4] = {1, 2, 3, 4};
+    const uint8_t to[4] = {ENGI_FM6, ENGI_ANALOG, ENGI_FM6, ENGI_FM6};
     char path[512];
     FILE *w;
     int32_t *L = calloc(frames + CTL, sizeof *L);
