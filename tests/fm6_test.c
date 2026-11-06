@@ -87,7 +87,6 @@ static void setup(const uint8_t *v, const int16_t *e)
 {
     uint32_t i;
     memset(trk, 0, sizeof trk);
-    memset(eng_arena, 0, sizeof eng_arena);       /* (2.5: the voices' state is in the parts' arena) */
     memset(eng_arena_own, 0, sizeof eng_arena_own);
     memset(fm6_eff, 0, sizeof fm6_eff);
     memset(fm6_lfo, 0, sizeof fm6_lfo);
@@ -615,7 +614,6 @@ static void demo(const char *dir, uint32_t pi)
         return;
     wav_hdr(w, 0);
     memset(trk, 0, sizeof trk);
-    memset(eng_arena, 0, sizeof eng_arena);       /* (2.5: the voices' state is in the parts' arena) */
     memset(eng_arena_own, 0, sizeof eng_arena_own);
     host_tracks_init();
     host_preset(&trk[0], ENGI_FM6, pi);
