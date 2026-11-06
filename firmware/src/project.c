@@ -19,7 +19,7 @@
  * defaults). Their engine bytes are kept: formats 1 and 2 had engines 0..7 (ANALOG .. WHEEL), and the
  * engines added since were appended, no index moved; the drum track's byte (it has no engine) becomes 0.
  *
- * Built on the host too (tests/project_test.c, -DPROJ_HOST): the part above the #ifndef
+ * Built on the host too (tests/project_v6_legacy_test.c, -DPROJ_HOST): the part above the #ifndef
  * PROJ_HOST needs core.h, params.c (TP), drums.c (the lanes), the engines and trk_def_engine (ui.c). */
 #ifndef UI_SMALL                 /* (2.7) compiled for size: not the audio path (gfx.c UI_SMALL); the host tests: nothing */
 #define UI_SMALL
@@ -50,8 +50,9 @@ _Static_assert(PROJ_NC6 == PROJ_NP_V5 - 8u && PROJ_NX6 == 10u, "format 6: format
  * structure is now explicitly frozen at four tracks and 24 locks. It no
  * longer changes if the live runtime later moves to six tracks / 12 locks. */
 typedef proj_trk_v6_t proj_trk_t;
-typedef project_v6_t project_t;
-_Static_assert(sizeof(project_t) == 3816u && sizeof(project_t) <= 3840u,
+typedef project_v6_t project_v6_legacy_t;
+typedef project_v7_t project_t;
+_Static_assert(sizeof(project_v6_legacy_t) == 3816u && sizeof(project_v6_legacy_t) <= 3840u,
                "FUN6 remains a 3,816-byte legacy flash object");
 /* Historical FUN1-FUN5 wire layouts. These are read-only migration inputs:
  * keep their field order and dimensions independent of the live runtime. */
@@ -146,7 +147,7 @@ UI_SMALL static void pt_set_mf(proj_trk_t *t, uint32_t i, int32_t micro, uint32_
     t->mf[i] = (uint8_t)(((uint32_t)micro & 63u) | (fill & 3u) << 6);
 }
 
-project_t proj_slot[4] __attribute__((section(".noinit")));
+project_v6_legacy_t proj_slot[4] __attribute__((section(".noinit")));
 
 UI_SMALL static uint32_t proj_hash(const void *p, uint32_t n)   /* FNV-1a over n bytes */
 {
@@ -156,8 +157,8 @@ UI_SMALL static uint32_t proj_hash(const void *p, uint32_t n)   /* FNV-1a over n
         s = (s ^ b[i]) * 16777619u;
     return s;
 }
-UI_SMALL static uint32_t proj_sum(const project_t *p) { return proj_hash(p, sizeof *p - 4u); }
-UI_SMALL static int proj_ok(const project_t *q) { return q->magic == PROJ_MAGIC && q->size == sizeof *q && q->sum == proj_sum(q); }
+UI_SMALL static uint32_t proj_sum(const project_v6_legacy_t *p) { return proj_hash(p, sizeof *p - 4u); }
+UI_SMALL static int proj_ok(const project_v6_legacy_t *q) { return q->magic == PROJ_MAGIC && q->size == sizeof *q && q->sum == proj_sum(q); }
 
 /* ---- old formats -> format 5 */
 /* an old step into a synth step (no level, no ratchet) */
@@ -240,7 +241,7 @@ UI_SMALL static void proj_trk_v2_to_v3(proj_trk_v3_t *d, const proj_trk_v2_t *s,
 }
 
 /* a format 4 project (n bytes in *v4) -> slot q as format 6: the same, no nudge, no lock, no condition, no FILTER */
-UI_SMALL static int proj_from_v4(project_t *q, const project_v4_t *v4, int n)
+UI_SMALL static int proj_from_v4(project_v6_legacy_t *q, const project_v4_t *v4, int n)
 {
     uint32_t i;
     if (n != (int)sizeof *v4 || v4->magic != PROJ_MAGIC_V4 || v4->size != sizeof *v4 ||
@@ -268,7 +269,7 @@ UI_SMALL static int proj_from_v4(project_t *q, const project_v4_t *v4, int n)
 
 /* a format 5 project (n bytes in *v5) -> slot q as format 6: by id, the 2.6 parameters at their defaults, each step's
  * nudge and condition into its byte, the locks as they were (a lock on P_E0.. follows its parameter's new id) */
-UI_SMALL static int proj_from_v5(project_t *q, const project_v5_t *v5, int n)
+UI_SMALL static int proj_from_v5(project_v6_legacy_t *q, const project_v5_t *v5, int n)
 {
     uint32_t i, k;
     if (n != (int)sizeof *v5 || v5->magic != PROJ_MAGIC_V5 || v5->size != sizeof *v5 ||
@@ -304,7 +305,7 @@ UI_SMALL static int proj_from_v5(project_t *q, const project_v5_t *v5, int n)
 }
 
 /* a format 3 project -> slot q as format 6 */
-UI_SMALL static void proj_from_v3_ok(project_t *q, const project_v3_t *v3)
+UI_SMALL static void proj_from_v3_ok(project_v6_legacy_t *q, const project_v3_t *v3)
 {
     uint32_t i;
     memset(q, 0, sizeof *q);
@@ -316,7 +317,7 @@ UI_SMALL static void proj_from_v3_ok(project_t *q, const project_v3_t *v3)
         proj_trk_from_v3(&q->t[i], &v3->t[i], i == PROJ_V6_DRUM_TRACK);
     q->sum = proj_sum(q);
 }
-UI_SMALL static int proj_from_v3(project_t *q, const project_v3_t *v3, int n)
+UI_SMALL static int proj_from_v3(project_v6_legacy_t *q, const project_v3_t *v3, int n)
 {
     if (n != (int)sizeof *v3 || v3->magic != PROJ_MAGIC_V3 || v3->size != sizeof *v3 ||
         v3->sum != proj_hash(v3, sizeof *v3 - 4u))
@@ -327,7 +328,7 @@ UI_SMALL static int proj_from_v3(project_t *q, const project_v3_t *v3, int n)
 
 static project_v3_t proj_v3_tmp;               /* (formats 1, 2: through format 3) */
 /* a format 2 project (n bytes in *v2) -> slot q as format 5 */
-UI_SMALL static int proj_from_v2(project_t *q, const project_v2_t *v2, int n)
+UI_SMALL static int proj_from_v2(project_v6_legacy_t *q, const project_v2_t *v2, int n)
 {
     project_v3_t *v3 = &proj_v3_tmp;
     uint32_t i;
@@ -345,7 +346,7 @@ UI_SMALL static int proj_from_v2(project_t *q, const project_v2_t *v2, int n)
 
 /* a format 1 project (n bytes in *v1) -> slot q as format 5: the instrument becomes track 1,
  * tracks 2..4 start empty (their sounds as at power-on) */
-UI_SMALL static int proj_from_v1(project_t *q, const project_v1_t *v1, int n)
+UI_SMALL static int proj_from_v1(project_v6_legacy_t *q, const project_v1_t *v1, int n)
 {
     project_v3_t *v3 = &proj_v3_tmp;
     uint32_t i;
@@ -373,9 +374,9 @@ UI_SMALL static int proj_from_v1(project_t *q, const project_v1_t *v1, int n)
 }
 
 /* n bytes of a stored project (any format) -> slot q as format 5; 0 = not a project */
-UI_SMALL static int proj_import(project_t *q, const void *b, int n)
+UI_SMALL static int proj_import(project_v6_legacy_t *q, const void *b, int n)
 {
-    if (n == (int)sizeof *q && proj_ok((const project_t *)b)) {
+    if (n == (int)sizeof *q && proj_ok((const project_v6_legacy_t *)b)) {
         memcpy(q, b, sizeof *q);
         return 1;
     }
