@@ -78,8 +78,8 @@ int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length, uint8_t 
     out->size = sizeof *out;
     memcpy(out->g, raw + offsetof(project_v6_t, g), sizeof out->g);
     memcpy(&out->sel, raw + offsetof(project_v6_t, sel), sizeof out->sel);
-    if (out->sel == 3u)
-        out->sel = 5u; /* retain selection of the new, defaulted drum track */
+    if (out->sel == PROJ_V6_DRUM_TRACK)
+        out->sel = PROJ_V7_DRUM_TRACK; /* keep the selected legacy drum track selected */
     else if (out->sel > 2u)
         out->sel = 0u;
     memcpy(&out->drdly, raw + offsetof(project_v6_t, drdly), sizeof out->drdly);
