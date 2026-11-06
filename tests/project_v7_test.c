@@ -36,7 +36,7 @@ int main(void)
         tr->engine = (uint8_t)(t + 2u);
         tr->preset = (uint8_t)(t + 10u);
         for (s = 0; s < NSTEP; ++s) {
-            tr->mf[s] = (uint8_t)(((s + t) & 63u) | ((s % 3u) << 6));
+            tr->mf[s] = (uint8_t)(((s + t) & 63u) | ((s % 4u) << 6));
             tr->step[s].note[0] = (uint8_t)(36u + s);
             tr->step[s].n = 1;
             tr->step[s].time = ST_NOTE;
