@@ -93,6 +93,16 @@ int main(void)
                  sm_map_valid(&map) && sm_capacity(&map, 0u) == 48896u &&
                  sm_capacity(&map, 1u) == 48896u &&
                  sm_capacity(&map, 0u) - S37_CAT_PAYLOAD_SIZE == 518u);
+    {
+        uint8_t blank[16];
+        uint32_t j;
+        memset(blank, 0, sizeof blank);
+        bad += check("blank catalogue source returns erased-flash bytes",
+                     s37_cat_blank_read(NULL, 0x1234u, blank, sizeof blank) == 0 &&
+                     ({ int all_ff = 1; for (j = 0; j < sizeof blank; ++j) all_ff &= blank[j] == 0xFFu; all_ff; }));
+        bad += check("blank catalogue source rejects a null destination",
+                     s37_cat_blank_read(NULL, 0u, NULL, sizeof blank) != 0);
+    }
 
     make_project(&replacement, 1u);
     expected[0] = replacement;
