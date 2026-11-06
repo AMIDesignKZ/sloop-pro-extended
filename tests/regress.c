@@ -3,8 +3,8 @@
 /* Regression suite of the FELUCCA DSP on the Mac (same sources as the firmware, through hostsim.c).
  *   build/host/regress [GOLDEN_FILE CPU_FILE]      (run_tests.sh builds and runs it)
  *
- * 1. golden renders: every engine x factory preset, the GM drum kit, the voice modes (POLY / MONO /
- *    LEGATO / UNISON) of three engines, the FX sends, a 4-track sequencer mix, and the SLICER (slicer.c:
+ * 1. golden renders: every selectable synth engine x factory preset, the GM drum kit, the voice modes (POLY / MONO /
+ *    LEGATO / UNISON) of the two selectable engines, the FX sends, a 4-track sequencer mix, and the SLICER (slicer.c:
  *    GATE / STUT on the phrase, and on the 4-track mix with the transport). Each render plays
  *    a fixed phrase (notes, an overlap, a chord, note-offs, the release tail) and is reduced to a
  *    64-bit FNV-1a hash of its output samples, compared with GOLDEN_FILE (tests/golden.txt).
@@ -358,10 +358,6 @@ static void job_cpu(const job_t *j)
         trk[p].p[P_VOICE] = V_POLY;
         trk[p].p[P_SUS] = 127;
         trk[p].p[P_AMODE] = 0;
-#if FELUCCA_SLICE
-        if (ENGINES[parts[p][0]] == &ENG_SLICE)
-            trk[p].p[P_E4] = SLC_LOOP;                  /* SLICE: its slices end by themselves; loop them */
-#endif
         for (i = 0; i < parts[p][2]; i++)
             trk_note_on(&trk[p], NOTES[i] + 12u * p, 100);
     }
@@ -901,22 +897,14 @@ int main(int argc, char **argv)
             j->e = (uint8_t)e;
             j->pi = (uint8_t)pi;
         }
-    {   /* mixes: idle (subtracted from the presets' counts), idle + drums, DIGITAL + PHASE + VOICE asking
-         * 8 + 8 + 4 (the budget keeps 8) + drums */
+    {   /* mixes: idle (subtracted from the preset counts), idle + drums, and the heaviest
+         * supported combination of FM6 and Analog parts with drums. The shared voice budget remains eight. */
         job_t *j;
-        j = add(J_CPU, "cpu/mix/3parts_heavy_now_drums");      /* (2.5 exp) FM6, GRAIN, TRIO */
+        j = add(J_CPU, "cpu/mix/3parts_fm6_analog_drums");
         memset(cpu_parts[ncpu], 0, sizeof cpu_parts[ncpu]);
         cpu_parts[ncpu][0][0] = ENGI_FM6, cpu_parts[ncpu][0][1] = 0, cpu_parts[ncpu][0][2] = 8;
-        cpu_parts[ncpu][1][0] = ENGI_GRAIN, cpu_parts[ncpu][1][1] = 0, cpu_parts[ncpu][1][2] = 8;
-        cpu_parts[ncpu][2][0] = 6, cpu_parts[ncpu][2][1] = 3, cpu_parts[ncpu][2][2] = 8;
-        cpu_parts[ncpu][NPART][0] = 1;
-        j->parts = (const uint8_t (*)[3])cpu_parts[ncpu++];
-        j->e = 0xFF;
-        j = add(J_CPU, "cpu/mix/3parts_phys_noise_drums");     /* (2.5 exp) PHYS SYMP, PHYS MODAL, NOISE */
-        memset(cpu_parts[ncpu], 0, sizeof cpu_parts[ncpu]);
-        cpu_parts[ncpu][0][0] = ENGI_PHYS, cpu_parts[ncpu][0][1] = 7, cpu_parts[ncpu][0][2] = 8;
-        cpu_parts[ncpu][1][0] = ENGI_PHYS, cpu_parts[ncpu][1][1] = 3, cpu_parts[ncpu][1][2] = 8;
-        cpu_parts[ncpu][2][0] = ENGI_NOISE, cpu_parts[ncpu][2][1] = 1, cpu_parts[ncpu][2][2] = 8;
+        cpu_parts[ncpu][1][0] = ENGI_ANALOG, cpu_parts[ncpu][1][1] = 0, cpu_parts[ncpu][1][2] = 8;
+        cpu_parts[ncpu][2][0] = ENGI_FM6, cpu_parts[ncpu][2][1] = 1, cpu_parts[ncpu][2][2] = 8;
         cpu_parts[ncpu][NPART][0] = 1;
         j->parts = (const uint8_t (*)[3])cpu_parts[ncpu++];
         j->e = 0xFF;
@@ -931,9 +919,9 @@ int main(int argc, char **argv)
         j->e = 0xFF;
         j = add(J_CPU, "cpu/mix/3parts_full_drums");
         memset(cpu_parts[ncpu], 0, sizeof cpu_parts[ncpu]);
-        cpu_parts[ncpu][0][0] = 1, cpu_parts[ncpu][0][1] = 0, cpu_parts[ncpu][0][2] = 8;
-        cpu_parts[ncpu][1][0] = 2, cpu_parts[ncpu][1][1] = 0, cpu_parts[ncpu][1][2] = 8;
-        cpu_parts[ncpu][2][0] = 5, cpu_parts[ncpu][2][1] = 0, cpu_parts[ncpu][2][2] = 4;
+        cpu_parts[ncpu][0][0] = ENGI_FM6, cpu_parts[ncpu][0][1] = 0, cpu_parts[ncpu][0][2] = 8;
+        cpu_parts[ncpu][1][0] = ENGI_ANALOG, cpu_parts[ncpu][1][1] = 0, cpu_parts[ncpu][1][2] = 8;
+        cpu_parts[ncpu][2][0] = ENGI_FM6, cpu_parts[ncpu][2][1] = 1, cpu_parts[ncpu][2][2] = 4;
         cpu_parts[ncpu][NPART][0] = 1;
         j->parts = (const uint8_t (*)[3])cpu_parts[ncpu++];
         j->e = 0xFF;
