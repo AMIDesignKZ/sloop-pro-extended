@@ -1931,8 +1931,8 @@ static void t_midicc(void)
     mi_r = mi_w;
     song.g[G_ROUTE] = 0;
     a = &trk[0]; b = &trk[1];
-    a->eng_req = a->engine = 0;                         /* ANALOG: has RES */
-    b->eng_req = b->engine = 1;                         /* DIGITAL: none */
+    a->eng_req = a->engine = ENGI_ANALOG;               /* ANALOG: CUT and RES */
+    b->eng_req = b->engine = ENGI_FM6;                  /* FM6: MLVL brightness, no RES */
     for (i = 0; i < 8u; i++)
         if (str_eq(ENGINES[0]->edit[i].label, "RES"))
             res = i;
@@ -1947,15 +1947,16 @@ static void t_midicc(void)
     run_block(); run_block();
     check(a->p[P_PAN] == -64 && a->p[P_E0 + 4] == ENGINES[0]->edit[4].min && a->p[P_TFLT] == 0 && a->p[P_LEVEL] == 127,
           "2.5: CC 0 / 127: the ends of the range");
-    cc_push(1, 74, 0);                                  /* (2.7) DIGITAL has no cutoff: the track FILTER, as before */
+    cc_push(1, 74, 0);                                  /* FM6 brightness maps to MLVL, not the track FILTER */
     run_block(); run_block();
-    check(b->p[P_TFLT] == -64 && !strcmp(ENGINES[0]->edit[4].label, "CUT"),
-          "CC 74 (2.7, after PR #71): the engine's cutoff (ANALOG CUT); an engine without one (DIGITAL): the FILTER");
+    check(b->p[P_E0 + 2] == ENGINES[ENGI_FM6]->edit[2].min && b->p[P_TFLT] == 0 &&
+          !strcmp(ENGINES[ENGI_FM6]->edit[2].label, "MLVL"),
+          "CC 74: ANALOG maps to CUT; FM6 maps to MLVL brightness; neither changes the track FILTER");
     cc_push(1, 74, 64);
     run_block(); run_block();
     cc_push(0, 71, 127);
     for (i = 0; i < P_COUNT; i++) before[i] = b->p[i];
-    cc_push(1, 71, 127); cc_push(1, 1, 99); cc_push(1, 64, 127);   /* DIGITAL has no RES; mod wheel, sustain: not mapped */
+    cc_push(1, 71, 127); cc_push(1, 1, 99); cc_push(1, 64, 127);   /* FM6 has no RES; mod wheel, sustain: not mapped */
     run_block(); run_block();
     for (i = 0; i < P_COUNT; i++) same &= b->p[i] == before[i];
     check(res < 8u && a->p[P_E0 + res] == 127 && same, "2.5: CC71 = the engine's RES; an engine without one, and unmapped CCs, change nothing");
