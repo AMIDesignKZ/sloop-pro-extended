@@ -1737,9 +1737,17 @@ UI_SMALL static uint32_t project_restore(uint32_t slot, const void *raw, uint32_
     if (slot == 8u) {
         if (!proj_import_v7(&autosave_buf, raw, n))
             return 2;
-        if (!flash_ok || s37_catalog_store_working(&autosave_buf))
+        if (!flash_ok || s37_cat_uncertain)
             return 4;
-        project_apply(&autosave_buf);
+        if (s37_cat_ready) {
+            if (s37_catalog_store_working(&autosave_buf))
+                return 4;
+            project_apply(&autosave_buf);
+        } else {
+            project_apply(&autosave_buf);
+            if (s37_catalog_write_full())
+                return 4;
+        }
         autosave_hash = autosave_buf.sum;
         return 0;
     }
