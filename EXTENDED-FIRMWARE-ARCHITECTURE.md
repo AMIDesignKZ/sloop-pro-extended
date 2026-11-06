@@ -373,3 +373,16 @@ Capture calls the global callback and each of the six track callbacks, then calc
 `tests/project_v7_live_test.c` covers six-track capture, globals and track round-trip, full-project apply, section-mode apply, validation failure on track index 5 with zero mutations, unsupported engine rejection, bad checksum rejection, and a failed capture callback. It is wired into `tests/run_tests.sh`.
 
 **Scope boundary:** this is the live-project adapter contract and host test, not yet the board-specific `track_t` callback implementation. The current runtime still has four `track_t` entries and 24 runtime locks. No `NTRK`, `NPART`, `NLOCK`, audio, UI, voice, linker, flash-map or live project apply changes have been made. The adapter test and full host runner have not yet been executed in this session, and no target build has been run. The next gate is to implement the board callbacks against the six-track runtime model, after the target memory audit and coordinated runtime-array migration. Do not connect `seq.c`/`arranger.c` until that board apply path exists.
+
+
+## 9. Source-level runtime migration audit (6 November 2026)
+
+The detailed dependency inventory is in `EXTENDED-FIRMWARE-RUNTIME-AUDIT.md`. It supersedes any implication that the FUN7 board callbacks can be implemented against the current runtime immediately.
+
+The audit confirms that `NPART` controls synth-only voice allocation, engine arenas, modulation and audio render units, while `NTRK` controls sequenced-track state, MIDI bookkeeping, editor protocol and track UI. The dedicated drum render unit remains separate. The target is five synth parts plus one drum track; the two counts must never be collapsed into one loop bound.
+
+A specific compatibility task remains before changing runtime constants: legacy `project.c` loops still refer to live `NTRK`, `NPART`, `NLOCK` and `TRK_DRUM` even though the FUN6 structures are now explicitly typed. Replace those dependencies with fixed FUN6 constants, including legacy drum index 3 and 24 locks. This prevents a future runtime count change from corrupting old project decoding.
+
+A candidate RAM improvement is to move synth voice slots out of `track_t` into a dedicated synth-part pool. The current drum track contains an unused inline synth voice array while its actual voices live in `drums.v[]`. Keep this as a candidate until it is refactored with unchanged three-part behaviour and regression tests. The engine arena union, two additional synth parts, FUN7 staging and backup buffers must all be measured against the exact target linker map before runtime expansion.
+
+No runtime constants, track layout, voice ownership, lock count, microtiming, audio path, linker placement or flash map have changed. The next implementation gate is FUN6 constant isolation and regression coverage, followed by target memory measurement.
