@@ -5,7 +5,7 @@ Branch: `extended-firmware`
 
 ## Purpose and boundary
 
-This is a source-level dependency audit for the six-track runtime conversion. It supersedes the earlier assumption that the next task is simply to implement board callbacks for `project_v7_live`. The adapter is ready as an interface, but the current live model is not.
+This is a source-level dependency audit for the six-track runtime conversion. The product direction has since been narrowed: System 37 is an alternative firmware with only Analog and FM6 as internal synth engines, and it does not need to import SLOOP project files. The adapter remains useful as a format boundary, but legacy project migration is no longer a product requirement.
 
 **No runtime source, constants, linker placement, flash map, or target firmware behaviour is changed by this audit.** The current model remains `NPART=3`, `NTRK=4`, `TRK_DRUM=3`, `NLOCK=24`.
 
@@ -138,3 +138,52 @@ The control-map source has now been checked directly:
 - The DAW-mode MIDI map has four fader controls in each of its two DAW banks. This is a separate MIDI-control mapping and should not be confused with the SLOOP FADER BANK A–E parameter pages.
 
 The target's four-fader/two-layer track mixer therefore remains a control-design gate. Before implementation, define which two track groups are controlled by the four faders, how the fifth synth and drum levels are addressed, and how the existing A–E parameter banks remain accessible (or are deliberately simplified). No mapping has been changed or assumed here.
+
+
+## Superseding decision — standalone engine scope and measured baseline (6 November 2026)
+
+The user has confirmed:
+
+- Internal synth engines are limited to Analog and FM6, freely assignable across five synth tracks.
+- System 37 uses its own engine IDs (Analog 0, FM6 1) in its own project format.
+- No SLOOP FUN1–FUN6 project import, historical engine-ID mapper or backwards-compatible project migration is required.
+- The dedicated drum synthesiser must retain the existing kit library, including 808 and 909, and sampled drum playback must remain available independently of the synth-engine list.
+
+This supersedes the earlier migration recommendations in this audit. FUN6 constants and readers may remain temporarily to keep the current branch compiling during the transition, but they are not part of the System 37 product contract and must not be used by the new project-loading path.
+
+### Unchanged SMK-37 target baseline
+
+The user built the unchanged extended-firmware source successfully on the exact SMK-37 target toolchain. The build report is:
+
+| Section / output | Used | Capacity | Free |
+|---|---:|---:|---:|
+| App image | 601,512 B | — | — |
+| .data + .bss | 63,948 B | 98,304 B | 34,356 B |
+| .lowram | 22,772 B | 29,360 B | 6,588 B |
+| .pool | 335,756 B | 344,064 B | 8,308 B |
+
+The ELF symbol table reports:
+
+- trk: 8,576 bytes, four × 2,144-byte track_t.
+- eng_arena: 25,776 bytes, three × 8,592-byte legacy multi-engine arenas.
+- proj_slot: 15,264 bytes, four legacy project slots in .noinit.
+
+Source-derived structure sizes:
+
+- voice_t: 84 bytes.
+- fm6_note_t: 244 bytes.
+- fm6_part_t: six FM6 note states (1,464 bytes) plus two 32-sample int32 buses (256 bytes), total 1,720 bytes.
+
+A five-part FM6-only allocation would therefore require 8,600 bytes rather than 42,960 bytes for five copies of the current legacy multi-engine arena. This is a calculated target design estimate; it has not yet been built or measured in the linker.
+
+### Next implementation unit
+
+The next isolated source change is to move synth voice slots out of track_t into a dedicated synth-only voice array and reduce the selectable engine/state model to Analog and FM6. Initially preserve NPART=3, NTRK=4, TRK_DRUM=3, NLOCK=24, the existing audio scheduling and the current drum voice subsystem. Do not combine this change with six-track expansion, lock reduction, microtiming removal, UI/editor changes or flash-map changes.
+
+The new engine table and voice ownership must be updated as one coordinated change. The Analog engine needs no separate arena; FM6 needs one 1,720-byte part state per synth part. Remove legacy engine-specific branches only after all compile-time references in voice.c, seq.c, fx.c, UI, editor and project code have been handled. The existing drum synthesis and sample playback paths must be verified explicitly.
+
+Required evidence before the next milestone:
+1. Full host test runner passes, including the previously added project/catalogue/prefetch/live-adapter tests.
+2. SMK-37 target build passes.
+3. .pool, .data + .bss, .lowram and app-image deltas are recorded against the baseline above.
+4. No change to audio scheduling, drum voice allocation or flash writes is introduced by this refactor.
