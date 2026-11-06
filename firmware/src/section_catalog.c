@@ -315,6 +315,18 @@ int s37_cat_overlay_read(void *context, uint32_t offset,
     return 0;
 }
 
+int s37_cat_blank_read(void *context, uint32_t offset,
+                       uint8_t *dst, uint32_t length)
+{
+    (void)context;
+    (void)offset;
+    if (!dst && length)
+        return -1;
+    if (length)
+        memset(dst, 0xFF, length);
+    return 0;
+}
+
 int s37_cat_create_read(void *context, uint32_t offset,
                         uint8_t *dst, uint32_t length)
 {
