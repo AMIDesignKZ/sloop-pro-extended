@@ -19,12 +19,21 @@ int proj_v7_valid(const project_v7_t *p)
            p->sum == proj_v7_hash(p, (uint32_t)sizeof *p - 4u);
 }
 
+/* Match seq.c p_lockable(): sequencing, arp, key and voice-mode controls
+ * must not become parameter locks during migration. */
+static int proj_v7_lockable(uint32_t id)
+{
+    return id <= P_LD_AMP || id == P_SGATE || (id >= P_DIST && id <= P_REV) || id == P_GLIDE || id == P_PAN ||
+           id == P_DETUNE || (id >= P_SLCR && id <= P_SLDEPTH) || (id >= P_E0 && id <= P_E7) || id == P_TFLT ||
+           (id >= P_IA && id <= P_IMIX);
+}
+
 /* Insert in ascending step order. Strictly-greater comparison keeps equal-step
  * locks in their original source-slot order. */
 static void keep_lock(proj_trk_v7_t *dst, const plock_t *src, uint32_t *count)
 {
     uint32_t at, limit = *count;
-    if (src->step == LOCK_FREE || src->step >= NSTEP || src->param >= P_COUNT)
+    if (src->step == LOCK_FREE || src->step >= NSTEP || src->param >= P_COUNT || !proj_v7_lockable(src->param))
         return;
     if (limit == PROJ_V7_LOCKS) {
         /* The list is sorted: a later/equal step cannot displace an earlier
