@@ -4,7 +4,7 @@ static uint32_t arrangement_ready(void)
 {
     uint32_t i, ready = 0;
     for (i = 0; i < ARR_SCENES; i++)
-        if (proj_ok(&proj_slot[i])) ready |= 1u << i;
+        if (project_valid(&proj_slot[i])) ready |= 1u << i;
     return ready;
 }
 
@@ -14,7 +14,7 @@ static uint32_t section_bars(uint32_t s)
 {
     const project_t *p = &proj_slot[s % ARR_SCENES];
     uint32_t k, bars = 1;
-    if (!proj_ok(p))
+    if (!project_valid(p))
         return 1;
     for (k = 0; k < NTRK; k++) {
         uint32_t len = (uint32_t)clamp(p->t[k].p[P_SLEN], 1, NSTEP), u = div_units((uint32_t)p->t[k].p[P_SDIV] % NDIV_STEP);
