@@ -90,7 +90,7 @@ int main(void)
                  now.t[3].engine == 0 && now.t[3].preset == 0xFFu && now.t[3].p[0] == common_defaults[0].def &&
                  now.t[3].x[0] == common_defaults[PROJ_V6_NC].def && now.t[3].e[0] == analog_defaults[0].def &&
                  now.t[4].engine == 0 && now.t[4].preset == 0xFFu && now.t[5].engine == 0 && now.t[5].preset == 0xFFu &&
-                 now.t[3].step[0].time == ST_REST && now.t[4].step[63].time == ST_REST && now.t[5].step[0].time == ST_REST &&
+                 now.t[3].step[0].time == ST_REST && now.t[4].step[63].time == ST_REST && now.t[5].step[0].time == ST_REST && now.t[5].e[0] == 0 &&
                  now.t[3].lock[0].step == LOCK_FREE && now.t[4].lock[11].step == LOCK_FREE && now.t[5].lock[11].step == LOCK_FREE);
     /* Boundary cases: exactly 12 locks needs no warning; a 13th later
      * lock is dropped and must raise the track's migration-warning bit. */
