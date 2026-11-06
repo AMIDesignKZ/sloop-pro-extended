@@ -113,15 +113,15 @@ UI_SMALL static void ed_live(const uint8_t *a, uint32_t na)
                 chain_n = 0;
             } else if (song.playing && !arrangement_clock.running && a[1] <= CHAIN_MAX && na >= 2u + a[1]) {
                 for (i = 0; i < a[1]; i++)
-                    if (!((arrangement_ready() >> (a[2 + i] & 3u)) & 1u))
+                    if (!((arrangement_ready() >> (a[2 + i] & 7u)) & 1u))
                         break;
                 if (i == a[1]) {
                     fm1_irq_off();
                     for (i = 0; i < a[1]; i++)
-                        chain_sec[i] = a[2 + i] & 3u;
+                        chain_sec[i] = a[2 + i] & 7u;
                     chain_i = 0;
-                    live_req = (int8_t)(a[2] & 3u);
-                    chain_bars = (uint8_t)section_bars(a[2] & 3u);
+                    live_req = (int8_t)(a[2] & 7u);
+                    chain_bars = (uint8_t)section_bars(a[2] & 7u);
                     chain_n = (uint8_t)(a[1] >= 2u ? a[1] : 0u);
                     fm1_irq_on();
                 } else {
@@ -160,8 +160,8 @@ UI_SMALL static void ed_live(const uint8_t *a, uint32_t na)
     ed_b(chain_n);
     ed_b(chain_i);
     ed_b(m);
-    ed_b(song.solo & 15u);
-    ed_b(song.rec & 15u);
+    ed_b(song.solo & 63u);
+    ed_b(song.rec & 63u);
     ed_b(song.sel);
     ed_b((uint32_t)(punch.req + 1));
     ed_b(clamp((int32_t)((song.cpu_q8 * 100u) >> 8), 0, 127));
@@ -169,7 +169,7 @@ UI_SMALL static void ed_live(const uint8_t *a, uint32_t na)
     ed_b(arrangement.count);
     ed_b(arrangement_clock.bar);
     ed_b(arrangement.entry[arrangement_clock.index % ARR_STEPS].bars);
-    ed_b(arrangement_ready() & 15u);
+    ed_b(arrangement_ready() & 255u);
     for (i = 0; i < NTRK; i++) {
         int32_t pk = i == TRK_DRUM ? drums.peak : trk[i].peak, lg = 0;
         ed_b(trk[i].seq_idx);
