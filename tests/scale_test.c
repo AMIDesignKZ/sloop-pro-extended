@@ -65,12 +65,8 @@ static void mapping_test(void)
         TDRUM->p[P_QUANT] = 2;
         assert(kb_map(TDRUM, k) == LANE_NOTE[lane_of_key(k)]);
     }
-    t->engine = t->eng_req = 4;
-    if (drum_set() >= 0) {
-        t->p[P_E0] = (int16_t)drum_set();
-        for (k = 0; k < 27u; k++)
-            assert(kb_map(t, k) == 36u + k);
-    }
+    /* The old drum-engine key map (36 + k) no longer exists: drums are TDRUM,
+     * and their current lane mapping is tested above. */
     t->engine = t->eng_req = 0;                /* SNAP (QNT 1, the old ON): every key, rounded down */
     t->p[P_QUANT] = 1;
     t->p[P_SCALE] = 2;                         /* C minor */
