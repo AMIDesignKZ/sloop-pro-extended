@@ -3,6 +3,7 @@
 #include "ui_pages_test.c"
 static uint8_t smk_fbank, smk_fbank_new;           /* (ui_input.c, SMK build) */
 #include "../firmware/src/ui_pick.c"
+static char knob_digit(uint32_t role) { return role == EN_SELECT ? '2' : '5'; } /* FM-1 knob layout */
 #include "../firmware/src/ui_fbank.c"
 #include "../firmware/src/ui_padgrid.c"
 
