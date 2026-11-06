@@ -31,6 +31,11 @@ uint32_t s37_pf_request(s37_prefetch_t *pf, uint8_t section)
          (pf->state == S37_PF_READY && pf->ready_section == section)))
         return pf->generation;
 
+    /* Invalidate a previously READY record first: an audio interrupt between
+     * this store and the new request fields must not consume the old section. */
+    S37_PF_BARRIER();
+    pf->state = S37_PF_REQUESTED;
+    S37_PF_BARRIER();
     generation = next_generation(pf->generation);
     pf->generation = generation;
     pf->requested_section = section;
@@ -38,7 +43,6 @@ uint32_t s37_pf_request(s37_prefetch_t *pf, uint8_t section)
     pf->ready_section = 0xFFu;
     pf->error = 0;
     S37_PF_BARRIER();
-    pf->state = S37_PF_REQUESTED;
     return generation;
 }
 
@@ -101,11 +105,13 @@ int s37_pf_take(s37_prefetch_t *pf, uint8_t expected_section)
 
 void s37_pf_cancel(s37_prefetch_t *pf)
 {
+    S37_PF_BARRIER();
+    pf->state = S37_PF_IDLE;
+    S37_PF_BARRIER();
     pf->generation = next_generation(pf->generation);
     pf->ready_generation = 0;
     pf->requested_section = 0xFFu;
     pf->ready_section = 0xFFu;
     pf->error = 0;
     S37_PF_BARRIER();
-    pf->state = S37_PF_IDLE;
 }
