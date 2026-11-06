@@ -591,7 +591,7 @@ static void t_clicks(void)
             worst = sw / (base + 50);
     }
     printf("  a preset over held notes: the switch's worst sample step %.1f x the note's own\n", worst);
-    check(worst < 1.5, "a preset loaded over held notes: they fade out with their own sound (no click: WHEEL, PHASE, FM6..)");
+    check(worst < 1.5, "a preset loaded over held notes: Analog and FM6 fade with their own sound (no click)");
     {
         double lp, ms;
         setup();
