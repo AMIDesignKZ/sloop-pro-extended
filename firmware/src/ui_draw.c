@@ -591,7 +591,7 @@ UI_SMALL static void draw_tracks(void)
         /* head: number (white = selected), REC / ARM / MUTE */
         sig = 1u + sel + st * 2u;
         if (ui.force || sig != ts.head[slot]) {
-            ts.head[c] = sig;
+            ts.head[slot] = sig;
             b[0] = (char)('1' + c);
             b[1] = 0;
             cv_begin(54, 16, C_BLACK);
@@ -612,7 +612,7 @@ UI_SMALL static void draw_tracks(void)
             b[str_len(b) - 1u] = 0;
         sig = str_hash(2u + sel, b);
         if (ui.force || sig != ts.name[slot]) {
-            ts.name[c] = sig;
+            ts.name[slot] = sig;
             cv_begin(54, 16, C_BLACK);
             cv_text(0, 0, &FONT_S, b, sel ? C_HI : C_DIM);
             cv_blit(x0, TS_NAME_Y);
@@ -620,13 +620,13 @@ UI_SMALL static void draw_tracks(void)
         /* fader (LEVEL) + meter of the output */
         m = mute ? 0 : meter_px(pk);
         if (m < ts.meter[slot] - 3)
-            m = ts.meter[c] - 3;                     /* falls ~20 dB/s */
-        ts.meter[c] = (uint8_t)(m < 0 ? 0 : m);
-        sig = 1u + lvl + ts.meter[c] * 128u + sel * 65536u + (sel && ui.hot_t && ui.hot_col == 1u) * 131072u +
+            m = ts.meter[slot] - 3;                     /* falls ~20 dB/s */
+        ts.meter[slot] = (uint8_t)(m < 0 ? 0 : m);
+        sig = 1u + lvl + ts.meter[slot] * 128u + sel * 65536u + (sel && ui.hot_t && ui.hot_col == 1u) * 131072u +
               (t->p[P_MUTE] != 0) * 262144u;
         if (ui.force || sig != ts.fader[slot]) {
             int32_t fy = (int32_t)(TS_H - 2u) - (int32_t)lvl * (TS_H - 4) / 127;
-            ts.fader[c] = sig;
+            ts.fader[slot] = sig;
             cv_begin(12, TS_H, C_BLACK);
             cv_rect(3, 0, 1, TS_H, C_LINE);
             if (lvl) {
@@ -635,15 +635,15 @@ UI_SMALL static void draw_tracks(void)
             } else {
                 cv_rect(0, TS_H - 2, 7, 2, C_DIM);
             }
-            if (ts.meter[c])
-                cv_rect(9, TS_H - ts.meter[c], 3, ts.meter[c], C_AMB);
+            if (ts.meter[slot])
+                cv_rect(9, TS_H - ts.meter[slot], 3, ts.meter[slot], C_AMB);
             cv_blit(x0, TS_Y);
         }
         /* the pattern: one band per step over LEN, a note step as wide as its notes */
         sig = steps_hash(t) * 31u + len * 7u + sel;
         if (ui.force || sig != ts.ov[slot]) {
             uint32_t i;
-            ts.ov[c] = sig;
+            ts.ov[slot] = sig;
             cv_begin(34, TS_H, C_BLACK);
             cv_rect(17, 0, 1, TS_H, C_LINE);
             for (i = 0; i < len; i++) {
@@ -668,7 +668,7 @@ UI_SMALL static void draw_tracks(void)
         sig = 1u + row + (st == 1u) * 65536u;
         if (ui.force || sig != ts.mark[slot]) {
             int32_t i;
-            ts.mark[c] = sig;
+            ts.mark[slot] = sig;
             cv_begin(5, TS_H, C_BLACK);
             if (row != 0xFFFFu)
                 for (i = -2; i <= 2; i++) {
