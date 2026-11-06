@@ -463,6 +463,9 @@ static void drum_tw_get(const project_t *p)
 }
 
 #if BOARD_SMK37
+typedef struct { const project_v7_t *image; } proj_v7_apply_context_t;
+static proj_v7_apply_context_t proj_v7_apply_context;
+
 static int proj_v7_capture_globals(void *context, project_v7_t *out)
 {
     uint32_t i;
@@ -548,7 +551,7 @@ static void proj_v7_apply_track(void *context, uint8_t index, const proj_trk_v7_
             i >= P_E0 && i <= P_E7 ? &ENGINES[e]->edit[i - P_E0] : &TP[i];
         t->p[i] = (int16_t)clamp(value, d->min, d->max);
     }
-    if (!(s->x[PROJ_V6_NX - 1u] & 0x40u) && !t->p[P_AMODE])
+    if (!(((proj_v7_apply_context_t *)context)->image->rsv[0] & 0x40u) && !t->p[P_AMODE])
         t->p[P_AHOLD] = 0;
     t->preset = (uint8_t)(ENGINES[e]->npresets ?
         (s->preset == 0xFFu ? 0u : s->preset) % ENGINES[e]->npresets : 0u);
@@ -584,7 +587,7 @@ static void proj_v7_apply_track(void *context, uint8_t index, const proj_trk_v7_
     fm6_track_loaded(t);
 }
 static const s37_project_v7_live_ops_t proj_v7_live_ops = {
-    .context = 0,
+    .context = &proj_v7_apply_context,
     .capture_globals = proj_v7_capture_globals,
     .capture_track = proj_v7_capture_track,
     .validate_globals = proj_v7_validate_globals,
@@ -599,7 +602,9 @@ UI_SMALL static void proj_capture(project_t *p)
 }
 static void proj_apply(const project_t *p, int all)
 {
+    proj_v7_apply_context.image = p;
     (void)s37_project_v7_apply(p, &proj_v7_live_ops, all);
+    proj_v7_apply_context.image = 0;
 }
 #else
 UI_SMALL static void proj_capture(project_t *p)        /* the original FM-1 FUN6 project */
