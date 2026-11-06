@@ -96,10 +96,13 @@ int main(void)
     {
         uint8_t blank[16];
         uint32_t j;
+        int all_ff = 1;
         memset(blank, 0, sizeof blank);
-        bad += check("blank catalogue source returns erased-flash bytes",
-                     s37_cat_blank_read(NULL, 0x1234u, blank, sizeof blank) == 0 &&
-                     ({ int all_ff = 1; for (j = 0; j < sizeof blank; ++j) all_ff &= blank[j] == 0xFFu; all_ff; }));
+        if (s37_cat_blank_read(NULL, 0x1234u, blank, sizeof blank) != 0)
+            all_ff = 0;
+        for (j = 0; j < sizeof blank; ++j)
+            if (blank[j] != 0xFFu) all_ff = 0;
+        bad += check("blank catalogue source returns erased-flash bytes", all_ff);
         bad += check("blank catalogue source rejects a null destination",
                      s37_cat_blank_read(NULL, 0u, NULL, sizeof blank) != 0);
     }
