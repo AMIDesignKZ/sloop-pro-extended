@@ -70,7 +70,7 @@ static void track_dist(track_t *t, int32_t *b, uint32_t n)
  * its top (smk_master_q12: 9 dB less at its power-on 724), so a held chord fits under it instead of turning the whole
  * mix down at every attack ("one note loud, a chord quieter"); the knob's top is as before, and louder peaks pass.
  * CLASSIC: SLOOP's, LIM_T and the knob as the FM-1's pot. tests/smk_mix_test.c */
-#define LIM_T_SOFT 36000
+#define LIM_T_SOFT 43000
 static uint8_t lim_classic;                     /* 0 SOFT, 1 CLASSIC (settings: project.c midi_part_fill) */
 #define LIM_TH (lim_classic ? LIM_T : LIM_T_SOFT)
 static uint32_t smk_master_q12(uint32_t k10, uint32_t classic)   /* the MASTER knob 0..1023 -> song.master_q12 */
