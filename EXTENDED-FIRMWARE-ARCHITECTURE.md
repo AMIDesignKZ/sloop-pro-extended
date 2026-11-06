@@ -50,7 +50,7 @@ System 37 is an alternative firmware based on SLOOP, not a backwards-compatible 
 - The incoming FM-1 remains an external MIDI instrument, not an internal engine.
 
 Remove the legacy selectable-engine table and its per-part arena members only after all remaining references in voice, sequencer, effects, UI, editor and project code have been accounted for. The final target engine-state allocation should be one FM6 state record per synth part; Analog requires no separate per-voice engine arena. Confirm the exact compiled size and linker placement with the SMK-37 toolchain.
- 
+
 ## 3. Project format
 
 System 37 owns its project format and does not import SLOOP FUN1–FUN6 projects. This deliberately removes the need to translate historical engine IDs or preserve old project semantics. The existing legacy readers may remain temporarily in the source during the runtime transition, but they are not part of the System 37 product contract and must not be connected to the new project-loading path.
