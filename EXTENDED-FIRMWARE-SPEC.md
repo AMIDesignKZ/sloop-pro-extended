@@ -1,23 +1,24 @@
-# SLOOP Pro Extended — functional specification
+# System 37 — functional specification
 
-Target: M-VAVE SMK-37 Pro. This document defines the agreed product target. It is not a claim that the firmware has been implemented or hardware-validated.
+Target: M-VAVE SMK-37 Pro. System 37 is an alternative firmware based on SLOOP, not a backwards-compatible SLOOP firmware. This document defines the intended product; it is not a claim that the firmware is implemented or hardware-validated.
 
 ## 1. Track model
 
 - Six independently sequenced tracks total.
 - Tracks 1–5 are synth tracks. Each can independently select Analog or FM6.
-- Track 6 is the dedicated drum track. It is not assignable to a synth engine.
-- Each synth part retains its own eight voice slots, but the existing global synth voice allocator limits the number of simultaneously sounding synth voices across all five parts to eight. Drum voices are separate.
+- Track 6 is the dedicated drum track and is not assignable to a synth engine.
+- Each synth part has eight voice-state slots, but the global synth allocator limits the number of simultaneously sounding synth voices across all five parts to eight. Drum voices are separate.
 - Five synth tracks must be supported by the mixer, effects, modulation, sequencing, MIDI, project format, device UI and browser editor.
-- Four physical faders remain. A two-layer fader assignment is the intended control model; exact button mapping is to be finalised after auditing the SMK-37 control map.
+- Four physical faders remain. A two-layer track-mixer assignment is the intended control model; exact button mapping remains a control-map design task.
 
 ## 2. Synth engines
 
-- The only selectable synth engines are Analog and FM6.
+- The only selectable internal synth engines are Analog and FM6.
 - Any of the five synth tracks may independently use either engine.
-- Analog is the primary subtractive engine for bass, leads and pads.
+- System 37 uses its own compact engine IDs: Analog = 0, FM6 = 1. These IDs belong to the new System 37 project format; they do not preserve SLOOP's historical engine numbering.
+- Analog is the subtractive engine for bass, leads and pads.
 - FM6 is a six-operator DX7-style FM engine with 32 algorithms.
-- Persistent engine IDs must never be renumbered. Legacy projects and presets using engines no longer selectable must load through an explicit compatibility mapper, defaulting unsupported sounds to Analog while retaining sequence, mix and common parameters.
+- Other SLOOP synth engines are out of scope and should not be included in the System 37 selectable engine table or per-part engine-state allocation.
 - The incoming external FM-1 is a separate future MIDI instrument and is not part of the SMK-37 internal engine or RAM budget.
 
 ## 3. FM6 patch library
@@ -26,54 +27,53 @@ Target: M-VAVE SMK-37 Pro. This document defines the agreed product target. It i
 - 32 patches per bank; 128 user patches total.
 - Each patch uses the standard 128-byte DX7 voice representation.
 - Import and export one standard 32-voice DX7 SysEx bank at a time into/from a selected user bank.
-- Existing 27 stored patches migrate to Bank A positions 1–27. Bank A positions 28–32 and Banks B–D start empty.
+- Existing FM6 patch-bank data may be retained where its format is directly compatible; this does not imply compatibility with SLOOP project files.
 - Factory patches remain available.
 - Bank storage must be versioned and A/B protected. The current 27-slot single-sector object is not the target format.
 
 ## 4. Drums and samples
 
 - One dedicated drum track.
-- Retain the existing synthesised drum engine and kit library, including 808, 909, 606, 80s, vintage, techno and other electronic kits.
+- Retain the existing synthesised drum engine and kit library, explicitly including the 808 and 909 kits, as well as 606, 80s, vintage, techno and other electronic kits.
 - Retain the four editable SYN1–SYN4 user synth kits.
-- Retain sampled drum playback and one user drum kit per retained user sample slot.
-- Keep persistent drum-kit IDs stable. Reserve the old USR3, USR4 and USR3+4 IDs; keep SYN1–SYN4 at their existing IDs. Legacy references to retired user kits must map to a safe available kit rather than being reinterpreted as a different kit.
+- Retain sampled drum playback and one user drum kit per retained user sample slot. Drum sample playback is independent of the selectable synth-engine list.
 - Two user sample slots, USR1 and USR2, each 40 KiB.
 - Retire USR3, USR4 and the USR3+4 paired kit from the new user interface.
 - Preserve the current sample encoding and upload semantics unless a measured issue requires a separately approved change.
-- Before reclaiming the old USR3/USR4 sectors, detect legacy data and provide an export/confirmation path. Do not silently overwrite user samples.
+- Before reclaiming the old USR3/USR4 sectors, inspect existing user data and provide an export/confirmation path. Do not silently overwrite user samples.
 
 ## 5. Sequencer and song structure
 
 - 64 steps per track.
-- Eight editable sections A–H. Each section stores all six tracks and the project-level musical state.
+- Eight editable sections A–H. Each section stores all six tracks and project-level musical state.
 - Preserve the existing 16-entry arrangement chain. Each entry may reference any section A–H and retain its bar duration and loop behaviour.
 - 12 parameter locks per track.
 - Remove per-step micro-timing/nudge.
-- Retain fill conditions, step notes/velocity, drum lanes, ratchets, swing and the other existing sequencer functions unless a specific compatibility issue is found.
-- Format migration must preserve fill conditions while discarding old micro-timing. If an old track has more than 12 valid locks, retain the 12 earliest-step locks; for locks on the same step, preserve their original slot order. Drop later-step locks and report the loss in the editor/migration status.
+- Retain fill conditions, step notes/velocity, drum lanes, ratchets, swing and other existing sequencer functions unless a specific design issue is found.
 
 ## 6. Mixing and MIDI
 
 - Four physical faders remain and all six tracks must have accessible level control.
-- Use a deliberate fader-layer model rather than making two tracks inaccessible. The precise layer button/assignment is a control-map design gate.
-- Extend per-synth-track MIDI channel configuration from three to five channels, preserving the meaning of existing settings. Drum channel and global FX channel behaviour remain separate.
+- Use a deliberate fader-layer model rather than making two tracks inaccessible. The precise layer/button assignment remains a design gate.
+- Extend per-synth-track MIDI channel configuration to five channels. Drum channel and global FX channel behaviour remain separate.
 - Update MIDI input/output routing, DAW mode, CC mapping, recording, track selection, solo/mute and editor controls for six tracks.
 
-## 7. Persistence and compatibility
+## 7. Persistence
 
-- New project format stores six tracks, 12 locks and fill conditions without micro-timing.
-- Existing format-6 projects migrate: old synth tracks 1–3 map to new synth tracks 1–3; new synth tracks 4–5 receive defaults; the old drum track maps to new track 6.
+- System 37 has its own versioned project format storing six tracks, 12 locks and fill conditions without micro-timing.
+- SLOOP FUN1–FUN6 project files are not a supported import format. No legacy engine mapper or old-project compatibility layer is required.
 - Eight sections are stored in a versioned A/B section catalogue.
 - Autosave remains supported and receives a two-sector-per-copy allocation.
 - FM6 receives four-bank versioned A/B storage.
-- Legacy four-slot sample backups remain readable: restore USR1 and USR2 only; ignore retired slots. New backups contain only USR1 and USR2.
+- New sample backups contain only USR1 and USR2. Whether old four-slot sample backups need a limited USR1/USR2 extraction path is a separate data-retention decision, not project compatibility.
 - Keep existing V16 recovery route and protected stock/bootloader/calibration regions untouched.
 
 ## 8. Non-goals
 
 - No internal FM-1 engine.
-- No increase to 64-step patterns or 16 arrangement entries.
+- No backwards compatibility with SLOOP project files or historical synth-engine IDs.
+- No increase beyond 64-step patterns or 16 arrangement entries.
 - No eight-bank FM6 library.
 - No per-step micro-timing.
 - No weakening of A/B power-loss protection to save flash.
-- No firmware build, installation or hardware change is authorised by this specification alone.
+- No firmware installation or hardware change is authorised by this specification alone.
