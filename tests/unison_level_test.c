@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* VOICE = UNISON about as loud as POLY, on every engine. Unison starts its extra voices at random phases (voice.c
+/* VOICE = UNISON about as loud as POLY, on every selectable System 37 engine (ANALOG and FM6). Unison starts its extra voices at random phases (voice.c
  * unison_spread) and at a lower level (the velocity: about the same sum). In phase they stack: 8 voices at 0.36 are
  * +9 dB over one. unison_spread moved ph[0] only, and most engines keep more oscillators (ph[1], ph[2], operators, a
  * sample's read position): their voices stacked in phase (ANALOG WARM PAD +12.9 dB, PHASE CZ LEAD +10.6, SAMPLE +8.4
