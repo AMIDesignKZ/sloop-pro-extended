@@ -60,9 +60,9 @@ int main(void)
     old.sum = proj_v7_hash(&old, sizeof old - 4u);
 
     bad += check("wire layouts: FUN6 3816 bytes; FUN7 5108 bytes; 6 tracks x 838", 
-                 sizeof old == 3816u && sizeof now == 5108u && sizeof(proj_trk_v7_t) == 838u);
+                 sizeof old == 3816u && sizeof now == 5396u && sizeof(proj_trk_v7_t) == 886u);
     bad += check("valid FUN6 image migrates to valid FUN7", proj_v6_to_v7(&now, &old, sizeof old, &lock_loss, common_defaults, analog_defaults) && proj_v7_valid(&now));
-    bad += check("lock truncation warning identifies only the three migrated synth tracks", lock_loss == 0x07u);
+    bad += check("all valid legacy locks fit without migration loss", lock_loss == 0u);
     ok = now.sel == 5u && now.drdly == old.drdly && !memcmp(now.g, old.g, sizeof old.g);
     for (t = 0; t < 3u; ++t) {
         const proj_trk_v6_t *a = &old.t[t];
@@ -86,37 +86,31 @@ int main(void)
                  now.t[0].lock[0].step == 1 && now.t[0].lock[1].step == 3 &&
                  now.t[0].lock[2].step == 3 && now.t[0].lock[3].step == 17 &&
                  now.t[0].lock[11].step == 24);
-    bad += check("new synth tracks 4–5 and dedicated drums start empty with defaults",
+    bad += check("new synth tracks 4–5 start empty with defaults",
                  now.t[3].engine == 0 && now.t[3].preset == 0xFFu && now.t[3].p[0] == common_defaults[0].def &&
                  now.t[3].x[0] == common_defaults[PROJ_V6_NC].def && now.t[3].e[0] == analog_defaults[0].def &&
-                 now.t[4].engine == 0 && now.t[4].preset == 0xFFu && now.t[5].engine == 0 && now.t[5].preset == 0xFFu &&
-                 now.t[3].step[0].time == ST_REST && now.t[4].step[63].time == ST_REST && now.t[5].step[0].time == ST_REST && now.t[5].e[0] == 0 &&
-                 now.t[3].lock[0].step == LOCK_FREE && now.t[4].lock[11].step == LOCK_FREE && now.t[5].lock[11].step == LOCK_FREE);
-    /* Boundary cases: exactly 12 locks needs no warning; a 13th later
-     * lock is dropped and must raise the track's migration-warning bit. */
-    for (k = 0; k < PROJ_V6_LOCKS; ++k)
-        old.t[0].lock[k] = (plock_t){LOCK_FREE, 0, 0};
-    for (k = 0; k < PROJ_V7_LOCKS; ++k)
-        old.t[0].lock[k] = (plock_t){(uint8_t)(11u - k), (uint8_t)(P_E0 + (k % 8u)), (int16_t)k};
-    old.sum = proj_v7_hash(&old, sizeof old - 4u);
-    lock_loss = 0xFFu;
-    ok = proj_v6_to_v7(&now, &old, sizeof old, &lock_loss, common_defaults, analog_defaults) && (lock_loss & 1u) == 0 &&
-         now.t[0].lock[0].step == 0 && now.t[0].lock[11].step == 11;
-    bad += check("exactly 12 valid locks migrate without a loss warning", ok);
-    old.t[0].lock[12] = (plock_t){12, P_E0, 12};
-    old.sum = proj_v7_hash(&old, sizeof old - 4u);
-    lock_loss = 0;
-    ok = proj_v6_to_v7(&now, &old, sizeof old, &lock_loss, common_defaults, analog_defaults) &&
-         (lock_loss & 1u) && now.t[0].lock[11].step == 11;
-    bad += check("13th later lock is dropped and raises a per-track warning", ok);
-
+                 now.t[4].engine == 0 && now.t[4].preset == 0xFFu &&
+                 now.t[3].step[0].time == ST_REST && now.t[4].step[63].time == ST_REST &&
+                 now.t[3].lock[0].step == LOCK_FREE && now.t[4].lock[23].step == LOCK_FREE);
+    /* The legacy drum track must move to track 6 intact, not be silently reset. */
+    {
+        const proj_trk_v6_t *a = &old.t[3];
+        const proj_trk_v7_t *b = &now.t[PROJ_V7_DRUM_TRACK];
+        ok = !memcmp(a->p, b->p, sizeof a->p) && !memcmp(a->e, b->e, sizeof a->e) &&
+             !memcmp(a->x, b->x, sizeof a->x) && a->engine == b->engine && a->preset == b->preset &&
+             !memcmp(a->dstep, b->dstep, sizeof a->dstep);
+        for (s = 0; s < NSTEP; ++s)
+            ok &= ((b->fill[s / 4u] >> (2u * (s % 4u))) & 3u) == (a->mf[s] >> 6);
+    }
+    bad += check("legacy drum kit, parameters, 64-step lane pattern and fill move to track 6", ok);
+    /* All 24 valid legacy locks now fit in FUN7 without truncation. */
     for (k = 0; k < PROJ_V6_LOCKS; ++k)
         old.t[0].lock[k] = (plock_t){(uint8_t)(23u - k), (uint8_t)(P_E0 + (k % 8u)), (int16_t)k};
     old.sum = proj_v7_hash(&old, sizeof old - 4u);
-    lock_loss = 0;
+    lock_loss = 0xFFu;
     ok = proj_v6_to_v7(&now, &old, sizeof old, &lock_loss, common_defaults, analog_defaults) &&
-         (lock_loss & 1u) && now.t[0].lock[0].step == 0 && now.t[0].lock[11].step == 11;
-    bad += check("24 valid locks: earliest 12 retained", ok);
+         lock_loss == 0u && now.t[0].lock[0].step == 0 && now.t[0].lock[23].step == 23;
+    bad += check("all 24 valid locks migrate without truncation", ok);
 
     for (k = 0; k < PROJ_V6_LOCKS; ++k)
         old.t[0].lock[k] = (plock_t){LOCK_FREE, 0, 0};
@@ -124,7 +118,7 @@ int main(void)
     lock_loss = 0;
     ok = proj_v6_to_v7(&now, &old, sizeof old, &lock_loss, common_defaults, analog_defaults) &&
          !(lock_loss & 1u) && now.t[0].lock[0].step == LOCK_FREE &&
-         now.t[0].lock[11].step == LOCK_FREE;
+         now.t[0].lock[23].step == LOCK_FREE;
     bad += check("empty lock array remains empty", ok);
 
     old.t[0].mf[0] ^= 1u;
