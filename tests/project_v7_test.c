@@ -70,7 +70,9 @@ int main(void)
         ok &= b->lock[0].step == 1 && b->lock[0].val == 17 &&
               b->lock[1].step == 3 && b->lock[1].val == 34 &&
               b->lock[2].step == 3 && b->lock[2].val == 35 &&
-              b->lock[3].step == 17 && b->lock[3].val == 7;
+              b->lock[3].step == 17 && b->lock[3].val == 7 &&
+              b->lock[6].step == 20 && b->lock[6].val == 200 &&
+              b->lock[7].step == 20 && b->lock[7].val == 10;
         for (k = 4; k < PROJ_V7_LOCKS; ++k)
             ok &= b->lock[k].step == LOCK_FREE;
     }
