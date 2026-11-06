@@ -355,3 +355,12 @@ The audit found an important remaining FUN6 compatibility issue: although the pr
 A memory-design candidate is to move synth `voice_t` slots out of `track_t` into a dedicated five-part voice pool. The current drum `track_t` embeds an unused synth voice array while the actual drum engine owns `drums.v[]` separately. This candidate must be implemented and regression-tested without changing current three-part behaviour before expanding to five synth parts. Engine arena growth and the target linker map remain hard gates.
 
 **No runtime source or constants changed.** The next safe implementation unit is to isolate FUN6 decode/conversion loops from the live constants and add regression assertions for the frozen four-track/24-lock wire format. Target sizes and stack/CPU measurements are still required before the six-track runtime patch.
+
+
+## Progress checkpoint — FUN6 reader count isolation (6 November 2026)
+
+The frozen FUN6 definitions now explicitly include four tracks, three synth parts, legacy drum index 3, 64 steps and 24 locks (`PROJ_V6_TRACKS`, `PROJ_V6_PARTS`, `PROJ_V6_DRUM_TRACK`, `PROJ_V6_STEPS`, `PROJ_V6_LOCKS`). Compile-time assertions pin those counts alongside the existing 934-byte track and 3,816-byte project sizes.
+
+All `NTRK`, `NPART`, `NLOCK` and `TRK_DRUM` references have been removed from the legacy `project.c` layer and its regression helper; their loops and drum identification now use explicit FUN6 constants. This prevents a future change to live runtime constants from silently changing the legacy project's iteration bounds or interpreting the old drum track as the new index 5.
+
+The changes are committed, but the project regression test and full host suite have **not** yet been compiled or run. This isolates the legacy count contract; it does not make the existing project capture/apply functions suitable for the future six-track runtime. Those functions remain legacy-only and must be replaced by the FUN7 live adapter before runtime expansion.
