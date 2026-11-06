@@ -31,7 +31,7 @@ These components are not yet the active project/section implementation. The runn
 4. Preserve parameter-lock data during migration where possible. Any unavoidable reduction must be explicit, tested and reported; it must not silently truncate valid locks.
 5. Keep old projects readable. Validate and checksum every image before applying it. Preflight the entire project before mutating live audio state.
 6. The eight-section catalogue is the authoritative A–H store. Existing four-slot project objects must be migrated or imported safely; do not erase or overwrite old data until the new catalogue has been validated and committed.
-7. Audit the SMK-37 flash map before assigning physical sectors to the multi-sector A/B catalogue. The catalogue is about 41 KB with the current FUN7 record size and needs multiple sectors per copy. Do not assume the four currently spare sectors are sufficient, and do not touch stock firmware, update, calibration, BT, key-mac or sample regions.
+7. Audit the SMK-37 flash map before assigning physical sectors to the multi-sector A/B catalogue. The catalogue is about 43 KB with 24 locks per track in each FUN7 record and needs multiple sectors per copy. Do not assume the four currently spare sectors are sufficient, and do not touch stock firmware, update, calibration, BT, key-mac or sample regions.
 
 ## Song arrangement
 
