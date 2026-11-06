@@ -285,3 +285,11 @@ Added an isolated, hardware-independent hand-off module:
 Local isolated host validation completed: strict C11 build with `-Wall -Wextra -Werror` passed, and the test passed. UBSan build and run also passed. ASan could not run in this environment because its runtime was not first in the process library list; this is an environment limitation, not a test failure. The full repository runner and SMK-37 target build were not run.
 
 This is only the tested hand-off primitive. It is not yet called by `seq.c` or `arranger.c`, and there is no flash loader or runtime staging buffer allocated. Before wiring it in, the integration must define how the next arrangement/quick-chain/live-jump section is predicted early enough to load before the boundary, and how PLAY is gated until the first song section is ready. A section that misses its boundary must never be partially applied; the integration policy must explicitly decide whether to hold the boundary/clock or report a prefetch underrun.
+
+## Progress checkpoint — legacy drum migration removed (6 November 2026)
+
+The isolated FUN6-to-FUN7 converter now migrates only legacy synth tracks 0–2. The old drum track at index 3 is intentionally ignored: its pattern, kit selection, per-lane sound values and parameter locks are not copied into FUN7. New synth tracks 3–4 and the dedicated drum track 5 are initialised from defaults. The new drum track's E0 value is explicitly set to the default drum kit (kit 0), rather than inheriting the Analog engine's E0 default. A saved selection of legacy track 3 still selects the new dedicated drum track at index 5.
+
+The migration test now expects lock-loss bits only for the three migrated synth tracks (mask 0x07), checks the three legacy synth tracks, and checks that all three new tracks are empty with default parameters and free locks. The old FUN6 source record is still validated as a complete 3,816-byte image before conversion; no legacy persistence or recovery path is changed.
+
+The source and test changes are committed and wired into the repository host runner. **The updated test has not yet been compiled or executed in this session.** The full host suite and SMK-37 target build remain unrun. This completes the migration-policy change only; it does not integrate FUN7 into live project persistence or the sequencer.
