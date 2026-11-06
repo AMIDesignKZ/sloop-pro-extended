@@ -101,13 +101,13 @@ int main(void)
         old.t[0].lock[k] = (plock_t){(uint8_t)(11u - k), (uint8_t)(P_E0 + (k % 8u)), (int16_t)k};
     old.sum = proj_v7_hash(&old, sizeof old - 4u);
     lock_loss = 0xFFu;
-    ok = proj_v6_to_v7(&now, &old, sizeof old, &lock_loss) && (lock_loss & 1u) == 0 &&
+    ok = proj_v6_to_v7(&now, &old, sizeof old, &lock_loss, common_defaults, analog_defaults) && (lock_loss & 1u) == 0 &&
          now.t[0].lock[0].step == 0 && now.t[0].lock[11].step == 11;
     bad += check("exactly 12 valid locks migrate without a loss warning", ok);
     old.t[0].lock[12] = (plock_t){12, P_E0, 12};
     old.sum = proj_v7_hash(&old, sizeof old - 4u);
     lock_loss = 0;
-    ok = proj_v6_to_v7(&now, &old, sizeof old, &lock_loss) &&
+    ok = proj_v6_to_v7(&now, &old, sizeof old, &lock_loss, common_defaults, analog_defaults) &&
          (lock_loss & 1u) && now.t[0].lock[11].step == 11;
     bad += check("13th later lock is dropped and raises a per-track warning", ok);
 
@@ -115,7 +115,7 @@ int main(void)
         old.t[0].lock[k] = (plock_t){(uint8_t)(23u - k), (uint8_t)(P_E0 + (k % 8u)), (int16_t)k};
     old.sum = proj_v7_hash(&old, sizeof old - 4u);
     lock_loss = 0;
-    ok = proj_v6_to_v7(&now, &old, sizeof old, &lock_loss) &&
+    ok = proj_v6_to_v7(&now, &old, sizeof old, &lock_loss, common_defaults, analog_defaults) &&
          (lock_loss & 1u) && now.t[0].lock[0].step == 0 && now.t[0].lock[11].step == 11;
     bad += check("24 valid locks: earliest 12 retained", ok);
 
@@ -123,7 +123,7 @@ int main(void)
         old.t[0].lock[k] = (plock_t){LOCK_FREE, 0, 0};
     old.sum = proj_v7_hash(&old, sizeof old - 4u);
     lock_loss = 0;
-    ok = proj_v6_to_v7(&now, &old, sizeof old, &lock_loss) &&
+    ok = proj_v6_to_v7(&now, &old, sizeof old, &lock_loss, common_defaults, analog_defaults) &&
          !(lock_loss & 1u) && now.t[0].lock[0].step == LOCK_FREE &&
          now.t[0].lock[11].step == LOCK_FREE;
     bad += check("empty lock array remains empty", ok);
