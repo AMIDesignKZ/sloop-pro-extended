@@ -105,8 +105,8 @@ enum {                          /* global parameters */
                                  * 1..16; seq.c remote_cc, ui_input.c remote_poll; a setting of the FM-1) */
     G_CLKOUT,                   /* SLOOP 2.7, GLO > MIDI 3: CLK OUT, the MIDI clock (24 a beat) and START / STOP out on USB
                                  * while SYNC is INT (seq.c clkout_block; a setting of the FM-1, kept in DR MAP's byte) */
-    G_FXFADE,                   /* SLOOP 2.7.2, the FX layer (FX held), SELECT: how fast a punch-in FX fades in and out, 0 (instant, as
-                                 * before) .. 15 (punch.c; a setting of the FM-1, kept in BEND's byte) */
+    G_FXFADE,                   /* SLOOP 2.7.2, the FX layer (FX held), SELECT: how fast a punch-in FX fades in and out */
+    G_CH4, G_CH5,               /* System 37: MIDI channels for synth tracks 4 and 5 (SMK-37 settings, not project data) */
     G_COUNT
 };
 
