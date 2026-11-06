@@ -72,13 +72,13 @@ int main(void)
         .max_length = S37_CAT_PAYLOAD_SIZE,
         .sectors = {
             {0x10000u,0x11000u,0x12000u,0x13000u,0x14000u,0x15000u,
-             0x16000u,0x17000u,0x18000u,0x19000u,0x1A000u},
+             0x16000u,0x17000u,0x18000u,0x19000u,0x1A000u,0x1B000u},
             {0x20000u,0x21000u,0x22000u,0x23000u,0x24000u,0x25000u,
-             0x26000u,0x27000u,0x28000u,0x29000u,0x2A000u}
+             0x26000u,0x27000u,0x28000u,0x29000u,0x2A000u,0x2B000u}
         },
-        .sector_count = {11u,11u}
+        .sector_count = {12u,12u}
     };
-    static project_v7_t scratch, replacement, loaded, expected[8];
+    static project_v7_t scratch, replacement, loaded, working, expected[8];
     sm_io_t io = {0, nor_read, nor_erase, nor_program};
     sm_state_t state;
     s37_cat_header_t header = {0};
@@ -87,12 +87,12 @@ int main(void)
     int bad = 0;
 
     memset(nor, 0xFF, sizeof nor);
-    bad += check("catalogue is 80-byte directory plus eight 5,396-byte records",
-                 sizeof(s37_cat_header_t) == 80u && S37_CAT_PAYLOAD_SIZE == 43248u);
-    bad += check("eleven-sector A/B extents provide sufficient capacity",
-                 sm_map_valid(&map) && sm_capacity(&map, 0u) == 44800u &&
-                 sm_capacity(&map, 1u) == 44800u &&
-                 sm_capacity(&map, 0u) - S37_CAT_PAYLOAD_SIZE == 1552u);
+    bad += check("catalogue is 84-byte directory plus eight sections and one working record",
+                 sizeof(s37_cat_header_t) == 84u && S37_CAT_PAYLOAD_SIZE == 48648u);
+    bad += check("twelve-sector A/B extents provide sufficient capacity",
+                 sm_map_valid(&map) && sm_capacity(&map, 0u) == 48896u &&
+                 sm_capacity(&map, 1u) == 48896u &&
+                 sm_capacity(&map, 0u) - S37_CAT_PAYLOAD_SIZE == 248u);
 
     make_project(&replacement, 1u);
     expected[0] = replacement;
@@ -123,6 +123,15 @@ int main(void)
                      s37_pf_take(&pf, 0u) && !memcmp(&scratch, &expected[0], sizeof scratch) &&
                      pf.state == S37_PF_IDLE);
     }
+    make_project(&working, 55u);
+    bad += check("prepare a working-project autosave overlay",
+                 s37_cat_prepare_working_overlay(&source, &io, &map, &state, &scratch, &working) == 0);
+    bad += check("commit working-project autosave without changing sections",
+                 sm_save_stream(&io, &map, s37_cat_overlay_read, &source, S37_CAT_PAYLOAD_SIZE, &state) == 0);
+    bad += check("working project validates and round-trips",
+                 s37_cat_validate(&io, &map, &state, &scratch, &header) == 0 &&
+                 s37_cat_load_working(&io, &map, &state, &loaded) == 0 &&
+                 !memcmp(&loaded, &working, sizeof loaded));
     {
         s37_cat_header_t invalid = header;
         invalid.present_mask ^= 0x02u;
