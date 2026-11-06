@@ -463,7 +463,7 @@ static void drum_tw_get(const project_t *p)
 }
 
 #if BOARD_SMK37
-typedef struct { const project_v7_t *image; } proj_v7_apply_context_t;
+typedef struct { const project_v7_t *image; project_v7_t *capture; } proj_v7_apply_context_t;
 static proj_v7_apply_context_t proj_v7_apply_context;
 
 static int proj_v7_capture_globals(void *context, project_v7_t *out)
@@ -475,7 +475,6 @@ static int proj_v7_capture_globals(void *context, project_v7_t *out)
     out->sel = song.sel;
     out->drdly = (uint8_t)song.g[G_DRDLY];
     proj_tx_put(out);
-    drum_tw_put(out);
     return 0;
 }
 static int proj_v7_capture_track(void *context, uint8_t index, proj_trk_v7_t *out)
@@ -499,6 +498,8 @@ static int proj_v7_capture_track(void *context, uint8_t index, proj_trk_v7_t *ou
     for (i = 0; i < NSTEP; i++)
         proj_v7_micro_set(out, i, t->micro[i]);
     memcpy(out->lock, t->lock, sizeof out->lock);
+    if (index == TRK_DRUM)
+        drum_tw_put(((proj_v7_apply_context_t *)context)->capture);
     return 0;
 }
 static int proj_v7_validate_globals(void *context, const project_v7_t *in, int all)
@@ -530,7 +531,6 @@ static void proj_v7_apply_track(void *context, uint8_t index, const proj_trk_v7_
 {
     track_t *t;
     uint32_t i, e;
-    (void)context;
     if (index >= NTRK)
         return -1;
     t = &trk[index];
@@ -597,8 +597,10 @@ static const s37_project_v7_live_ops_t proj_v7_live_ops = {
 };
 UI_SMALL static void proj_capture(project_t *p)
 {
+    proj_v7_apply_context.capture = p;
     if (s37_project_v7_capture(p, &proj_v7_live_ops))
         memset(p, 0, sizeof *p);
+    proj_v7_apply_context.capture = 0;
 }
 static void proj_apply(const project_t *p, int all)
 {
