@@ -199,6 +199,12 @@ static int st_prog(uint32_t off, const void *src, uint32_t n)
 }
 #define ST_XIP_PTR(off) fm1_xip_ptr(off)   /* sloop-lab: storage.c st_xip, an object read where it is (fm1_xip.h) */
 #include "storage.c"
+#if BOARD_SMK37
+#include "storage_multi.c"
+#include "project_v7.c"
+#include "project_v7_live.c"
+#include "section_catalog.c"
+#endif
 #endif
 #include "upreset.c"          /* user presets (read in the XIP window; the host test keeps a RAM mirror) */
 #include "project.c"
