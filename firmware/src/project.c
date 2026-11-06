@@ -728,6 +728,12 @@ static union {
     project_v2_t v2;
     project_v1_t v1;
 } proj_tmp;
+#if BOARD_SMK37
+/* Keep the raw legacy bytes in proj_tmp while converting into a separate FUN6 image.
+ * FUN1-FUN5 converters clear their destination before reading the source, so aliasing
+ * the input union with the output project corrupts those older formats. */
+static project_v6_legacy_t proj_import_stage;
+#endif
 UI_SMALL static void *up_stage(void) { return &proj_tmp; }   /* upreset.c: a user preset bank staged for a write */
 UI_SMALL static void proj_fetch(uint32_t slot)
 {
@@ -741,8 +747,8 @@ UI_SMALL static void proj_fetch(uint32_t slot)
         return;
     }
     n = slot < 4u ? st_load(OBJ_PROJECT0 + slot, &proj_tmp, sizeof proj_tmp) : 0;
-    if (n <= 0 || !proj_import(&proj_tmp.v6, &proj_tmp, n) ||
-        !proj_v6_to_v7(q, &proj_tmp.v6, sizeof proj_tmp.v6, &loss, TP, ENGINES[ENGI_ANALOG]->edit))
+    if (n <= 0 || !proj_import(&proj_import_stage, &proj_tmp, n) ||
+        !proj_v6_to_v7(q, &proj_import_stage, sizeof proj_import_stage, &loss, TP, ENGINES[ENGI_ANALOG]->edit))
         memset(q, 0, sizeof *q);
 #else
     project_t *q = &proj_slot[slot & 3u];
@@ -761,9 +767,9 @@ static int proj_import_v7(project_t *out, const void *raw, uint32_t length)
         memcpy(out, raw, sizeof *out);
         return 1;
     }
-    if (!proj_import(&proj_tmp.v6, raw, (int)length))
+    if (!proj_import(&proj_import_stage, raw, (int)length))
         return 0;
-    return proj_v6_to_v7(out, &proj_tmp.v6, sizeof proj_tmp.v6, &lock_loss,
+    return proj_v6_to_v7(out, &proj_import_stage, sizeof proj_import_stage, &lock_loss,
                          TP, ENGINES[ENGI_ANALOG]->edit);
 }
 #endif
@@ -1082,8 +1088,8 @@ static int s37_catalog_store_section(uint32_t slot, const project_t *p)
     if (def >= S37_CAT_SECTIONS)
         def = (uint8_t)slot;
     if (s37_cat_prepare_overlay(&s37_cat_overlay, &s37_cat_io, &s37_cat_map,
-                                &s37_cat_state, &s37_cat_scratch, (uint8_t)slot,
-                                bars, def, (project_v7_t *)p) ||
+                                &s37_cat_state, &s37_cat_scratch, (project_v7_t *)p,
+                                (uint8_t)slot, bars, def) ||
         sm_save_stream(&s37_cat_io, &s37_cat_map, s37_cat_overlay_read,
                        &s37_cat_overlay, S37_CAT_PAYLOAD_SIZE, &s37_cat_state) ||
         s37_cat_validate(&s37_cat_io, &s37_cat_map, &s37_cat_state,
@@ -1232,8 +1238,8 @@ UI_SMALL static void autosave_resume(void)              /* power-on: restore the
         if (s37_cat_uncertain)
             return;
         n = st_load(OBJ_AUTOSAVE, &proj_tmp, sizeof proj_tmp);
-        if (n <= 0 || !proj_import(&proj_tmp.v6, &proj_tmp, n) ||
-            !proj_v6_to_v7(q, &proj_tmp.v6, sizeof proj_tmp.v6, 0, TP, ENGINES[ENGI_ANALOG]->edit))
+        if (n <= 0 || !proj_import(&proj_import_stage, &proj_tmp, n) ||
+            !proj_v6_to_v7(q, &proj_import_stage, sizeof proj_import_stage, 0, TP, ENGINES[ENGI_ANALOG]->edit))
             return;
         s37_migrate_pending = 1u;
     } else if (!project_valid(q)) {
@@ -1814,7 +1820,11 @@ UI_SMALL static uint32_t settings_restore(const void *raw, uint32_t n)
     if (p.magic != PERSIST_MAGIC || p.palette >= NPALETTES || p.lowcut > 1u || p.zoom > 1u || !panel_valid(&p.panel))
         return 2;
 #if FELUCCA_ARRANGER
+#if BOARD_SMK37
+    if (!arr_valid(&p.arrangement, 255u))
+#else
     if (!arr_valid(&p.arrangement, 15u))
+#endif
         return 2;
     if ((song.playing || transport_req) && memcmp(&p.arrangement, &arrangement, sizeof arrangement))
         return 3;                                    /* SLOOP 2.5: a new song order only when stopped (as on the SONG screen) */
