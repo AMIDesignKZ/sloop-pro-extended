@@ -62,12 +62,11 @@ int main(void)
     bad += check("wire layouts: FUN6 3816 bytes; FUN7 5108 bytes; 6 tracks x 838", 
                  sizeof old == 3816u && sizeof now == 5108u && sizeof(proj_trk_v7_t) == 838u);
     bad += check("valid FUN6 image migrates to valid FUN7", proj_v6_to_v7(&now, &old, sizeof old, &lock_loss, common_defaults, analog_defaults) && proj_v7_valid(&now));
-    bad += check("lock truncation warning identifies all four migrated tracks (including drums)", lock_loss == 0x27u);
+    bad += check("lock truncation warning identifies only the three migrated synth tracks", lock_loss == 0x07u);
     ok = now.sel == 5u && now.drdly == old.drdly && !memcmp(now.g, old.g, sizeof old.g);
-    for (t = 0; t < 4u; ++t) {
-        uint32_t dest = (t == 3u) ? 5u : t;
+    for (t = 0; t < 3u; ++t) {
         const proj_trk_v6_t *a = &old.t[t];
-        const proj_trk_v7_t *b = &now.t[dest];
+        const proj_trk_v7_t *b = &now.t[t];
         ok &= !memcmp(a->p, b->p, sizeof a->p) && !memcmp(a->e, b->e, sizeof a->e) &&
               !memcmp(a->x, b->x, sizeof a->x) && a->engine == b->engine && a->preset == b->preset &&
               !memcmp(a->step, b->step, sizeof a->step);
@@ -80,19 +79,19 @@ int main(void)
               b->lock[6].step == 20 && b->lock[6].param == P_DIST && b->lock[6].val == 200 &&
               b->lock[7].step == 20 && b->lock[7].param == P_E2 && b->lock[7].val == 10;
     }
-    bad += check("all four legacy tracks, parameters, engine IDs and 64-step patterns preserved", ok);
+    bad += check("three legacy synth tracks, parameters, engine IDs and 64-step patterns preserved", ok);
     bad += check("fill conditions retained in 16 packed bytes; microtiming removed",
                  now.t[0].fill[0] != 0 && now.t[0].fill[15] != 0);
     bad += check("locks sorted by step, stable ties, earliest 12 retained, invalid entries skipped",
                  now.t[0].lock[0].step == 1 && now.t[0].lock[1].step == 3 &&
                  now.t[0].lock[2].step == 3 && now.t[0].lock[3].step == 17 &&
                  now.t[0].lock[11].step == 24);
-    bad += check("new synth tracks 4 and 5 are empty; legacy drum track is moved to track 6",
+    bad += check("new synth tracks 4–5 and dedicated drums start empty with defaults",
                  now.t[3].engine == 0 && now.t[3].preset == 0xFFu && now.t[3].p[0] == common_defaults[0].def &&
-                 now.t[3].x[0] == common_defaults[PROJ_V6_NC].def && now.t[3].e[0] == analog_defaults[0].def && now.t[4].engine == 0 &&
-                 now.t[4].preset == 0xFFu && now.t[3].step[0].time == ST_REST &&
-                 now.t[4].step[63].time == ST_REST && now.t[3].lock[0].step == LOCK_FREE &&
-                 now.t[4].lock[11].step == LOCK_FREE && now.t[5].lock[11].step != LOCK_FREE);
+                 now.t[3].x[0] == common_defaults[PROJ_V6_NC].def && now.t[3].e[0] == analog_defaults[0].def &&
+                 now.t[4].engine == 0 && now.t[4].preset == 0xFFu && now.t[5].engine == 0 && now.t[5].preset == 0xFFu &&
+                 now.t[3].step[0].time == ST_REST && now.t[4].step[63].time == ST_REST && now.t[5].step[0].time == ST_REST &&
+                 now.t[3].lock[0].step == LOCK_FREE && now.t[4].lock[11].step == LOCK_FREE && now.t[5].lock[11].step == LOCK_FREE);
     /* Boundary cases: exactly 12 locks needs no warning; a 13th later
      * lock is dropped and must raise the track's migration-warning bit. */
     for (k = 0; k < PROJ_V6_LOCKS; ++k)
