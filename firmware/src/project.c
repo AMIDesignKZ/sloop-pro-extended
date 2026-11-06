@@ -162,6 +162,10 @@ project_t proj_slot[4] __attribute__((section(".noinit")));
 #endif
 #if BOARD_SMK37
 static uint8_t s37_cat_ready, s37_migrate_pending, s37_cat_uncertain;
+/* Catalogue objects are used by the boot/migration routines above their
+ * initialised definitions below; keep their declarations visible first. */
+static sm_map_t s37_cat_map;
+static const sm_io_t s37_cat_io;
 static void s37_catalog_boot(void);
 static int s37_catalog_load_section(uint32_t slot, project_t *p);
 #endif
@@ -780,7 +784,6 @@ static const char *const SEC_NAME[8] = {"A", "B", "C", "D", "E", "F", "G", "H"};
 #if BOARD_SMK37
 static uint8_t proj_save_err;                   /* SLOOP Pro: the last project_save could not write the flash (editor.c) */
 #if BOARD_SMK37
-static uint8_t s37_cat_ready, s37_migrate_pending, s37_cat_uncertain;
 static void s37_catalog_boot(void)
 {
     uint32_t i;
