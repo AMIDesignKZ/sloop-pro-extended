@@ -305,3 +305,12 @@ The more promising candidate is one prefetch/staging project: the currently play
 A second optimisation worth validating is sharing the full-project song-mode backup and autosave buffer. In the current code autosave exits while `song.playing`, and the reset/section flush path also avoids autosaving while the arrangement clock runs. That suggests their lifetimes do not overlap, but all editor import/export, reset and error paths must be checked before making them a union.
 
 No buffer has been allocated and no linker placement has changed. Before implementation, obtain a fresh SMK-37 target build/map and record `.bss`, `.pool`, `.noinit`, main-stack and supervisor-stack high-water marks. Then host-test the single-buffer state machine, including underrun, stale request, failed read, stop, loop, live jump and quick-chain cases.
+
+
+## Section prefetch hand-off prototype — tested, not integrated (6 November 2026)
+
+The new `section_prefetch` module is an isolated state machine for the single staging-buffer design. It has five states: IDLE, REQUESTED, LOADING, READY and FAILED. Main/UI requests carry a generation ticket; the main loop loads and validates the record; READY is published only after validation; the audio-boundary consumer takes a matching section exactly once. Superseded tickets, cancellation and failed loads cannot publish stale/partial records. The module performs no I/O and does not own the staging buffer.
+
+The host test is wired into `tests/run_tests.sh`. Isolated strict C11 compilation (`-Wall -Wextra -Werror`) and execution passed; a UBSan build and execution passed. ASan execution was blocked by the local environment's ASan runtime ordering. The full repository test runner and SMK-37 target build remain unrun.
+
+The state machine is deliberately not yet connected to `seq.c` or `arranger.c`. Integration still needs a pre-boundary prefetch policy for the 16-entry arrangement, quick chain and live section jumps, plus first-section readiness before song playback starts. It must define deterministic underrun behaviour; a late or invalid load must never be applied. No runtime buffer, flash map or audio callback has been changed.
