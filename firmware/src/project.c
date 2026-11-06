@@ -445,12 +445,12 @@ UI_SMALL static void drum_tw_put(project_t *p)
                 w[(l * 7u + b) / 16u] |= (uint16_t)(1u << ((l * 7u + b) % 16u));
     }
     for (l = 0; l < 7u; l++)
-        p->t[PROJ_V6_DRUM_TRACK].e[l + 1u] = (int16_t)w[l];
-    p->g[G_SAVE] = (int16_t)(DRUM_TW_MARK | drum_tw_sum(p->t[PROJ_V6_DRUM_TRACK].e));
+        p->t[PROJ_LIVE_DRUM_TRACK].e[l + 1u] = (int16_t)w[l];
+    p->g[G_SAVE] = (int16_t)(DRUM_TW_MARK | drum_tw_sum(p->t[PROJ_LIVE_DRUM_TRACK].e));
 }
 static void drum_tw_get(const project_t *p)
 {
-    const int16_t *e = p->t[PROJ_V6_DRUM_TRACK].e;
+    const int16_t *e = p->t[PROJ_LIVE_DRUM_TRACK].e;
     uint32_t l, b, ok = (uint16_t)p->g[G_SAVE] == (DRUM_TW_MARK | drum_tw_sum(e));
     for (l = 0; l < DRUM_LANES; l++) {
         uint32_t v = 0;
@@ -462,7 +462,147 @@ static void drum_tw_get(const project_t *p)
     }
 }
 
-UI_SMALL static void proj_capture(project_t *p)        /* what is playing now, as a project */
+#if BOARD_SMK37
+static int proj_v7_capture_globals(void *context, project_v7_t *out)
+{
+    uint32_t i;
+    (void)context;
+    for (i = 0; i < PROJ_V7_GLOBALS; i++)
+        out->g[i] = song.g[i];
+    out->sel = song.sel;
+    out->drdly = (uint8_t)song.g[G_DRDLY];
+    proj_tx_put(out);
+    drum_tw_put(out);
+    return 0;
+}
+static int proj_v7_capture_track(void *context, uint8_t index, proj_trk_v7_t *out)
+{
+    const track_t *t;
+    uint32_t i;
+    (void)context;
+    if (index >= NTRK)
+        return -1;
+    t = &trk[index];
+    for (i = 0; i < PROJ_V6_NC; i++)
+        out->p[i] = (int8_t)clamp(t->p[i], -128, 127);
+    for (i = 0; i < 8u; i++)
+        out->e[i] = t->p[P_E0 + i];
+    for (i = 0; i < PROJ_V6_NX; i++)
+        out->x[i] = (uint8_t)t->p[PROJ_V6_NC + i];
+    out->engine = index < NPART ? t->eng_req : 0u;
+    out->preset = t->preset;
+    memcpy(out->step, t->step, sizeof out->step);
+    memcpy(out->fill, t->fill, sizeof out->fill);
+    for (i = 0; i < NSTEP; i++)
+        proj_v7_micro_set(out, i, t->micro[i]);
+    memcpy(out->lock, t->lock, sizeof out->lock);
+    return 0;
+}
+static int proj_v7_validate_globals(void *context, const project_v7_t *in)
+{
+    (void)context;
+    return in->sel < NTRK ? 0 : -1;
+}
+static int proj_v7_validate_track(void *context, uint8_t index, const proj_trk_v7_t *in)
+{
+    (void)context;
+    (void)in;
+    return index < NTRK ? 0 : -1; /* unsupported legacy engines are safely substituted during apply */
+}
+static int proj_v7_apply_globals(void *context, const project_v7_t *in, int all)
+{
+    uint32_t i;
+    (void)context;
+    for (i = 0; i < PROJ_V7_GLOBALS; i++)
+        if (all ? i != G_SLOT && i != G_LOAD && i != G_SAVE && i != G_SYNC && i != G_MIDI &&
+                      i != G_ROUTE && i != G_DRCH && i != G_INFO
+                : i == G_DRLVL || i == G_DRREV)
+            song.g[i] = (int16_t)clamp(in->g[i], GP[i].min, GP[i].max);
+    song.g[G_DRDLY] = (int16_t)clamp(in->drdly, GP[G_DRDLY].min, GP[G_DRDLY].max);
+    proj_tx_get(in);
+    drum_tw_get(in);
+    return 0;
+}
+static int proj_v7_apply_track(void *context, uint8_t index, const proj_trk_v7_t *s)
+{
+    track_t *t;
+    uint32_t i, e;
+    (void)context;
+    if (index >= NTRK)
+        return -1;
+    t = &trk[index];
+    e = index < NPART ? (s->engine < NENGINES ? s->engine : trk_def_engine(index)) : 0u;
+    t->eng_req = (uint8_t)e;
+    t->user = 0;
+    t->lk_n = 0;
+    for (i = 0; i < P_COUNT; i++) {
+        int32_t value;
+        const param_desc_t *d;
+        if (i < PROJ_V6_NC)
+            value = s->p[i];
+        else if (i < PROJ_V6_NC + PROJ_V6_NX)
+            value = s->x[i - PROJ_V6_NC];
+        else
+            value = s->e[i - PROJ_V6_NC - PROJ_V6_NX];
+        d = index == TRK_DRUM && i == P_E0 ? &DRUM_KIT_DESC :
+            i >= P_E0 && i <= P_E7 ? &ENGINES[e]->edit[i - P_E0] : &TP[i];
+        t->p[i] = (int16_t)clamp(value, d->min, d->max);
+    }
+    if (!(s->x[PROJ_V6_NX - 1u] & 0x40u) && !t->p[P_AMODE])
+        t->p[P_AHOLD] = 0;
+    t->preset = (uint8_t)(ENGINES[e]->npresets ?
+        (s->preset == 0xFFu ? 0u : s->preset) % ENGINES[e]->npresets : 0u);
+    memcpy(t->step, s->step, sizeof t->step);
+    memcpy(t->fill, s->fill, sizeof t->fill);
+    for (i = 0; i < NSTEP; i++)
+        t->micro[i] = (int8_t)proj_v7_micro_get(s, i);
+    for (i = 0; i < PROJ_V7_LOCKS; i++) {
+        const plock_t *l = &s->lock[i];
+        uint32_t id = l->param;
+        if (l->step < NSTEP && id < P_COUNT && p_lockable(id)) {
+            const param_desc_t *d = index == TRK_DRUM && id == P_E0 ? &DRUM_KIT_DESC :
+                id >= P_E0 && id <= P_E7 ? &ENGINES[e]->edit[id - P_E0] : &TP[id];
+            t->lock[i].step = l->step;
+            t->lock[i].param = (uint8_t)id;
+            t->lock[i].val = (int16_t)clamp(l->val, d->min, d->max);
+        } else {
+            t->lock[i].step = LOCK_FREE;
+            t->lock[i].param = 0;
+            t->lock[i].val = 0;
+        }
+    }
+    if (index != TRK_DRUM)
+        for (i = 0; i < NSTEP; i++) {
+            step_t *st = &t->step[i];
+            uint32_t j;
+            if (st->n > 4u) st->n = 4u;
+            if (st->time > ST_REST) st->time = ST_REST;
+            st->vel &= 127u;
+            for (j = 0; j < 4u; j++)
+                st->note[j] &= 127u;
+        }
+    fm6_track_loaded(t);
+    return 0;
+}
+static const s37_project_v7_live_ops_t proj_v7_live_ops = {
+    .capture_globals = proj_v7_capture_globals,
+    .capture_track = proj_v7_capture_track,
+    .validate_globals = proj_v7_validate_globals,
+    .validate_track = proj_v7_validate_track,
+    .apply_globals = proj_v7_apply_globals,
+    .apply_track = proj_v7_apply_track
+};
+UI_SMALL static void proj_capture(project_t *p)
+{
+    if (s37_project_v7_capture(p, &proj_v7_live_ops))
+        memset(p, 0, sizeof *p);
+}
+static void proj_apply(const project_t *p, int all)
+{
+    (void)s37_project_v7_apply(p, &proj_v7_live_ops, all);
+}
+#else
+UI_SMALL static void proj_capture(project_t *p)        /* the original FM-1 FUN6 project */
 {
     uint32_t i;
     memset(p, 0, sizeof *p);
@@ -484,44 +624,38 @@ UI_SMALL static void proj_capture(project_t *p)        /* what is playing now, a
             pt_set_mf(&p->t[i], k, trk[i].micro[k], (uint32_t)trk[i].fill[k / 4u] >> (2u * (k % 4u)));
         memcpy(p->t[i].lock, trk[i].lock, sizeof trk[i].lock);
     }
-    drum_tw_put(p);                                     /* (2.7) the drum sounds' TUNE and DECAY */
+    drum_tw_put(p);
     p->sum = proj_sum(p);
 }
-
-/* a project's tracks (and its globals, all: a load; or only the drum level / reverb / delay: a song
- * section) into the working one, every value back inside its range. The audio ISR must not run
- * meanwhile (the song sections: called from it; a load: IRQ off) */
 static void proj_apply(const project_t *p, int all)
 {
     uint32_t i, k;
     for (i = 0; i < PROJ_NG; i++)
         if (all ? i != G_SLOT && i != G_LOAD && i != G_SAVE && i != G_SYNC && i != G_MIDI && i != G_ROUTE && i != G_DRCH &&
                       i != G_INFO
-                : i == G_DRLVL || i == G_DRREV)                 /* (2.6: the drum channel a setting of the FM-1, GLO > MIDI;
-                                                                 * its slot and G_INFO's hold the TEXTURE) */
+                : i == G_DRLVL || i == G_DRREV)
             song.g[i] = (int16_t)clamp(p->g[i], GP[i].min, GP[i].max);
-    song.g[G_DRDLY] = (int16_t)clamp(p->drdly, GP[G_DRDLY].min, GP[G_DRDLY].max);   /* (a load and a section, as REV) */
-    proj_tx_get(p);                                     /* GLO > TEXTURE (2.6): a load and a section */
-    drum_tw_get(p);                                     /* (2.7) the drum sounds' TUNE and DECAY: a load and a section */
+    song.g[G_DRDLY] = (int16_t)clamp(p->drdly, GP[G_DRDLY].min, GP[G_DRDLY].max);
+    proj_tx_get(p);
+    drum_tw_get(p);
     for (k = 0; k < PROJ_V6_TRACKS; k++) {
         track_t *t = &trk[k];
         const proj_trk_t *s = &p->t[k];
         uint32_t e = k < PROJ_V6_PARTS ? s->engine % NENGINES : 0u;
         t->eng_req = (uint8_t)e;
-        t->user = 0;                                    /* (no user preset slot is saved) */
-        t->lk_n = 0;                                    /* (the locks in force: the values come from the project) */
-        for (i = 0; i < P_COUNT; i++) {                 /* every value back inside its range */
-            const param_desc_t *d = k == PROJ_V6_DRUM_TRACK && i == P_E0 ? &DRUM_KIT_DESC :   /* the drum kit */
+        t->user = 0;
+        t->lk_n = 0;
+        for (i = 0; i < P_COUNT; i++) {
+            const param_desc_t *d = k == PROJ_V6_DRUM_TRACK && i == P_E0 ? &DRUM_KIT_DESC :
                                     i >= P_E0 && i <= P_E7 ? &ENGINES[e]->edit[i - P_E0] : &TP[i];
             t->p[i] = (int16_t)clamp(pt_get(s, i), d->min, d->max);
         }
         if (!(p->rsv[0] & 0x40u) && !t->p[P_AMODE])
-            t->p[P_AHOLD] = 0;                          /* (2.7) saved before 2.7: HOLD with the arp OFF did nothing then; it
-                                                         * is KBD HOLD now, so it starts OFF (no note held by surprise) */
+            t->p[P_AHOLD] = 0;
         t->preset = (uint8_t)(ENGINES[e]->npresets ? (s->preset == 0xFFu ? 0u : s->preset) % ENGINES[e]->npresets : 0u);
         memcpy(t->step, s->step, sizeof t->step);
         memset(t->fill, 0, sizeof t->fill);
-        for (i = 0; i < NSTEP; i++) {                   /* the nudges and conditions (3 means normal: 0) */
+        for (i = 0; i < NSTEP; i++) {
             uint32_t c = pt_fill(s, i);
             t->micro[i] = (int8_t)clamp(pt_micro(s, i), MICRO_MIN, MICRO_MAX);
             if (c != 3u)
@@ -537,7 +671,7 @@ static void proj_apply(const project_t *p, int all)
                 t->lock[i].param = (uint8_t)id;
                 t->lock[i].val = (int16_t)clamp(l->val, d->min, d->max);
             } else {
-                t->lock[i].step = LOCK_FREE;            /* no such step or parameter: the slot is free */
+                t->lock[i].step = LOCK_FREE;
                 t->lock[i].param = 0;
                 t->lock[i].val = 0;
             }
@@ -546,17 +680,15 @@ static void proj_apply(const project_t *p, int all)
             for (i = 0; i < NSTEP; i++) {
                 step_t *st = &t->step[i];
                 uint32_t j;
-                if (st->n > 4u)
-                    st->n = 4;
-                if (st->time > ST_REST)
-                    st->time = ST_REST;
-                st->vel &= 127u;                    /* (after 2.8.3: past 127 from a file, up to twice as loud) */
-                for (j = 0; j < 4u; j++)
-                    st->note[j] &= 127u;
+                if (st->n > 4u) st->n = 4u;
+                if (st->time > ST_REST) st->time = ST_REST;
+                st->vel &= 127u;
+                for (j = 0; j < 4u; j++) st->note[j] &= 127u;
             }
-        fm6_track_loaded(t);                            /* FM6: the project keeps PTCH, not the patch: its slot's */
+        fm6_track_loaded(t);
     }
 }
+#endif
 
 #ifndef PROJ_HOST
 #if FELUCCA_ARRANGER
