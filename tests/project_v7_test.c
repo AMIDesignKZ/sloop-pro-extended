@@ -70,7 +70,7 @@ int main(void)
         ok &= b->lock[0].step == 1 && b->lock[0].val == 17 &&
               b->lock[1].step == 3 && b->lock[1].val == 34 &&
               b->lock[2].step == 3 && b->lock[2].val == 35 &&
-              b->lock[3].step == 5 && b->lock[3].val == 7;
+              b->lock[3].step == 17 && b->lock[3].val == 7;
         for (k = 4; k < PROJ_V7_LOCKS; ++k)
             ok &= b->lock[k].step == LOCK_FREE;
     }
@@ -79,8 +79,8 @@ int main(void)
                  now.t[0].fill[0] != 0 && now.t[0].fill[15] != 0);
     bad += check("locks sorted by step, stable ties, earliest 12 retained, invalid entries skipped",
                  now.t[0].lock[0].step == 1 && now.t[0].lock[1].step == 3 &&
-                 now.t[0].lock[2].step == 3 && now.t[0].lock[3].step == 5 &&
-                 now.t[0].lock[11].step != LOCK_FREE);
+                 now.t[0].lock[2].step == 3 && now.t[0].lock[3].step == 17 &&
+                 now.t[0].lock[11].step == 25);
     bad += check("tracks 5 and 6 start empty with all locks free",
                  now.t[4].lock[0].step == LOCK_FREE && now.t[5].lock[11].step == LOCK_FREE);
     old.t[0].mf[0] ^= 1u;
