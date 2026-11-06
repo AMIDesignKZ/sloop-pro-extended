@@ -52,7 +52,7 @@ static void make_project(project_v7_t *p, uint32_t seed)
     p->drdly = (uint8_t)(seed + 10u);
     for (s = 0; s < 32u; ++s) p->g[s] = (int16_t)(seed * 10u + s);
     for (t = 0; t < PROJ_V7_TRACKS; ++t) {
-        p->t[t].engine = (uint8_t)(seed + t);
+        p->t[t].engine = (uint8_t)((seed + t) % NENGINES);
         p->t[t].preset = (uint8_t)(seed + t + 1u);
         for (s = 0; s < NSTEP; ++s) {
             p->t[t].step[s].time = ST_REST;
