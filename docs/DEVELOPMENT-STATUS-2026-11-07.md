@@ -1,7 +1,7 @@
 # System 37 development status — 7 November 2026
 
 Branch reviewed: `extended-firmware`  
-Reviewed HEAD: `0723b59b1e344379fbcadbfa29dbd13b1424d7d3`  
+Reviewed HEAD: `a1aa47ba7d9d3f242d25a8d9bec7da2c8517e7f1`  
 Rebrand baseline: `bdfd8a7ccee04cafa0258cf04f0a775b4b5b2bb2`  
 The branch is 72 commits ahead of that baseline and not behind it.
 
@@ -67,35 +67,35 @@ The detailed target remains in `docs/SYSTEM37-EXTENDED.md`.
 - FUN7 migration, live capture/apply, section catalogue and multi-sector storage host tests have been added or updated.
 - The latest commit keeps the FM-1 song controls at their original four-section behaviour while retaining the System 37 A–H target.
 
-## 4. Audit findings — current blockers
+## 4. Audit findings — implementation status
 
-These are source-level findings from HEAD `0723b59`. No current-branch build or complete test run has verified them yet.
+The nine findings below were raised against HEAD `0723b59`. Findings 1–8 have now been addressed in source, editor, protocol documentation and regression coverage. They still require a clean target build and complete test run before they can be considered verified.
 
-1. **Section-store call has the wrong argument order.**  
+1. **Section-store call has the wrong argument order.** <badge>RESOLVED</badge>  
    In `firmware/src/project.c`, `s37_catalog_store_section()` calls `s37_cat_prepare_overlay()` with the section index where the replacement-project pointer belongs, and the project pointer in the final `default_section` position. The declaration in `section_catalog.h` expects `scratch, replacement, section, bars, default_section`. This will make the section-save path invalid and produces incompatible argument diagnostics.
 
-2. **Arranger readiness checks the legacy format.**  
+2. **Arranger readiness checks the legacy format.** <badge>RESOLVED</badge>  
    `firmware/src/arranger_scene.c` uses `proj_ok()` in both `arrangement_ready()` and `section_bars()`. On System 37, `project_t` is FUN7, while `proj_ok()` validates a FUN6 image. Consequently FUN7 sections are not marked ready and the arranger will reject otherwise valid arrangements. These checks need the format-aware `project_valid()`.
 
-3. **FUN1–FUN5 import can overwrite its own source buffer.**  
+3. **FUN1–FUN5 import can overwrite its own source buffer.** <badge>RESOLVED</badge>  
    In the SMK-37 paths in `project.c`, `proj_fetch()` and `autosave_resume()` call `proj_import(&proj_tmp.v6, &proj_tmp, n)`. The input and output overlap in the same union. FUN6's same-layout copy is harmless, but older conversion routines clear the destination before reading the source, corrupting FUN1–FUN5 input. Use a separate legacy-import staging object.
 
-4. **Backup settings validation still assumes A–D.**  
+4. **Backup settings validation still assumes A–D.** <badge>RESOLVED</badge>  
    `settings_restore()` calls `arr_valid(&p.arrangement, 15u)`. This rejects valid System 37 arrangements that reference E–H. The old PER3 migration checks using mask 15 are intentional; the current PER4 backup-restore validation is not.
 
-5. **Web LIVE parser still consumes four track records.**  
+5. **Web LIVE parser still consumes four track records.** <badge>RESOLVED</badge>  
    Firmware `editor_live.c` emits one three-byte state record for every `NTRK` track (six on System 37). `web/editor.html`'s `CMD.LIVE` parser still loops exactly four times. It will misalign the rest of the LIVE reply on System 37.
 
-6. **Web backup/restore does not accept the new E–H objects or FUN7.**  
+6. **Web backup/restore does not accept the new E–H objects or FUN7.** <badge>RESOLVED</badge>  
    Firmware lists backup objects 12–15 for E–H. The web editor's `BK.RESTORE` list and `backupObjects()` whitelist still omit IDs 12–15. Its project-format detection also stops at FUN6 and its device-format check treats FUN7 as newer than the current device. A System 37 backup therefore cannot be reliably restored by the current web editor.
 
-7. **Web Song page and protocol documentation remain old.**  
+7. **Web Song page and protocol documentation remain old.** <badge>RESOLVED</badge>  
    `web/editor.html` and `web/EDITOR_PROTOCOL.md` still describe A–D and the 16-entry PER3 song order. The LIVE section UI is still four sections. The web editor has not yet been brought into line with the 8-section/32-position firmware target.
 
-8. **Hardware MIDI channel controls for synth tracks 4 and 5 are not on a GLO page.**  
+8. **Hardware MIDI channel controls for synth tracks 4 and 5 are not on a GLO page.** <badge>RESOLVED</badge>  
    `G_CH4` and `G_CH5` descriptors and persistence exist, but the `MIDI`, `MIDI 2` and `MIDI 3` page definitions do not expose them. They are available to protocol-level code but not through the current hardware parameter pages.
 
-9. **Performance and final validation are outstanding.**  
+9. **Performance and final validation are outstanding.** <badge>OPEN</badge>  
    The shared voice/CPU/RAM budget has not been profiled for five synth parts. The host test suite, target budget check, SMK-37 package build, emulator and hardware have not been validated against this six-track/eight-section HEAD. The host test labels and target budget baseline still include old four-track assumptions.
 
 ## 5. Current status and safe next sequence
@@ -110,3 +110,31 @@ Recommended order:
 5. Build the SMK-37 package, check RAM/flash/CPU budgets, then test in the emulator before hardware.
 
 Do not confuse the earlier successful pre-expansion SMK-37 build with validation of this branch.
+
+
+## 6. Implementation pass — 7 November 2026
+
+Changes committed on `extended-firmware` after the audit:
+
+- `ba740e2`: corrected section-catalogue overlay argument order and separated legacy FUN1–FUN5 import staging from the raw source buffer in all affected SMK-37 paths.
+- `5cf60a2`: switched arranger section validity checks to FUN7-aware `project_valid()`.
+- `fc5fbb8` / `54e76e9`: expanded MIDI channel uniqueness to CH1–CH5 plus DRUMS and added a System 37 GLO page exposing CH4/CH5.
+- `bd759c3`: made LIVE parsing use the reported track count and added E–H/FUN7 backup handling.
+- `76ca536` / `85e7cdd` / `6859446`: extended the web editor to A–H, eight project slots, six LIVE tracks, and PER4's 32-position song order; added PER3-to-PER4 editor-side migration.
+- `6743bbe`: documented System 37 protocol extensions.
+- `c4c7b9e`: added web regression coverage for PER4 and six-track format detection.
+- `709f18e` / `dc7bbc6`: added a board-specific hardware MIDI-page regression test and included it in `tests/run_tests.sh`.
+- `a1aa47b`: added `.github/workflows/system37-build.yml` to build Pro/Elite/MKE packages, build the FM-1 reference and run the full host/sanitizer/web test suite, publishing packages as an artifact.
+
+The browser editor now chooses PER3/PER4 from the connected device's reported track count. PER3 orders remain 16 positions/four sections; PER4 orders use 32 positions/eight sections. Song files record track count and include E–H objects when available. Importing a 36-byte PER3 order to System 37 expands it to 68 bytes and moves the legacy trailing lights word to the PER4 offset.
+
+## 7. Validation still required
+
+No current post-audit build or test run has yet been observed. The previous successful SMK-37 build remains a pre-expansion baseline only. The next verification must be:
+
+1. `tools/build_pro.sh` — System 37 Pro, Elite and MKE packages, generated site, then FM-1 reference build.
+2. `tests/run_tests.sh` — includes the FUN7/catalogue tests, new System 37 MIDI UI regression, ASan+UBSan editor fuzzing, ThreadSanitizer two-core modes, target-budget checks and web tests.
+3. Inspect build output for text/data/BSS/pool headroom and target CPU costs; do not update golden/budget baselines unless an intentional audio or cost change is demonstrated.
+4. Validate the generated site/emulator, then test section A–H store/load, 32-position arrangements, MIDI CH4/CH5 and backup/restore on the SMK-37 hardware.
+
+The CI workflow has been added on this development branch. It must produce a successful run before claiming the expanded firmware is build-verified. Do not flash the keyboard before those checks.
