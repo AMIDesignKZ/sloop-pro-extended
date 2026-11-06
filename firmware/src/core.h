@@ -1,19 +1,23 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
 /* Felucca core types: tracks, voices, engines, parameters.
- * Four tracks: tracks 1..3 are synth parts (each its own engine, preset, parameters,
- * voices and 64-step pattern), track 4 is the GM drum part (drums.c; its own voices,
- * pattern and the pattern parameters of its track_t). The parts share one budget of
- * NVOICE sounding voices (voice.c). */
+ * System 37 on the SMK-37: five synth parts plus the dedicated drum track (six total).
+ * The FM-1 reference build retains its original three synth parts plus drums. */
 #ifndef SLOOP_CORE_H
 #define SLOOP_CORE_H
 
 #include <stdint.h>
 #define NVOICE 8                 /* voices per part, and the budget shared by all parts */
 #define NPOLY 8
-#define NPART 3                  /* synth parts: tracks 1..3 */
+#if defined(BOARD_SMK37) && BOARD_SMK37
+#define NPART 5                  /* System 37: synth tracks 1..5 */
+#define NTRK 6                   /* + dedicated drum track 6 */
+#define TRK_DRUM 5
+#else
+#define NPART 3                  /* FM-1: synth tracks 1..3 */
 #define NTRK 4                   /* + the drum track */
 #define TRK_DRUM 3
+#endif
 enum { V_POLY, V_MONO, V_LEGATO, V_UNISON };   /* P_VOICE */
 #define NSTEP 64
 #define HALF_FRAMES 256          /* I2S half buffer: 5.8 ms at 44.1 kHz */
