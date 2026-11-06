@@ -5,6 +5,9 @@
  * voices and 64-step pattern), track 4 is the GM drum part (drums.c; its own voices,
  * pattern and the pattern parameters of its track_t). The parts share one budget of
  * NVOICE sounding voices (voice.c). */
+#ifndef SLOOP_CORE_H
+#define SLOOP_CORE_H
+
 #include <stdint.h>
 #define NVOICE 8                 /* voices per part, and the budget shared by all parts */
 #define NPOLY 8
@@ -415,3 +418,5 @@ static inline int ms_pending(uint32_t *t)
 /* Two early failed boots -> USB recovery; recovery reset -> mask-ROM UBOOT. */
 #include "bootguard.h"
 bootguard_t bootguard __attribute__((section(".noinit")));
+
+#endif /* SLOOP_CORE_H */
