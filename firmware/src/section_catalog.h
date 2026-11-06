@@ -17,7 +17,7 @@
 #define S37_CAT_PAYLOAD_SIZE (S37_CAT_HEADER_SIZE + S37_CAT_SECTIONS * sizeof(project_v7_t))
 
 typedef struct {
-    uint32_t project_crc;
+    uint32_t project_sum;
     uint16_t bars;
     uint8_t flags;
     uint8_t reserved;
