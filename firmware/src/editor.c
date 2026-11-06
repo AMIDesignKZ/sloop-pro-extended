@@ -411,8 +411,13 @@ static uint8_t ed_bk_raw[sizeof(project_v7_t)] __attribute__((section(".noinit")
 #define ED_BK_RAW ((uint8_t *)&proj_tmp)
 #define ED_BK_RAW_SIZE sizeof proj_tmp
 #endif
+#if BOARD_SMK37
+_Static_assert(ED_BK_RAW_SIZE >= sizeof(project_t) && sizeof proj_tmp >= sizeof(up_bank_t) &&
+               sizeof proj_tmp >= sizeof(persist_t), "System 37 backup staging");
+#else
 _Static_assert(sizeof proj_tmp >= sizeof(project_t) && sizeof proj_tmp >= sizeof(up_bank_t) &&
                sizeof proj_tmp >= sizeof(persist_t), "backup staging");
+#endif
 static persist_t ed_bk_set;                             /* LIST's snapshot of the settings */
 static uint8_t ed_bk_ml[MIDI_PART];                     /* .. and of the MIDI part (2.6, object 10: project.c) */
 static uint8_t ed_bk_valid, ed_bk_put, ed_bk_id;
