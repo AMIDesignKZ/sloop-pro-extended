@@ -1104,7 +1104,7 @@ static uint32_t autosave_hash, autosave_ms, autosave_checked;
 UI_SMALL static int audio_quiet(void)
 {
     uint32_t p, i;
-    for (p = 0; p < PROJ_V6_PARTS; p++)
+    for (p = 0; p < NPART; p++)
         for (i = 0; i < NVOICE; i++)
             if (trk[p].v[i].active)
                 return 0;
@@ -1124,38 +1124,55 @@ UI_SMALL static void autosave_tick(void)                /* main loop */
     autosave_checked = now;
     proj_capture(&autosave_buf);
     h = autosave_buf.sum;
-    if (h == autosave_hash || !audio_quiet())
+    if (!project_valid(&autosave_buf) || h == autosave_hash || !audio_quiet())
         return;
+#if BOARD_SMK37
+    if (s37_catalog_store_working(&autosave_buf) == 0)
+        autosave_hash = h;
+#else
     if (st_save(OBJ_AUTOSAVE, &autosave_buf, sizeof autosave_buf) == 0)
         autosave_hash = h;
+#endif
     autosave_ms = fm1_ms;
 #endif
 }
 
-static uint8_t drch_seed;                           /* a settings object as 2.5 wrote it: the drum channel was the
-                                                     * project's then (autosave_resume takes it from a 2.5 autosave) */
-UI_SMALL static void autosave_resume(void)              /* power-on: the project as it was left (felucca_init) */
+static uint8_t drch_seed;                           /* legacy settings migration */
+UI_SMALL static void autosave_resume(void)              /* power-on: restore the last working project */
 {
 #if FELUCCA_FLASH
     project_t *q = &autosave_buf;
     int n;
     if (!flash_ok)
         return;
+#if BOARD_SMK37
+    if (!s37_cat_ready) {
+        if (s37_cat_uncertain)
+            return;
+        n = st_load(OBJ_AUTOSAVE, &proj_tmp, sizeof proj_tmp);
+        if (n <= 0 || !proj_import(&proj_tmp.v6, &proj_tmp, n) ||
+            !proj_v6_to_v7(q, &proj_tmp.v6, sizeof proj_tmp.v6, 0, TP, ENGINES[ENGI_ANALOG]->edit))
+            return;
+        s37_migrate_pending = 1u;
+    } else if (!project_valid(q)) {
+        return;
+    }
+#else
     n = st_load(OBJ_AUTOSAVE, &proj_tmp, sizeof proj_tmp);
     if (!proj_import(q, &proj_tmp, n))
         return;
+#endif
     autosave_hash = q->sum;
     if (drch_seed && !(q->rsv[0] & 0x80u) && q->g[G_DRCH] >= 0 && q->g[G_DRCH] <= 16 && q->g[G_DRCH] != midi_set[3]) {
-        midi_set[3] = (uint8_t)q->g[G_DRCH];          /* (2.6) updated from 2.5: GLO > DRUMS > CH as it was there (a
-                                                     * project's then, a setting of the FM-1 now), kept in the settings */
+        midi_set[3] = (uint8_t)q->g[G_DRCH];
         settings_later = 1;
     }
     drch_seed = 0;
     proj_apply(q, 1);
-    song.sel = (uint8_t)(q->sel < PROJ_V6_TRACKS ? q->sel : 0u);
-    proj_foreign_parts(q);                         /* (2.8.4) Clipper's working project: its own sounds, default */
-    for (n = 0; n < PROJ_V6_PARTS; n++)
-        trk[n].engine = trk[n].eng_req;        /* (nothing sounds yet: no fade) */
+    song.sel = (uint8_t)(q->sel < NTRK ? q->sel : 0u);
+    proj_foreign_parts(q);
+    for (n = 0; n < NPART; n++)
+        trk[n].engine = trk[n].eng_req;
 #endif
 }
 
