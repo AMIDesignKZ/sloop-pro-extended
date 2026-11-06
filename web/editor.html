@@ -2796,8 +2796,15 @@ const mixer = {
    onto an FM-1 (stopped: the commits answer 3 while it plays) every section is written, an empty one as 0 bytes, then
    the loop, then the order into the device's own settings (its colours, calibration... kept). The LIVE page's
    playlist is a list of these files */
-const SONGF = { FORMAT: "sloop-song", VERSION: 1, SECS: [2, 3, 4, 5], ORDER_OFF: 48, ORDER_LEN: 36, PER3: 0x50455233 };
-const songOrderOk = (b) => !!b && b.length >= SONGF.ORDER_OFF + SONGF.ORDER_LEN && ((b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24)) >>> 0) === SONGF.PER3;
+const SONGF = { FORMAT: "sloop-song", VERSION: 1, ORDER_OFF: 48, ORDER_LEN3: 36, ORDER_LEN4: 68, PER3: 0x50455233, PER4: 0x50455234 };
+const songSectionIds = (ntrk) => ntrk >= 6 ? [2, 3, 4, 5, 12, 13, 14, 15] : [2, 3, 4, 5];
+const songOrderLength = (b) => {
+  if (!b || b.length < SONGF.ORDER_OFF + SONGF.ORDER_LEN3) return 0;
+  const magic = (b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24)) >>> 0;
+  return magic === SONGF.PER4 && b.length >= SONGF.ORDER_OFF + SONGF.ORDER_LEN4 ? SONGF.ORDER_LEN4 :
+    magic === SONGF.PER3 ? SONGF.ORDER_LEN3 : 0;
+};
+const songOrderOk = (b) => !!songOrderLength(b);
 /* one object, read whole after a LIST (the LIST's item: {id, len, crc}) */
 async function bkReadObj(rq, it) {
   const data = new Uint8Array(it.len);
@@ -2827,51 +2834,69 @@ async function bkWriteObj(rq, id, d, progress = () => {}) {
 async function songCapture(rq, info, name, progress = () => {}) {
   const L = parse[CMD.BK_LIST](await rq(req.bkList(), { timeout: 5000, retries: 0 }));
   if (L.rc) throw new BackupError("bkRc" + L.rc, `LIST rc ${L.rc}`);
-  const items = L.items.filter((it) => it.id === 0 || it.id === 1 || (SONGF.SECS.includes(it.id) && it.len));
+  const sections = songSectionIds(info.ntrk || 4);
+  const items = L.items.filter((it) => it.id === 0 || it.id === 1 || (sections.includes(it.id) && it.len));
   const total = items.reduce((s, it) => s + it.len, 0) || 1, objects = [];
   let done = 0, order = null;
   for (const it of items) {
     const d = await bkReadObj(rq, it);
     done += it.len;
     progress(done, total);
-    if (it.id === 1) { if (songOrderOk(d)) order = d.slice(SONGF.ORDER_OFF, SONGF.ORDER_OFF + SONGF.ORDER_LEN); continue; }
+    if (it.id === 1) { const len = songOrderLength(d); if (len) order = d.slice(SONGF.ORDER_OFF, SONGF.ORDER_OFF + len); continue; }
     objects.push({ id: it.id, len: it.len, crc: it.crc, data: b64enc(d) });
   }
-  return { format: SONGF.FORMAT, version: SONGF.VERSION, name: String(name || "").slice(0, 40), firmware: info.version,
+  return { format: SONGF.FORMAT, version: SONGF.VERSION, tracks: info.ntrk || 4, name: String(name || "").slice(0, 40), firmware: info.version,
     date: new Date().toISOString(), order: order ? b64enc(order) : null, objects };
 }
 /* a song file -> {objects: Map id -> bytes, order: bytes or null}; every object checked against its length and CRC */
 function songObjects(file) {
   if (!file || file.format !== SONGF.FORMAT || !(file.version >= 1) || !Array.isArray(file.objects)) throw new BackupError("songBadFile", "not a SLOOP song");
-  const m = new Map();
+  const m = new Map(), sections = (file.tracks >= 6 || file.objects.some((o) => o.id >= 12 && o.id <= 15))
+    ? songSectionIds(6) : songSectionIds(4);
   for (const o of file.objects) {
     const d = b64dec(o.data || "");
-    if (!(o.id === 0 || SONGF.SECS.includes(o.id)) || d.length !== o.len || crc32(d) !== (o.crc >>> 0))
+    if (!(o.id === 0 || sections.includes(o.id)) || d.length !== o.len || crc32(d) !== (o.crc >>> 0))
       throw new BackupError("songBadFile", `object ${o.id}: damaged`);
     m.set(o.id, d);
   }
   if (!m.has(0)) throw new BackupError("songBadFile", "no loop");
   const order = file.order ? b64dec(file.order) : null;
-  if (order && order.length !== SONGF.ORDER_LEN) throw new BackupError("songBadFile", "order");
-  return { objects: m, order };
+  if (order && order.length !== SONGF.ORDER_LEN3 && order.length !== SONGF.ORDER_LEN4) throw new BackupError("songBadFile", "order");
+  return { objects: m, order, sections };
 }
 /* onto the FM-1 (stopped); progress(done, total bytes) */
 async function songLoad(rq, file, progress = () => {}) {
-  const { objects: m, order } = songObjects(file);
+  const { objects: m, order, sections } = songObjects(file);
   const info = parse[CMD.INFO](await rq(req.info(), { timeout: 1000, retries: 2 }));
+  if (sections.some((id) => id >= 12) && info.ntrk < 6)
+    throw new BackupError("songNewer", "This song contains sections E–H and requires a six-track System 37 device.");
+  if (order && order.length === SONGF.ORDER_LEN4 && info.ntrk < 6)
+    throw new BackupError("songNewer", "This 32-position song order requires a System 37 device.");
   const newest = Math.max(0, ...[...m.values()].map(bkProjFormat));
   if (newest > bkDevFormat(info)) throw new BackupError("bkNewer", `${file.firmware || "?"} > ${info.version}`);
   const total = [...m.values()].reduce((s, d) => s + d.length, 0) || 1;
   let done = 0;
   const step = (n) => { done += n; progress(done, total); };
-  for (const id of SONGF.SECS) await bkWriteObj(rq, id, m.get(id) || new Uint8Array(0), step);
+  for (const id of songSectionIds(info.ntrk || 4)) await bkWriteObj(rq, id, m.get(id) || new Uint8Array(0), step);
   await bkWriteObj(rq, 0, m.get(0), step);
   if (order) {                                      /* the order, into the settings as the FM-1 has them */
     const L = parse[CMD.BK_LIST](await rq(req.bkList(), { timeout: 5000, retries: 0 }));
     const it = L.rc ? null : L.items.find((x) => x.id === 1);
     if (!it) throw new BackupError("bkRead", `LIST rc ${L.rc}`);
     const s = await bkReadObj(rq, it);
-    if (songOrderOk(s)) { s.set(order, SONGF.ORDER_OFF); await bkWriteObj(rq, 1, s); }
+    if (songOrderOk(s)) {
+      let orderData = order;
+      if (order.length === SONGF.ORDER_LEN3 && info.ntrk >= 6) {
+        orderData = new Uint8Array(SONGF.ORDER_LEN4);
+        orderData.set(order);
+        for (let i = 16; i < 32; i++) {
+          orderData[4 + i * 2] = i % 8;
+          orderData[5 + i * 2] = 4;
+        }
+      }
+      s.set(orderData, SONGF.ORDER_OFF);
+      await bkWriteObj(rq, 1, s);
+    }
   }
   return true;
 }
@@ -4451,26 +4476,50 @@ const SMF = {
 /* The song order lives in the settings object (backup object 1, firmware project.c persist_t): bytes 48..83
    are arranger.h arr_config_t: count, loop, 2 reserved, then 16 x {scene 0..3 = A..D, bars 1..64}. */
 const ARR = {
-  OFF: 48, STEPS: 16, SIZE: 36, MAX_BARS: 64, MAGIC: 0x50455233,
-  ok: (b) => !!b && b.length >= ARR.OFF + ARR.SIZE && ((b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24)) >>> 0) === ARR.MAGIC,
+  OFF: 48, ORDER_MIN: 36, MAX_BARS: 64, PER3: 0x50455233, PER4: 0x50455234,
+  get SYSTEM37() { return !!(dev && dev.info && dev.info.ntrk >= 6); },
+  get STEPS() { return this.SYSTEM37 ? 32 : 16; },
+  get SCENES() { return this.SYSTEM37 ? 8 : 4; },
+  get SIZE() { return 4 + 2 * this.STEPS; },
+  get MAGIC() { return this.SYSTEM37 ? this.PER4 : this.PER3; },
+  ok(b) {
+    if (!b || b.length < ARR.OFF + ARR.ORDER_MIN) return false;
+    const magic = (b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24)) >>> 0;
+    return (magic === ARR.PER3 && b.length >= ARR.OFF + 36) ||
+      (magic === ARR.PER4 && b.length >= ARR.OFF + 68 && this.SYSTEM37);
+  },
   decode(b) {
+    const magic = (b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24)) >>> 0;
+    const steps = magic === ARR.PER4 ? 32 : 16;
     const count = b[ARR.OFF], loop = b[ARR.OFF + 1], entries = [];
-    for (let i = 0; i < Math.min(count, ARR.STEPS); i++) entries.push({ scene: b[ARR.OFF + 4 + 2 * i], bars: b[ARR.OFF + 5 + 2 * i] });
+    for (let i = 0; i < Math.min(count, steps); i++) entries.push({ scene: b[ARR.OFF + 4 + 2 * i], bars: b[ARR.OFF + 5 + 2 * i] });
     return { loop: loop === 1, entries };
   },
   /* the settings bytes with this song order (the rest kept as it was) */
   encode(b, song) {
-    const o = Uint8Array.from(b), e = song.entries;
+    const e = song.entries, oldMagic = (b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24)) >>> 0;
+    if (oldMagic === ARR.PER4 && !this.SYSTEM37) throw new Error("A 32-position System 37 song cannot be written to this device.");
+    let o;
+    if (this.SYSTEM37 && oldMagic === ARR.PER3) {
+      o = new Uint8Array(Math.max(b.length, 120));
+      o.set(b.subarray(0, 84));
+      o.set(b.subarray(84, 88), 116); /* move PER3's trailing lights word after the expanded order */
+    } else {
+      o = new Uint8Array(Math.max(b.length, this.OFF + this.SIZE + 4));
+      o.set(b);
+    }
+    const steps = this.STEPS, scenes = this.SCENES;
+    o[0] = this.MAGIC & 255; o[1] = (this.MAGIC >>> 8) & 255; o[2] = (this.MAGIC >>> 16) & 255; o[3] = (this.MAGIC >>> 24) & 255;
     o[ARR.OFF] = e.length; o[ARR.OFF + 1] = song.loop ? 1 : 0; o[ARR.OFF + 2] = o[ARR.OFF + 3] = 0;
-    for (let i = 0; i < ARR.STEPS; i++) {
-      o[ARR.OFF + 4 + 2 * i] = i < e.length ? e[i].scene : i % 4;
+    for (let i = 0; i < steps; i++) {
+      o[ARR.OFF + 4 + 2 * i] = i < e.length ? e[i].scene : i % scenes;
       o[ARR.OFF + 5 + 2 * i] = i < e.length ? e[i].bars : 4;
     }
     return o;
   },
-  /* arranger.h arr_valid: 1..16 entries, sections A..D, 1..64 bars */
+  /* arranger.h arr_valid: 1..16 PER3 entries / 1..32 PER4 entries; A–D / A–H; 1..64 bars */
   valid: (song) => song.entries.length >= 1 && song.entries.length <= ARR.STEPS
-    && song.entries.every((e) => e.scene >= 0 && e.scene < 4 && e.bars >= 1 && e.bars <= ARR.MAX_BARS),
+    && song.entries.every((e) => e.scene >= 0 && e.scene < ARR.SCENES && e.bars >= 1 && e.bars <= ARR.MAX_BARS),
   /* entries -> rows {scene, bars, times}: the same section with the same bars in a row is one row played `times` */
   group(entries) {
     const rows = [];
@@ -7710,10 +7759,10 @@ function renderSong() {
   if (SG.err) $("songerr").textContent = t(SG.err);
   $("songbody").hidden = !SG.rows;
   if (!SG.rows) return;
-  const LET = "ABCD", n = songCount(), bars = (SG.rows || []).reduce((a, r) => a + r.bars * Math.max(1, r.times | 0), 0);
+  const LET = "ABCDEFGH", n = songCount(), bars = (SG.rows || []).reduce((a, r) => a + r.bars * Math.max(1, r.times | 0), 0);
   box.replaceChildren(...SG.rows.map((r, k) => {
     const sec = el("select", { onchange: (e) => songEdit(() => { r.scene = +e.target.value; }) },
-      ...[0, 1, 2, 3].map((s) => el("option", { value: s, text: LET[s] + (dev.slotUsed[s] === false ? ` (${t("empty")})` : "") })));
+      ...Array.from({ length: ARR.SCENES }, (_, s) => el("option", { value: s, text: LET[s] + (dev.slotUsed[s] === false ? ` (${t("empty")})` : "") })));
     sec.value = String(r.scene);
     const num = (v, max, set) => el("input", { type: "number", min: 1, max, value: String(v), onchange: (e) =>
       songEdit(() => set(Math.max(1, Math.min(max, Math.round(+e.target.value) || 1)))) });
@@ -7737,7 +7786,7 @@ function renderSong() {
 }
 $("songadd").addEventListener("click", () => songEdit(() => {
   const last = SG.rows[SG.rows.length - 1];
-  SG.rows.push({ scene: last ? (last.scene + 1) % 4 : 0, bars: last ? last.bars : 4, times: 1 });
+  SG.rows.push({ scene: last ? (last.scene + 1) % ARR.SCENES : 0, bars: last ? last.bars : 4, times: 1 });
 }));
 $("songread").addEventListener("click", () => op(readSong));
 $("songsend").addEventListener("click", () => op(sendSong));
