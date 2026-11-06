@@ -79,7 +79,7 @@ int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length, uint8_t 
     memcpy(out->g, raw + offsetof(project_v6_t, g), sizeof out->g);
     memcpy(&out->sel, raw + offsetof(project_v6_t, sel), sizeof out->sel);
     if (out->sel == 3u)
-        out->sel = 5u; /* the legacy drum track moved to System 37 track six */
+        out->sel = 5u; /* retain selection of the new, defaulted drum track */
     else if (out->sel > 2u)
         out->sel = 0u;
     memcpy(&out->drdly, raw + offsetof(project_v6_t, drdly), sizeof out->drdly);
@@ -90,9 +90,11 @@ int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length, uint8_t 
         proj_trk_v7_t *b = &out->t[t];
         uint32_t kept = 0, valid_locks = 0;
 
-        /* System 37 orders five synth parts first and the dedicated drums
-         * last. The old SLOOP drum track (index 3) therefore moves to 5. */
-        if (t == 3u || t == 4u) {
+        /* Only the three legacy synth tracks migrate. The two additional
+         * synth tracks and the new dedicated drum track start from defaults;
+         * legacy drum pattern, kit, locks and parameters are intentionally
+         * not carried into the new drum architecture. */
+        if (t >= 3u) {
             uint32_t id;
             b->engine = 0u;
             b->preset = 0xFFu;
@@ -112,7 +114,7 @@ int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length, uint8_t 
             continue;
         }
 
-        source_track = (t == 5u) ? 3u : t;
+        source_track = t;
         {
             const uint8_t *a = raw + offsetof(project_v6_t, t) + source_track * sizeof(proj_trk_v6_t);
             plock_t lock;
