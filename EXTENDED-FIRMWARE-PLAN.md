@@ -381,3 +381,8 @@ The selectable synth engine table now contains only Analog (System 37 ID 0) and 
 The voice lifecycle, sequencer keyboard mapping and FX core-splitting logic have been narrowed to the two-engine set. Drum synthesis and sampled drum playback remain in their separate drum subsystem; the 808/909 kit generator and drum-kit table were not changed. The frozen FUN6 reader remains in the source temporarily but is not a System 37 compatibility requirement.
 
 **Not yet verified:** the modified source has not been run through the host test suite or the SMK-37 target build. The synth voice array is still embedded in track_t at this checkpoint; moving it into a synth-only pool is the next isolated RAM-layout change. No runtime track-count, lock-count, UI, editor protocol, flash-map or linker-script changes have been made.
+
+
+### Host-test scope update
+
+The host runner and target instruction-budget function list have also been narrowed to the System 37 engine set. Tests for the removed SAMPLE/GRAIN, NOISE and PHYS synth engines are no longer run; dedicated drum synthesis, 808/909 kits, sampled-drum playback, Analog and FM6 coverage remain. The regression golden renders, host CPU baseline and target instruction budget need regeneration and review after the next successful build. They have not yet been regenerated.
