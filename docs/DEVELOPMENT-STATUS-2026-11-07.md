@@ -71,31 +71,31 @@ The detailed target remains in `docs/SYSTEM37-EXTENDED.md`.
 
 The nine findings below were raised against HEAD `0723b59`. Findings 1–8 have now been addressed in source, editor, protocol documentation and regression coverage. They still require a clean target build and complete test run before they can be considered verified.
 
-1. **Section-store call has the wrong argument order.** <badge>RESOLVED</badge>  
+1. **Section-store call has the wrong argument order.** **[RESOLVED]**  
    In `firmware/src/project.c`, `s37_catalog_store_section()` calls `s37_cat_prepare_overlay()` with the section index where the replacement-project pointer belongs, and the project pointer in the final `default_section` position. The declaration in `section_catalog.h` expects `scratch, replacement, section, bars, default_section`. This will make the section-save path invalid and produces incompatible argument diagnostics.
 
-2. **Arranger readiness checks the legacy format.** <badge>RESOLVED</badge>  
+2. **Arranger readiness checks the legacy format.** **[RESOLVED]**  
    `firmware/src/arranger_scene.c` uses `proj_ok()` in both `arrangement_ready()` and `section_bars()`. On System 37, `project_t` is FUN7, while `proj_ok()` validates a FUN6 image. Consequently FUN7 sections are not marked ready and the arranger will reject otherwise valid arrangements. These checks need the format-aware `project_valid()`.
 
-3. **FUN1–FUN5 import can overwrite its own source buffer.** <badge>RESOLVED</badge>  
+3. **FUN1–FUN5 import can overwrite its own source buffer.** **[RESOLVED]**  
    In the SMK-37 paths in `project.c`, `proj_fetch()` and `autosave_resume()` call `proj_import(&proj_tmp.v6, &proj_tmp, n)`. The input and output overlap in the same union. FUN6's same-layout copy is harmless, but older conversion routines clear the destination before reading the source, corrupting FUN1–FUN5 input. Use a separate legacy-import staging object.
 
-4. **Backup settings validation still assumes A–D.** <badge>RESOLVED</badge>  
+4. **Backup settings validation still assumes A–D.** **[RESOLVED]**  
    `settings_restore()` calls `arr_valid(&p.arrangement, 15u)`. This rejects valid System 37 arrangements that reference E–H. The old PER3 migration checks using mask 15 are intentional; the current PER4 backup-restore validation is not.
 
-5. **Web LIVE parser still consumes four track records.** <badge>RESOLVED</badge>  
+5. **Web LIVE parser still consumes four track records.** **[RESOLVED]**  
    Firmware `editor_live.c` emits one three-byte state record for every `NTRK` track (six on System 37). `web/editor.html`'s `CMD.LIVE` parser still loops exactly four times. It will misalign the rest of the LIVE reply on System 37.
 
-6. **Web backup/restore does not accept the new E–H objects or FUN7.** <badge>RESOLVED</badge>  
+6. **Web backup/restore does not accept the new E–H objects or FUN7.** **[RESOLVED]**  
    Firmware lists backup objects 12–15 for E–H. The web editor's `BK.RESTORE` list and `backupObjects()` whitelist still omit IDs 12–15. Its project-format detection also stops at FUN6 and its device-format check treats FUN7 as newer than the current device. A System 37 backup therefore cannot be reliably restored by the current web editor.
 
-7. **Web Song page and protocol documentation remain old.** <badge>RESOLVED</badge>  
+7. **Web Song page and protocol documentation remain old.** **[RESOLVED]**  
    `web/editor.html` and `web/EDITOR_PROTOCOL.md` still describe A–D and the 16-entry PER3 song order. The LIVE section UI is still four sections. The web editor has not yet been brought into line with the 8-section/32-position firmware target.
 
-8. **Hardware MIDI channel controls for synth tracks 4 and 5 are not on a GLO page.** <badge>RESOLVED</badge>  
+8. **Hardware MIDI channel controls for synth tracks 4 and 5 are not on a GLO page.** **[RESOLVED]**  
    `G_CH4` and `G_CH5` descriptors and persistence exist, but the `MIDI`, `MIDI 2` and `MIDI 3` page definitions do not expose them. They are available to protocol-level code but not through the current hardware parameter pages.
 
-9. **Performance and final validation are outstanding.** <badge>OPEN</badge>  
+9. **Performance and final validation are outstanding.** **[OPEN]**  
    The shared voice/CPU/RAM budget has not been profiled for five synth parts. The host test suite, target budget check, SMK-37 package build, emulator and hardware have not been validated against this six-track/eight-section HEAD. The host test labels and target budget baseline still include old four-track assumptions.
 
 ## 5. Current status and safe next sequence
