@@ -19,6 +19,24 @@ static uint32_t trk_def_engine(uint32_t i)       /* ui.c TRK_DEF: ANALOG, DIGITA
     return i < NPART ? E[i] : 0u;
 }
 #include "../firmware/src/project.c"
+#include "../firmware/src/project_v7.c"
+
+static project_v7_t project7_test;
+static uint8_t project7_lock_loss;
+static int project7_from_v6_ok(const project_t *p)
+{
+    uint32_t i;
+    if (!proj_v6_to_v7(&project7_test, p, sizeof *p, &project7_lock_loss) ||
+        !proj_v7_valid(&project7_test))
+        return 0;
+    for (i = 0; i < 3u; ++i)
+        if (memcmp(p->t[i].step, project7_test.t[i].step, sizeof p->t[i].step))
+            return 0;
+    if (memcmp(p->t[TRK_DRUM].dstep, project7_test.t[5].dstep, sizeof p->t[TRK_DRUM].dstep))
+        return 0;
+    return project7_test.t[3].preset == 0xFFu && project7_test.t[4].preset == 0xFFu &&
+           project7_test.t[3].step[0].time == ST_REST && project7_test.t[4].step[63].time == ST_REST;
+}
 
 static int check(const char *what, int ok)
 {
@@ -153,6 +171,7 @@ int main(void)
     memcpy(&buf, &v3, sizeof v3);
     ok = proj_import(&q, &buf, (int)sizeof v3);
     bad += check("FUN3 -> FUN6: converted, valid format 6 slot", ok && proj_ok(&q) && q.magic == PROJ_MAGIC);
+    bad += check("FUN3 -> FUN7 through the legacy FUN6 importer", project7_from_v6_ok(&q));
     ok = q.sel == 3 && q.g[G_SWING] == 40;
     for (i = 0; i < PROJ_NG_V3; i++)
         ok &= i == G_SWING || q.g[i] == (int16_t)(300 + i);
@@ -194,6 +213,7 @@ int main(void)
     memcpy(&buf, &v2, sizeof v2);
     ok = proj_import(&q, &buf, (int)sizeof v2);
     bad += check("FUN2 -> FUN6: converted, valid format 6 slot", ok && proj_ok(&q) && q.magic == PROJ_MAGIC);
+    bad += check("FUN2 -> FUN7 through the legacy FUN6 importer", project7_from_v6_ok(&q));
     ok = q.sel == 2;
     for (i = 0; i < PROJ_NG_V2; i++)
         ok &= i == G_SWING || q.g[i] == (int16_t)(500 + i);
@@ -241,6 +261,7 @@ int main(void)
             ok &= pt_get(&q2.t[t], i) == TP[i].def;
     }
     bad += check("FUN4 -> FUN6: as stored (levels, ratchets, lanes, engine 8; P_E0.. moved, FILTER off), zero nudges, locks free, no fill condition", ok);
+    bad += check("FUN4 -> FUN7 through the legacy FUN6 importer", project7_from_v6_ok(&q2));
     v4.t[2].step[1].vel ^= 1u;
     memcpy(&buf, &v4, sizeof v4);
     bad += check("FUN4 with a bad checksum: refused", !proj_import(&q2, &buf, (int)sizeof v4));
@@ -287,6 +308,7 @@ int main(void)
           q2.t[1].lock[0].param == P_E1 && q2.t[1].lock[0].val == 9 && q2.t[1].lock[1].param == P_DIST &&
           q2.t[1].lock[2].step == LOCK_FREE;
     bad += check("FUN5 -> FUN6: by id, the 2.6 parameters default, nudges and conditions kept, a lock on E2 moved with it", ok);
+    bad += check("FUN5 -> FUN7 through the legacy FUN6 importer", project7_from_v6_ok(&q2));
     v5.t[3].micro[0] ^= 1;
     memcpy(&buf, &v5, sizeof v5);
     bad += check("FUN5 with a bad checksum: refused", !proj_import(&q2, &buf, (int)sizeof v5));
@@ -313,6 +335,7 @@ int main(void)
                  q2.t[0].lock[1].val == 100 && q2.t[2].lock[23].step == 63 && q2.t[2].p[P_TFLT] == -30 &&
                  pt_get(&q2.t[1], P_ITYPE) == 4 && pt_get(&q2.t[1], P_IMIX) == 90 && pt_get(&q2.t[TRK_DRUM], P_ITYPE) == 2 &&
                  pt_get(&q2.t[0], P_LSYNC) == 5 && pt_get(&q2.t[0], P_ESYNC) == 1 && pt_get(&q2.t[0], P_FTYPE) == 2);
+    bad += check("FUN6 -> FUN7: direct current-format migration", project7_from_v6_ok(&q));
 
     /* damaged / wrong size */
     v2.t[1].p[3]++;
@@ -346,6 +369,7 @@ int main(void)
               pt_get(&q.t[t], P_E0) == ENGINES[trk_def_engine(t)]->edit[0].def && q.t[t].lock[0].step == LOCK_FREE &&
               (t == TRK_DRUM ? dstep_mask(&q.t[t].dstep[0]) == 0u : q.t[t].step[0].time == ST_REST);
     bad += check("FUN1 -> FUN6: track 1 mapped, tracks 2..4 defaults", ok);
+    bad += check("FUN1 -> FUN7 through the legacy FUN6 importer", project7_from_v6_ok(&q));
 
     /* capture / apply: the working project round trip (nudges and locks too) */
     host_tracks_init();
