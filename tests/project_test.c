@@ -32,14 +32,14 @@ static int project7_from_v6_ok(const project_t *p)
     for (i = 0; i < 3u; ++i)
         if (memcmp(p->t[i].step, project7_test.t[i].step, sizeof p->t[i].step))
             return 0;
-    if (memcmp(p->t[TRK_DRUM].dstep, project7_test.t[5].dstep, sizeof p->t[TRK_DRUM].dstep))
-        return 0;
     return project7_test.sel == (p->sel == TRK_DRUM ? 5u : p->sel <= 2u ? p->sel : 0u) &&
            project7_test.t[3].preset == 0xFFu && project7_test.t[4].preset == 0xFFu &&
            project7_test.t[3].p[P_LEVEL] == TP[P_LEVEL].def &&
            project7_test.t[3].x[0] == (uint8_t)TP[P_ITYPE].def &&
            project7_test.t[3].e[0] == ENGINES[0]->edit[0].def &&
-           project7_test.t[3].step[0].time == ST_REST && project7_test.t[4].step[63].time == ST_REST;
+           project7_test.t[3].step[0].time == ST_REST && project7_test.t[4].step[63].time == ST_REST &&
+           project7_test.t[5].e[0] == 0 && project7_test.t[5].step[0].time == ST_REST &&
+           project7_test.t[5].lock[0].step == LOCK_FREE && !(project7_lock_loss & 0x08u);
 }
 
 static int check(const char *what, int ok)
