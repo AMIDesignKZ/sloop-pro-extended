@@ -1017,6 +1017,28 @@ sys.stdout.buffer.write(hd+t1+b'MTrk'+struct.pack('>I',len(tr))+tr)`);
     "song: encode keeps the rest of the settings");
   ok(!ARR.valid({ entries: [] }) && !ARR.valid({ entries: Array(17).fill({ scene: 0, bars: 1 }) }) && !ARR.valid({ entries: [{ scene: 4, bars: 1 }] })
     && !ARR.valid({ entries: [{ scene: 0, bars: 65 }] }) && ARR.valid({ entries: Array(16).fill({ scene: 3, bars: 64 }) }), "song: valid == arranger.h arr_valid (1..16 entries, A..D, 1..64 bars)");
+  ARR.setTrackCount(6);
+  const s37 = new Uint8Array(120);
+  s37.set(sb.subarray(0, 48));
+  s37.set(sb.subarray(48, 84), 48);
+  s37.set(sb.subarray(84, 88), 116);
+  s37.set([0x34, 0x52, 0x45, 0x50], 0); /* PER4 */
+  s37[48] = 8; s37[49] = 1;
+  for (let i = 0; i < 32; i++) { s37[52 + i * 2] = i % 8; s37[53 + i * 2] = 4; }
+  const song37 = ARR.decode(s37);
+  ok(ARR.ok(s37) && ARR.STEPS === 32 && ARR.SCENES === 8 && s37.length === 120 &&
+    song37.entries.length === 8 && song37.entries[7].scene === 7 && song37.loop,
+    "System 37 song: PER4 decodes 32 positions and eight sections");
+  const enc37 = ARR.encode(s37, { loop: true, entries: Array(32).fill({ scene: 7, bars: 16 }) });
+  ok(enc37.length === 120 && ARR.decode(enc37).entries.length === 32 && ARR.valid({ entries: Array(32).fill({ scene: 7, bars: 64 }) }) &&
+    enc37[116] === s37[116] && enc37[119] === s37[119],
+    "System 37 song: 32-entry validation and settings tail preservation");
+  const migrated37 = ARR.encode(sb, { loop: false, entries: [{ scene: 7, bars: 2 }] });
+  ok(migrated37.length === 120 && ARR.ok(migrated37) && migrated37[116] === sb[84] && migrated37[119] === sb[87],
+    "System 37 song: PER3 settings expand to PER4 and relocate the lights word");
+  ARR.setTrackCount(4);
+  ok(E.bkDevFormat({ ntrk: 6, pcount: 71 }) === 7 && E.bkDevFormat({ ntrk: 4, pcount: 71 }) === 6,
+    "backup: detect FUN7 from six-track INFO");
   const pc = readFileSync(join(HERE, "../firmware/src/project.c"), "utf8"), ah = readFileSync(join(HERE, "../firmware/src/arranger.h"), "utf8");
   const pt = (/typedef struct \{([^}]*)\} persist_t;/.exec(pc) || [, ""])[1];
   ok(/PERSIST_MAGIC 0x50455233u/.test(pc) && /arr_config_t arrangement;/.test(pt) && /ARR_STEPS 16u/.test(ah)
