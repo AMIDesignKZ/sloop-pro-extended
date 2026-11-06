@@ -1,4 +1,4 @@
-# SLOOP Pro (SLOOP on the M-Vave SMK-37): build the three model packages in WSL, make the site, open the installer.
+# System 37 (based on SLOOP/Felucca for the M-Vave SMK-37): build the three model packages in WSL, make the site, open the installer.
 #   INSTALL-SLOOP-PRO.bat          build, then serve the installer and the editor on http://localhost:8767
 #   build-sloop-pro.ps1 -NoServe   build only (the packages and their SHA-256 in build\release\)
 #   build-sloop-pro.ps1 -SiteOnly  no compile: the installer site again from the packages already in build\release\
@@ -46,7 +46,7 @@ Write-Host "  ---- ---- ---- ----" -ForegroundColor DarkGray
 Write-Host "  WSL $distro, toolchain $tc, SDK $sdk" -ForegroundColor DarkGray
 Remove-Item Env:FELUCCA_SLICE -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force build\release | Out-Null
-$models = @(@('pro', 'sloop-pro.fwsc', 'SMK-37 Pro / Starrykey 37 Play'), @('elite', 'sloop-pro-elite.fwsc', 'SMK-37 Elite'), @('mke', 'sloop-pro-mke.fwsc', 'MKE-P37'))
+$models = @(@('pro', 'system37.fwsc', 'SMK-37 Pro / Starrykey 37 Play'), @('elite', 'system37-elite.fwsc', 'SMK-37 Elite'), @('mke', 'system37-mke.fwsc', 'MKE-P37'))
 if ($SiteOnly) {
   foreach ($mdl in $models) {
     if (-not (Test-Path (Join-Path build\release $mdl[1]))) { throw "build\release\$($mdl[1]) is missing: run INSTALL-SLOOP-PRO.bat once first" }
@@ -65,20 +65,20 @@ foreach ($mdl in $models) {
   Copy-Item (Join-Path build $mdl[1]) (Join-Path build\release $mdl[1]) -Force
   $first = $false
 }
-if ($pkOnly) { $pk = @('build\release\sloop-pro.fwsc', 'build\release\sloop-pro-elite.fwsc', 'build\release\sloop-pro-mke.fwsc') }
+if ($pkOnly) { $pk = @('build\release\system37.fwsc', 'build\release\system37-elite.fwsc', 'build\release\system37-mke.fwsc') }
 else { $pk = $models | ForEach-Object { Join-Path build\release $_[1] } }
 Write-Host "== Packages (build\release)" -ForegroundColor Cyan
 foreach ($p in $pk) { $h = (Get-FileHash -Algorithm SHA256 $p).Hash.ToLower(); Write-Host "  $p  $h" }
 Get-FileHash -Algorithm SHA256 $pk | ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } | Set-Content build\release\SHA256SUMS.txt
 Write-Host "== Making the installer site" -ForegroundColor Cyan
-python web/make_site.py --pro $ver build/sloop-pro-site @pk
+python web/make_site.py --pro $ver build/system37-site @pk
 if ($LASTEXITCODE -ne 0) { throw "make_site failed" }
 if ($Publish) {                                    # docs\ = the site GitHub Pages serves (main, /docs)
   if (Test-Path docs) { Get-ChildItem docs -Force | Remove-Item -Recurse -Force }
   New-Item -ItemType Directory -Force docs | Out-Null
-  Copy-Item -Recurse -Force build\sloop-pro-site\* docs\
+  Copy-Item -Recurse -Force build\system37-site\* docs\
   New-Item -ItemType File -Force docs\.nojekyll | Out-Null
-  Write-Host "== docs\ is the SLOOP Pro site (installer, editor, the three packages)" -ForegroundColor Cyan
+  Write-Host "== docs\ is the System 37 site (installer, editor, the three packages)" -ForegroundColor Cyan
   exit 0
 }
 if ($NoServe) { exit 0 }
@@ -87,4 +87,4 @@ Write-Host "Installer: http://localhost:8767/webapp/installer/  (Chrome or Edge,
 Write-Host "Editor:    http://localhost:8767/webapp/editor/" -ForegroundColor Green
 Write-Host "Keep this window open during the install. Ctrl+C stops the server."
 Start-Process "http://localhost:8767/webapp/installer/"
-python -m http.server 8767 --bind 127.0.0.1 --directory build/sloop-pro-site
+python -m http.server 8767 --bind 127.0.0.1 --directory build/system37-site
