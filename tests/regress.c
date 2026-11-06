@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
-/* Regression suite of the FELUCCA DSP on the Mac (same sources as the firmware, through hostsim.c).
+/* System 37 regression suite of the firmware DSP on the host (through hostsim.c).
  *   build/host/regress [GOLDEN_FILE CPU_FILE]      (run_tests.sh builds and runs it)
  *
- * 1. golden renders: every selectable synth engine x factory preset, the GM drum kit, the voice modes (POLY / MONO /
- *    LEGATO / UNISON) of the two selectable engines, the FX sends, a 4-track sequencer mix, and the SLICER (slicer.c:
- *    GATE / STUT on the phrase, and on the 4-track mix with the transport). Each render plays
+ * 1. golden renders: every selectable synth engine (ANALOG and FM6) x factory preset, the GM drum kit, the voice
+ *    modes (POLY / MONO / LEGATO / UNISON) of both engines, the FX sends, a 4-track sequencer mix and the SLICER.
+ *    Each render plays
  *    a fixed phrase (notes, an overlap, a chord, note-offs, the release tail) and is reduced to a
  *    64-bit FNV-1a hash of its output samples, compared with GOLDEN_FILE (tests/golden.txt).
  *    Every render runs in its own fork()ed child of a process that never touched the DSP state, so
@@ -248,7 +248,7 @@ static void job_slicer(const job_t *j)
     phrase(t, 60);
 }
 
-/* the 4-track mix: T1 ANALOG ACID, T2 DIGITAL pad (tied chords), T3 LOFI lead (12 steps against 16),
+/* the 4-track mix: T1 ANALOG ACID, T2 FM6 pad (tied chords), T3 ANALOG lead (12 steps against 16),
  * T4 drums; 120 BPM, 4 bars (the hostsim TRACKS demo without the recording), stop, the tail.
  * arg 1: with the SLICER (GATE on the pad, STUT on the acid line and the drums, SWING 20 %) */
 static void job_song(const job_t *j)
@@ -264,7 +264,7 @@ static void job_song(const job_t *j)
     song.g[G_BPM] = 120;
     host_preset(t1, 0, 4);
     host_preset(t2, 1, 5);
-    host_preset(t3, 3, 0);
+    host_preset(t3, ENGI_ANALOG, 17);
     for (i = 0; i < 16u; i++) {
         uint8_t n = ACID[i];
         put_step(t1, i, n ? 1u : 0u, &n, n ? ST_NOTE : ST_REST, ACIDF[i]);
@@ -512,12 +512,12 @@ static void midi_pkt(uint32_t st, uint32_t d1, uint32_t d2)   /* as usb.c: the q
     midi_in_q[mi_w++ % MQ] = (st >> 4) | st << 8 | d1 << 16 | d2 << 24;
 }
 
-/* the shared budget: 3 POLY parts (ANALOG, DIGITAL, VOICE) play random notes on and off for 6 s, up to
+/* the shared budget: 3 POLY parts (ANALOG and FM6) play random notes on and off for 6 s, up to
  * 8 held each; after every block: at most 8 part voices sounding, none still fading after KILL_BLOCKS
- * (a stolen voice fades out), the VOICE part at most 4; then all off: every voice free */
+ * (a stolen voice fades out); then all off: every voice free */
 static int chk_budget(char *msg, uint32_t n)
 {
-    static const uint8_t E[3] = {0, 1, 5};
+    static const uint8_t E[3] = {ENGI_ANALOG, ENGI_FM6, ENGI_ANALOG};
     uint8_t held[NPART][128] = {{0}};
     uint32_t p, k, worst = 0, vworst = 0, fading = 0, kills0 = voice_kills;
     host_tracks_init();
@@ -648,14 +648,14 @@ static int chk_keep_mono(char *m, uint32_t n) { return chk_keep(m, n, V_MONO); }
 static int chk_keep_legato(char *m, uint32_t n) { return chk_keep(m, n, V_LEGATO); }
 static int chk_keep_unison(char *m, uint32_t n) { return chk_keep(m, n, V_UNISON); }
 
-/* the VOICE engine's cap: 8 keys in POLY and in UNISON (alone: the budget does not limit it) */
+/* the synth part's cap: 8 keys in POLY and in UNISON (alone: the budget does not limit it) */
 static int chk_voice_cap(char *msg, uint32_t n)
 {
     uint32_t mode, k, i, most[2] = {0, 0};
     for (mode = 0; mode < 2u; mode++) {
         track_t *t = &trk[0];
         host_tracks_init();
-        host_preset(t, 5, 0);
+        host_preset(t, ENGI_ANALOG, 0);
         t->p[P_VOICE] = mode ? V_UNISON : V_POLY;
         t->p[P_AMODE] = 0;
         for (k = 0; k < 8u; k++)
@@ -811,8 +811,8 @@ int main(int argc, char **argv)
     uint32_t jobs_at_once = getenv("JOBS") ? (uint32_t)atoi(getenv("JOBS")) : 8u;
     static const char *const MN[4] = {"POLY", "MONO", "LEGATO", "UNISON"};
     static const char *const SN[6] = {"dry", "chorus", "delay", "reverb", "all", "dist"};
-    static const uint8_t MODE_E[3][2] = {{0, 0}, {1, 1}, {5, 0}};   /* engine, preset */
-    static const uint8_t SEND_E[2][2] = {{0, 7}, {1, 0}};   /* ANALOG TRAP PLUCK, DIGITAL RHODES */
+    static const uint8_t MODE_E[2][2] = {{ENGI_ANALOG, 0}, {ENGI_FM6, 0}};   /* engine, preset */
+    static const uint8_t SEND_E[2][2] = {{ENGI_ANALOG, 7}, {ENGI_FM6, 0}};   /* ANALOG TRAP PLUCK, FM6 TINE EP */
     static uint8_t cpu_parts[MAXJ][NPART + 1][3];
     static kv_t gold[MAXJ], cpu[MAXJ];
     uint32_t ng, nc, e, pi, i, g0, g1, c0, c1, k0, ncpu = 0;
@@ -837,7 +837,7 @@ int main(int argc, char **argv)
             j->pi = (uint8_t)pi;
         }
     add(J_DRUMS, "drums/gm_kit");
-    for (i = 0; i < 3u; i++)
+    for (i = 0; i < 2u; i++)
         for (k0 = 0; k0 < 4u; k0++) {
             job_t *j;
             snprintf(name, sizeof name, "mode/%s/%s", ENGINES[MODE_E[i][0]]->name, MN[k0]);
@@ -859,7 +859,7 @@ int main(int argc, char **argv)
     {   /* the SLICER */
         job_t *j = add(J_SLICER, "slicer/gate/ANALOG_DARK_STR");
         j->e = 0, j->pi = 10, j->arg = 0;
-        j = add(J_SLICER, "slicer/stut/DIGITAL_RHODES");
+        j = add(J_SLICER, "slicer/stut/FM6_TINE_EP");
         j->e = 1, j->pi = 0, j->arg = 1;
         add(J_SONG, "slicer/song_gate_stut")->arg = 1;
     }
@@ -877,7 +877,7 @@ int main(int argc, char **argv)
     add(J_CHECK, "voices: MONO keeps its note")->check = chk_keep_mono;
     add(J_CHECK, "voices: LEGATO keeps its note")->check = chk_keep_legato;
     add(J_CHECK, "voices: UNISON keeps its note")->check = chk_keep_unison;
-    add(J_CHECK, "voices: VOICE engine cap")->check = chk_voice_cap;
+    add(J_CHECK, "voices: synth part voice cap")->check = chk_voice_cap;
     add(J_CHECK, "routing: no hanging notes")->check = chk_hang;
     run_jobs(J, nj, jobs_at_once);
 
