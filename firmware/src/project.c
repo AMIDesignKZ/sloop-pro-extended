@@ -859,7 +859,7 @@ UI_SMALL static void project_save(uint32_t slot)
             if (s37_cat_ready)
                 (void)s37_catalog_load_section(slot & 7u, p);
             else
-                memset(p, 0, sizeof *p);
+                sec_dirty |= (uint8_t)(1u << (slot & 7u));
             ui_message("NOT SAVED: FLASH ERROR");
         } else {
             sec_dirty &= (uint8_t)~(1u << (slot & 7u));
