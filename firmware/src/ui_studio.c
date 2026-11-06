@@ -257,8 +257,8 @@ UI_SMALL static void studio_tracks_draw(void)
         h = studio_hash(selected + level * 7u + silent * 997u + rec * 1999u + solo * 4999u + len * 37u +
                         song.playing * 7u + pos * 71u + bank * 13u, b);
         for (j = 0; j < len; j++) h = h * 31u + (uint32_t)trk_step_on(t, j);
-        if (!ui.force && h == rows[i]) continue;
-        rows[i] = h;
+        if (!ui.force && h == rows[slot]) continue;
+        rows[slot] = h;
         cv_begin(240, 36, C_BLACK);
         cv_rect(2, 3, 26, 30, selected ? col : dim);   /* the track tile */
         {
