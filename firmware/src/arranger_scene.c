@@ -12,7 +12,7 @@ static uint32_t arrangement_ready(void)
  * chain (seq.c chain_*) plays each of its sections this long */
 static uint32_t section_bars(uint32_t s)
 {
-    const project_t *p = &proj_slot[s & 3u];
+    const project_t *p = &proj_slot[s % ARR_SCENES];
     uint32_t k, bars = 1;
     if (!proj_ok(p))
         return 1;
