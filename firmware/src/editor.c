@@ -796,18 +796,18 @@ UI_SMALL static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes b
             return;
 #if FELUCCA_ARRANGER
         if (a[0] < 2u && (song.playing || transport_req)) {
-            ed_b(a[0]); ed_b(a[1] & 3u); ed_b(project_used(a[1] & 3u));
+            ed_b(a[0]); ed_b(a[1] & 7u); ed_b(project_used(a[1] & 7u));
             ed_b(1);                                  /* optional status: transport busy */
             break;
         }
 #endif
         if (a[0] == 1u)
-            project_save(a[1] & 3u);
+            project_save(a[1] & 7u);
         else if (a[0] == 0u)
-            project_load(a[1] & 3u);
+            project_load(a[1] & 7u);
         ed_b(a[0]);
-        ed_b(a[1] & 3u);
-        ed_b(project_used(a[1] & 3u));
+        ed_b(a[1] & 7u);
+        ed_b(project_used(a[1] & 7u));
 #if BOARD_SMK37
         if (a[0] == 1u)                               /* SLOOP Pro: the save's status, 0 written, 2 the flash failed */
             ed_b(proj_save_err ? 2u : 0u);
@@ -1000,7 +1000,7 @@ UI_SMALL static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes b
             ed_b(trk[i].p[P_MUTE] != 0);
             ed_b((song.rec >> i) & 1u);
         }
-        ed_b(song.solo & 15u);                            /* v5: the tracks soloed */
+        ed_b(song.solo & 63u);                            /* v5: the tracks soloed */
         break;
     case ED_TRACK_MIX: {                                   /* track [, level v14, mute] -> track, level, mute */
         track_t *t;
