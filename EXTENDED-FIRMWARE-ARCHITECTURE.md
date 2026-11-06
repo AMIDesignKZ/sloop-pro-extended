@@ -275,3 +275,20 @@ The module validates directory consistency and can validate every present projec
 The eleven-sector A/B extents offer 44,800 bytes per copy, leaving 3,856 bytes of headroom after the v1 payload. The directory's cached bar count is supplied by the caller; it is not inferred from project step data at this layer.
 
 `tests/section_catalog_test.c` covers catalogue creation, all eight sections, individual section loading, replacement of one section without changing the other seven, metadata updates and invalid inputs. It is wired into `tests/run_tests.sh`, but has not yet been compiled or run in this session. No runtime project/arranger integration, physical flash map change, board flash-guard change or RAM placement change has been made.
+
+
+## Runtime arranger audit and RAM gate (6 November 2026)
+
+The source audit confirms that the existing 16-entry song chain can be retained without changing its entry count or timing model. The scene namespace is currently four entries and is hard-coded in `arranger.h`, `arranger_scene.c`, `ui_song.c`, `project.c` and live/quick-chain paths in `seq.c`.
+
+The existing song arranger calls `arrangement_apply()` from the audio sequencer path at section boundaries. That function releases track state and calls `proj_apply()` against an already resident `proj_slot[]` record. No flash I/O or full-catalogue validation belongs in that callback.
+
+The current four FUN6 section records occupy `proj_slot[4]` in `.noinit`. Song-mode preservation uses another full `project_t` in `.pool`; autosave uses a separate full project buffer, and project import has its own staging union. The documented `.noinit` budget is 0x3D50 bytes and is nearly consumed by the four current project records. This rules out simply changing the array to eight FUN7 projects. The actual linker map and measured pool/stack headroom must be obtained before choosing runtime buffers or moving objects between memory regions.
+
+The implementation direction to evaluate is a bounded prefetch pipeline: read and validate the next catalogue record in the main loop, publish a ready staging record, and let the audio boundary apply only a prepared record. After the boundary, the main loop can prepare the following entry. This must also cover the live-section and quick-chain mechanisms in `seq.c`, and must define what happens if prefetch is late (never apply a partially loaded project). The number and placement of buffers remain open pending linker evidence and a host-tested concurrency/state-machine design.
+
+### Legacy drum migration decision
+
+The user has agreed that the FUN6-to-FUN7 migration may omit the old drum track's pattern and parameter data. This does **not** reduce the fixed FUN7 project size or the six-track runtime footprint: the new dedicated drum track still exists. It does simplify migration and avoids carrying old drum-channel state into the new drum architecture. The three legacy synth tracks remain mapped to synth tracks 0–2; new synth tracks 3–4 and the new drum track 5 are initialised from defaults. The old project remains recoverable through the untouched legacy firmware/backup route. The isolated converter and tests must be updated to reflect this decision before integration.
+
+No runtime, flash map, linker placement or audio behaviour has been changed by this audit.
