@@ -43,15 +43,15 @@ int main(void)
             tr->lock[k].val = 0;
         }
         /* Deliberately unsorted; duplicate-step ties must retain slot order. */
-        tr->lock[0] = (plock_t){20, 2, 200};
-        tr->lock[1] = (plock_t){3, 4, 34};
-        tr->lock[2] = (plock_t){3, 5, 35};
-        tr->lock[3] = (plock_t){63, 6, 636};
-        tr->lock[4] = (plock_t){1, 7, 17};
-        tr->lock[5] = (plock_t){64, 8, 648}; /* malformed step: ignored */
+        tr->lock[0] = (plock_t){20, P_DIST, 200};
+        tr->lock[1] = (plock_t){3, P_REV, 34};
+        tr->lock[2] = (plock_t){3, P_GLIDE, 35};
+        tr->lock[3] = (plock_t){63, P_PAN, 636};
+        tr->lock[4] = (plock_t){1, P_E0, 17};
+        tr->lock[5] = (plock_t){64, P_E1, 648}; /* malformed step: ignored */
         tr->lock[6] = (plock_t){5, 255, 55}; /* malformed parameter: ignored */
         for (k = 7; k < NLOCK; ++k)
-            tr->lock[k] = (plock_t){(uint8_t)(10u + k), (uint8_t)(k % P_COUNT), (int16_t)k};
+            tr->lock[k] = (plock_t){(uint8_t)(10u + k), (uint8_t)(P_E0 + (k % 8u)), (int16_t)k};
     }
     old.sum = proj_v7_hash(&old, sizeof old - 4u);
 
@@ -71,8 +71,8 @@ int main(void)
               b->lock[1].step == 3 && b->lock[1].val == 34 &&
               b->lock[2].step == 3 && b->lock[2].val == 35 &&
               b->lock[3].step == 17 && b->lock[3].val == 7 &&
-              b->lock[6].step == 20 && b->lock[6].val == 200 &&
-              b->lock[7].step == 20 && b->lock[7].val == 10;
+              b->lock[6].step == 20 && b->lock[6].param == P_DIST && b->lock[6].val == 200 &&
+              b->lock[7].step == 20 && b->lock[7].param == P_E2 && b->lock[7].val == 10;
         for (k = 4; k < PROJ_V7_LOCKS; ++k)
             ok &= b->lock[k].step == LOCK_FREE;
     }
