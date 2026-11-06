@@ -42,6 +42,9 @@ run "flash storage (A/B, torn writes)" "$OUT/storage_test"
 $CC -Ifirmware/src -o "$OUT/storage_multi_test" tests/storage_multi_test.c firmware/src/storage_multi.c
 run "multi-sector flash storage (segmented A/B, streaming overlays, power-loss recovery)" "$OUT/storage_multi_test"
 
+$CC -Ifirmware/src -o "$OUT/project_v7_test" tests/project_v7_test.c firmware/src/project_v7.c
+run "System 37 project format 7: FUN6 migration, packed fill, 12 ordered locks, six-track layout" "$OUT/project_v7_test"
+
 $CC -o "$OUT/recovery_test" tests/recovery_test.c
 run "application USB recovery and boot-loop guard" "$OUT/recovery_test"
 
