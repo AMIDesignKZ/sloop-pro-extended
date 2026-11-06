@@ -155,7 +155,11 @@ UI_SMALL static void pt_set_mf(proj_trk_t *t, uint32_t i, int32_t micro, uint32_
     t->mf[i] = (uint8_t)(((uint32_t)micro & 63u) | (fill & 3u) << 6);
 }
 
-project_v6_legacy_t proj_slot[4] __attribute__((section(".noinit")));
+#if BOARD_SMK37
+project_t proj_slot[8] __attribute__((section(".noinit")));
+#else
+project_t proj_slot[4] __attribute__((section(".noinit")));
+#endif
 
 UI_SMALL static uint32_t proj_hash(const void *p, uint32_t n)   /* FNV-1a over n bytes */
 {
@@ -167,6 +171,14 @@ UI_SMALL static uint32_t proj_hash(const void *p, uint32_t n)   /* FNV-1a over n
 }
 UI_SMALL static uint32_t proj_sum(const project_v6_legacy_t *p) { return proj_hash(p, sizeof *p - 4u); }
 UI_SMALL static int proj_ok(const project_v6_legacy_t *q) { return q->magic == PROJ_MAGIC && q->size == sizeof *q && q->sum == proj_sum(q); }
+static int project_valid(const project_t *q)
+{
+#if BOARD_SMK37
+    return proj_v7_valid(q);
+#else
+    return proj_ok(q);
+#endif
+}
 
 /* ---- old formats -> format 5 */
 /* an old step into a synth step (no level, no ratchet) */
@@ -702,27 +714,36 @@ static void proj_apply(const project_t *p, int all)
 #endif
 static uint8_t sec_dirty, song_dirty;           /* live sections / the song: in RAM, not yet in flash */
 #if FELUCCA_FLASH
-/* slot from flash into RAM (format 5, or an old one converted) */
+/* Legacy one-sector objects remain readable until the first verified FUN7 catalogue commit. */
 static union {
-    project_t v6;
+    project_v6_legacy_t v6;
     project_v5_t v5;
     project_v4_t v4;
     project_v3_t v3;
     project_v2_t v2;
     project_v1_t v1;
 } proj_tmp;
-UI_SMALL static void *up_stage(void) { return &proj_tmp; }   /* upreset.c: a user preset bank staged for a write (sloop-lab) */
+UI_SMALL static void *up_stage(void) { return &proj_tmp; }   /* upreset.c: a user preset bank staged for a write */
 UI_SMALL static void proj_fetch(uint32_t slot)
 {
+#if BOARD_SMK37
+    project_t *q = &proj_slot[slot & 7u];
+    int n = slot < 4u ? st_load(OBJ_PROJECT0 + slot, &proj_tmp, sizeof proj_tmp) : 0;
+    uint8_t loss = 0;
+    if (n <= 0 || !proj_import(&proj_tmp.v6, &proj_tmp, n) ||
+        !proj_v6_to_v7(q, &proj_tmp.v6, sizeof proj_tmp.v6, &loss, TP, ENGINES[ENGI_ANALOG]->edit))
+        memset(q, 0, sizeof *q);
+#else
     project_t *q = &proj_slot[slot & 3u];
     int n = st_load(OBJ_PROJECT0 + (slot & 3u), &proj_tmp, sizeof proj_tmp);
     if (!proj_import(q, &proj_tmp, n))
         q->magic = 0;
+#endif
 }
 #include "fm6_bank.c"                           /* the FM6 patch bank (eng_fm6.c PTCH B1..B27): staged in proj_tmp */
 #endif
 
-static const char *const SEC_NAME[4] = {"A", "B", "C", "D"};   /* (2.7: the slots named as the song's sections) */
+static const char *const SEC_NAME[8] = {"A", "B", "C", "D", "E", "F", "G", "H"}   /* (2.7: the slots named as the song's sections) */
 #if BOARD_SMK37
 static uint8_t proj_save_err;                   /* SLOOP Pro: the last project_save could not write the flash (editor.c) */
 #endif
