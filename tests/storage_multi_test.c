@@ -96,7 +96,7 @@ static int overlay_read(void *ctx, uint32_t off, uint8_t *dst, uint32_t n)
 static int target_layout_check(void)
 {
     static const sm_map_t catalog = {
-        .object_id=0x3738u, .max_length=48648u,
+        .object_id=0x3738u, .max_length=48378u,
         .sectors={
             {0xEB000u,0xEC000u,0xED000u,0xEE000u,0xEF000u,0xF0000u,
              0xF1000u,0xF2000u,0xF3000u,0xFE000u,0xB7000u,0xB8000u},
@@ -108,7 +108,7 @@ static int target_layout_check(void)
     uint32_t c, i, j, total=0u;
     if (!sm_map_valid(&catalog) || sm_capacity(&catalog,0u)!=48896u ||
         sm_capacity(&catalog,1u)!=48896u ||
-        sm_capacity(&catalog,0u)-catalog.max_length!=248u)
+        sm_capacity(&catalog,0u)-catalog.max_length!=518u)
         return 0;
     for(c=0;c<2u;c++) for(i=0;i<catalog.sector_count[c];i++) {
         uint32_t x=catalog.sectors[c][i];
