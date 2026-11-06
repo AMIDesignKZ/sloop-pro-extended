@@ -386,3 +386,10 @@ A specific compatibility task remains before changing runtime constants: legacy 
 A candidate RAM improvement is to move synth voice slots out of `track_t` into a dedicated synth-part pool. The current drum track contains an unused inline synth voice array while its actual voices live in `drums.v[]`. Keep this as a candidate until it is refactored with unchanged three-part behaviour and regression tests. The engine arena union, two additional synth parts, FUN7 staging and backup buffers must all be measured against the exact target linker map before runtime expansion.
 
 No runtime constants, track layout, voice ownership, lock count, microtiming, audio path, linker placement or flash map have changed. The next implementation gate is FUN6 constant isolation and regression coverage, followed by target memory measurement.
+
+
+## 10. FUN6 count isolation checkpoint (6 November 2026)
+
+The legacy project definitions now pin the historical counts independently of live runtime constants: four tracks, three synth parts, drum index 3, 64 steps and 24 locks. `project.c` and its legacy regression helper no longer reference `NTRK`, `NPART`, `NLOCK` or `TRK_DRUM`; they use the explicit `PROJ_V6_*` values instead. Compile-time assertions retain the FUN6 934-byte track and 3,816-byte project layouts.
+
+This is a compatibility boundary only. The legacy `proj_capture()` and `proj_apply()` routines still address the old four-track runtime and must not be used after the live runtime changes. The new six-track FUN7 callback adapter remains the future live-project path. The modified project regression test and full host suite have not yet been executed.
