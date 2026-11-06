@@ -448,19 +448,19 @@ and every reply is `op` followed by the live state. Each op runs the code of the
 | --- | --- | --- |
 | 0 | — | nothing: the state only (the page asks about 8 times a second) |
 | 1 | 0 / 1 / 2 | PLAY: stop, play, or as the PLAY button (play / stop). Song mode with an empty section: *EMPTY SECTION: REC* |
-| 2 | layer, white key 0..15, down 1 / up 0 | a key of a layer, as the layer's button held + that key (`ui_layers.c layer_key`): layer 6 GLO (keys 1..4 mute, 5..8 solo, 9 fill while held, 10 fill the next bar, 16 tap tempo), 7 SAVE (1..4 play A..D on the next bar or, stopped, load it; 5..8 store the loop, a used section only on a second press within 3 s; 13 loop / song; 14 SONG REC), 5 SEL (the song's key) |
+| 2 | layer, white key 0..15, down 1 / up 0 | a key of a layer, as the layer's button held + that key (`ui_layers.c layer_key`): layer 6 GLO (keys 1..4 mute, 5..8 solo, 9 fill while held, 10 fill the next bar, 16 tap tempo), 7 SAVE (FM-1: 1..4 play A..D and 5..8 store A..D; System 37: 1..8 play A..H and 9..16 store A..H; a used section needs a second press within 3 s; 13 loop / song and 14 SONG REC remain FM-1 mappings), 5 SEL (the song's key) |
 | 3 | effect 0..26, on 1 / off 0 | a punch-in effect, as GLO > MIDI 3 > FX CH (`seq.c midi_fx`): one at a time; an FM-1 key with FX held takes over |
 | 4 | — | REC, as the REC button (`rec_toggle`) |
 | 5 | 0 undo / 1 redo | as EDIT + OCT− / OCT+ |
 | 6 | track, note (drums: lane 0..15), level (0 NORM, 1 GHOST, 2 SOFT, 3 HARD), down 1 / up 0 | ROLL, as ARP + key (`seq.c roll_start`): the note repeats at GLO's ROLL rate while held (recorded with REC on). The page's rolls use the key 0x80 + note, so letting go of ARP on the FM-1 does not end them; up does |
 | 7 | track, note (drums: lane), down / up | ERASE, as EDIT + key: playing, the steps it passes; stopped, every step (`erase_now`, one undo) |
 | 8 | track, tool (0 shift, 1 length, 2 transpose), 1 up / 0 down | the pattern, as EDIT + KNOB 1..3 (`pattern_rotate`, `pattern_length` ×2 / ½, `pattern_transpose`): each one undo |
-| 9 | n, then n sections 0..3 (n ≤ 8; 0: the chain stops) | a chain, as SAVE + several keys (`chain_release`): the first is asked for the next bar, each plays its bars, looped. Only while playing; an empty section refuses it |
+| 9 | n, then n sections (FM-1: 0..3; System 37: 0..7; n ≤ 8; 0: the chain stops) | a chain, as SAVE + several keys (`chain_release`): the first is asked for the next bar, each plays its bars, looped. Only while playing; an empty section refuses it |
 | 10 | bits (1 the reverb, 2 the echo; 0 let go) | THROW, as FX + OCT− / OCT+ (`thr_ed`, with the FM-1's own) |
 | 11 | 0..126, or 127 | the master level from the page; 127, or turning the MASTER knob, gives it back to the knob (`ed_master`, main.c) |
 | 12 | lane, TUNE + 8 (0..15), DECAY + 4 (0..7) | a drum sound's TUNE and DECAY, as the DRUMS screen's SOUND page |
 
-The state, 50 bytes after `op` (an early 2.7 test build: 32, without the last 18, and without ops 6..12): flags (bit 0 playing, 1 PLAY asked, 2 song mode, 3 the song plays, 4 a fill now, 5 fill
+The state length is variable: a fixed header, three bytes per track reported by `INFO`'s `NTRK`, and (on v12) an 18-byte tail for the master, THROWs and drum TUNE / DECAY. The FM-1 has four track records; System 37 has six. An early 2.7 test build returned 32 bytes after `op`, without the last 18 and without ops 6..12. The fields are: flags (bit 0 playing, 1 PLAY asked, 2 song mode, 3 the song plays, 4 a fill now, 5 fill
 next bar, 6 SONG REC), flags 2 (bit 0 REC armed and waiting for a note, 1 undo there, 2 redo there), BPM (v14), the
 section playing + 1 (0 none), the one asked for + 1, the chain's entries and the one playing, the mutes (bit per track),
 the solos, the REC tracks, the selected track, the punch-in effect + 1, CPU %, the song's entry, entries, bar and that
@@ -506,3 +506,15 @@ No flash write in the command: the device keeps it with its settings once quiet.
   Felucca's own storage; never the app or the update area. Since SLOOP 2.4 every one of them, and
   `BK_PUT` of a preset bank, answers rc 3 while the song plays (as the panel refuses to save then): a
   flash erase silences the audio for about 50 ms.
+
+
+## System 37 extensions (SMK-37, six tracks / eight sections)
+
+The same SysEx command IDs are used. The device reports its actual track count in the final `NTRK` byte of `INFO`; the editor must use this value rather than assuming the FM-1's four tracks.
+
+- **Tracks:** `NTRK = 6`; tracks 1–5 are synth parts (Analog or FM6), track 6 is the dedicated drum track. LIVE replies contain six three-byte track records. The mixer and track selection address all six.
+- **Sections:** A–H are section indices 0–7. SAVE-layer keys 1–8 select/play A–H; keys 9–16 store A–H. LIVE op 2 uses the same white-key indices. Chain op 9 accepts section indices 0–7.
+- **Arrangement:** 32 positions, each containing a section index 0–7 and a bar count 1–64. The System 37 settings object uses `PER4` (magic `0x50455234`), with the arrangement at byte offset 48 and a 68-byte arrangement record: count, loop, two reserved bytes, then 32 pairs of `{section, bars}`. The FM-1 retains `PER3`, 16 positions and its 36-byte record.
+- **Backup objects:** IDs 2–5 remain sections A–D. IDs 12–15 are E–H on System 37. Object 0 is the working project; object 1 is settings. An editor must preserve and restore IDs 12–15 and recognize FUN7 projects on a six-track device.
+- **Song files:** System 37 song files include objects 12–15 when those sections are populated and carry the 68-byte PER4 arrangement slice. A 36-byte PER3 order imported to System 37 is expanded to 32 positions with safe default entries; a PER4 order must not be restored to an FM-1.
+- **MIDI:** the System 37 hardware GLO pages expose CH4 and CH5 in addition to CH1–CH3 and DRUMS. These channels are unique across the five synth tracks and the drum track, and are persisted in the SMK-37 settings object rather than the FUN7 project.
