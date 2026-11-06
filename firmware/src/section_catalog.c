@@ -114,8 +114,12 @@ int s37_cat_prepare_overlay(s37_cat_overlay_t *o,
                             uint16_t bars, uint8_t default_section)
 {
     s37_cat_header_t h;
+    sm_state_t latest;
     if (!o || !replacement || !scratch || scratch == replacement || !state || state->uncertain ||
         section >= S37_CAT_SECTIONS || !bars || default_section >= S37_CAT_SECTIONS ||
+        sm_scan(io, map, &latest) || latest.uncertain ||
+        latest.copy != state->copy || latest.sequence != state->sequence ||
+        latest.length != state->length || latest.payload_crc != state->payload_crc ||
         s37_cat_validate(io, map, state, scratch, &h) ||
         !proj_v7_valid(replacement))
         return -1;
