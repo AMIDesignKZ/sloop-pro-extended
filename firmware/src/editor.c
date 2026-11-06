@@ -441,14 +441,14 @@ UI_SMALL static const uint8_t *ed_bk_obj(uint32_t id, uint32_t *len)   /* 0 = no
     }
     if (id >= 2u && id <= 5u) {
         if (project_used(id - 2u))
-            *len = sizeof proj_slot[0];
-        return (const uint8_t *)&proj_slot[id - 2u];
+            *len = sizeof *proj_slot[0];
+        return (const uint8_t *)proj_slot[id - 2u];
     }
 #if BOARD_SMK37
     if (id >= 12u && id <= 15u) {
         if (project_used(id - 8u))
-            *len = sizeof proj_slot[0];
-        return (const uint8_t *)&proj_slot[id - 8u];
+            *len = sizeof *proj_slot[0];
+        return (const uint8_t *)proj_slot[id - 8u];
     }
 #endif
     if (id == 6u || id == 7u) {                           /* a user preset bank, read where it is (upreset.c) */
