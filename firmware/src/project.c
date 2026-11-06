@@ -24,7 +24,9 @@
 #ifndef UI_SMALL                 /* (2.7) compiled for size: not the audio path (gfx.c UI_SMALL); the host tests: nothing */
 #define UI_SMALL
 #endif
-#define PROJ_MAGIC 0x46554E36u                 /* "FUN6": format 5 + the 2.6 parameters, nudge and condition in a byte */
+#include "project_v7.h"                 /* frozen FUN6 wire layout and isolated FUN7 format */
+
+#define PROJ_MAGIC PROJ_V6_MAGIC                 /* "FUN6": frozen legacy project image */
 #define PROJ_MAGIC_V5 0x46554E35u              /* "FUN5": format 4 + per-step nudge, parameter locks, fill conditions (SLOOP 2.4) */
 #define PROJ_MAGIC_V4 0x46554E34u              /* "FUN4": four tracks, P_COUNT parameters each, 10-byte steps; read only */
 #define PROJ_MAGIC_V3 0x46554E33u              /* "FUN3": SLOOP 1.x; read only */
@@ -36,120 +38,21 @@
 #define PROJ_NG_V3 27u                         /* G_COUNT of formats 1..3 */
 #define PROJ_NP_V2 53u                         /* P_COUNT of formats 1 and 2 (P_E0 was 45) */
 #define PROJ_NG_V2 27u                         /* G_COUNT of formats 1 and 2 */
-#define PROJ_NG 32u                            /* the globals of formats 4 and 5 (G_COUNT until 2.4). SLOOP 2.5's
-                                                * G_DRDLY rides in the byte after sel (0 in older projects: off),
-                                                * so the format and its size do not change */
+#define PROJ_NG 32u                            /* globals of formats 4..6 */
 _Static_assert(G_DRDLY == PROJ_NG && G_TXSRC == PROJ_NG + 5u,
                "the globals a project holds, then G_DRDLY (then 2.6's GLO > MIDI: settings of the FM-1)");
 _Static_assert(G_FXFADE == G_CLKOUT + 1u && G_COUNT == G_FXFADE + 1u, "G_FXFADE (2.7.2) is the last global, a setting of the FM-1");
-#define PROJ_NC6 ((uint32_t)P_ITYPE)           /* format 6: the parameters kept in 16 bits, P_LEVEL .. P_VLEAD (as 5), */
-#define PROJ_NX6 ((uint32_t)(P_E0 - P_ITYPE))  /* the 2.6 ones in a byte (0..127), then P_E0 .. P_E7 */
+#define PROJ_NC6 PROJ_V6_NC
+#define PROJ_NX6 PROJ_V6_NX
 _Static_assert(PROJ_NC6 == PROJ_NP_V5 - 8u && PROJ_NX6 == 10u, "format 6: format 5's parameters, then ten bytes");
-typedef struct {                               /* one track; the drum track ignores engine / preset */
-    int16_t p[PROJ_NC6];                       /* P_LEVEL .. P_VLEAD (pt_get, pt_set) */
-    int16_t e[8];                              /* P_E0 .. P_E7 */
-    uint8_t x[PROJ_NX6];                       /* P_ITYPE .. P_LPOL (2.6) */
-    uint8_t engine, preset;
-    union {
-        step_t step[NSTEP];
-        dstep_t dstep[NSTEP];                  /* (the drum track: 16 lanes, the same size) */
-    };
-    uint8_t mf[NSTEP];                         /* each step's nudge (core.h MICRO_*, 6 bits) | its fill condition << 6 */
-    plock_t lock[NLOCK];                       /* and its parameter locks (step LOCK_FREE = none) */
-} proj_trk_t;
-typedef struct {
-    uint32_t magic, size;
-    int16_t g[PROJ_NG];
-    uint8_t sel, drdly, rsv[2];                /* the selected track; 2.5: G_DRDLY */
-    proj_trk_t t[NTRK];
-    uint32_t sum;
-} project_t;
-static int16_t pt_get(const proj_trk_t *t, uint32_t id)   /* p[id] of a stored track */
-{
-    return id < PROJ_NC6 ? t->p[id] : id < P_E0 ? (int16_t)t->x[id - PROJ_NC6] : t->e[(id - P_E0) & 7u];
-}
-UI_SMALL static void pt_set(proj_trk_t *t, uint32_t id, int32_t v)
-{
-    if (id < PROJ_NC6)
-        t->p[id] = (int16_t)v;
-    else if (id < P_E0)
-        t->x[id - PROJ_NC6] = (uint8_t)clamp(v, 0, 255);
-    else
-        t->e[(id - P_E0) & 7u] = (int16_t)v;
-}
-static int32_t pt_micro(const proj_trk_t *t, uint32_t i) { int32_t m = t->mf[i] & 63; return m >= 32 ? m - 64 : m; }
-static uint32_t pt_fill(const proj_trk_t *t, uint32_t i) { return (uint32_t)t->mf[i] >> 6; }
-UI_SMALL static void pt_set_mf(proj_trk_t *t, uint32_t i, int32_t micro, uint32_t fill)
-{
-    t->mf[i] = (uint8_t)(((uint32_t)micro & 63u) | (fill & 3u) << 6);
-}
-typedef struct {                               /* a track of format 5 (SLOOP 2.4 .. 2.5), read only */
-    int16_t p[PROJ_NP_V5];
-    uint8_t engine, preset;
-    union {
-        step_t step[NSTEP];
-        dstep_t dstep[NSTEP];
-    };
-    int8_t micro[NSTEP];                       /* each step's nudge (core.h) */
-    plock_t lock[NLOCK];                       /* and its parameter locks (step LOCK_FREE = none) */
-    uint8_t fill[NSTEP / 4];                   /* and its fill condition, 2 bits a step (FC_*) */
-} proj_trk_v5_t;
-typedef struct {                               /* format 5, read only */
-    uint32_t magic, size;
-    int16_t g[PROJ_NG];
-    uint8_t sel, drdly, rsv[2];
-    proj_trk_v5_t t[NTRK];
-    uint32_t sum;
-} project_v5_t;
-typedef struct {                               /* a track of format 4 (SLOOP 2.0 .. 2.3), read only */
-    int16_t p[PROJ_NP_V4];
-    uint8_t engine, preset;
-    union {
-        step_t step[NSTEP];
-        dstep_t dstep[NSTEP];
-    };
-} proj_trk_v4_t;
-typedef struct {                               /* format 4, read only */
-    uint32_t magic, size;
-    int16_t g[PROJ_NG];
-    uint8_t sel, rsv[3];
-    proj_trk_v4_t t[NTRK];
-    uint32_t sum;
-} project_v4_t;
-typedef struct { uint8_t note[4], n, time, flags, vel; } step8_t;   /* the steps of formats 1..3 */
-typedef struct {                               /* a track of format 3, read only */
-    int16_t p[PROJ_NP_V3];
-    uint8_t engine, preset;
-    step8_t step[NSTEP];
-} proj_trk_v3_t;
-typedef struct {                               /* format 3 (SLOOP 1.x), read only */
-    uint32_t magic, size;
-    int16_t g[PROJ_NG_V3];
-    uint8_t sel, rsv[3];
-    proj_trk_v3_t t[NTRK];
-    uint32_t sum;
-} project_v3_t;
-typedef struct {                               /* a track of formats 1 and 2, read only */
-    int16_t p[PROJ_NP_V2];
-    uint8_t engine, preset;
-    step8_t step[NSTEP];
-} proj_trk_v2_t;
-typedef struct {                               /* format 2 (until 0.9), read only */
-    uint32_t magic, size;
-    int16_t g[PROJ_NG_V2];
-    uint8_t sel, rsv[3];
-    proj_trk_v2_t t[NTRK];
-    uint32_t sum;
-} project_v2_t;
-typedef struct {                               /* format 1 (until 0.5 beta), read only */
-    uint32_t magic, size;
-    int16_t g[PROJ_NG_V2];
-    proj_trk_v2_t t;
-    uint32_t sum;
-} project_v1_t;
-_Static_assert(sizeof(project_v2_t) == 2552u && sizeof(project_v1_t) == 688u && sizeof(project_v3_t) == 2584u &&
-               sizeof(project_v4_t) == 3112u && sizeof(project_v5_t) == 3840u, "formats 1 / 2 / 3 / 4 / 5 as they were stored");
-_Static_assert(sizeof(project_t) <= 3840u, "format 6 fits one flash object (storage.c ST_PAYLOAD_MAX)");
+
+/* The legacy persistence code keeps its historical names, but its wire
+ * structure is now explicitly frozen at four tracks and 24 locks. It no
+ * longer changes if the live runtime later moves to six tracks / 12 locks. */
+typedef proj_trk_v6_t proj_trk_t;
+typedef project_v6_t project_t;
+_Static_assert(sizeof(project_t) == 3816u && sizeof(project_t) <= 3840u,
+               "FUN6 remains a 3,816-byte legacy flash object");
 project_t proj_slot[4] __attribute__((section(".noinit")));
 
 UI_SMALL static uint32_t proj_hash(const void *p, uint32_t n)   /* FNV-1a over n bytes */
