@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * System 37: host-testable FUN6 -> FUN7 migration.
  */
+#include <stddef.h>
 #include <string.h>
 #include "project_v7.h"
 
@@ -55,11 +56,19 @@ static void keep_lock(proj_trk_v7_t *dst, const plock_t *src, uint32_t *count)
 
 int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length, uint8_t *lock_loss_mask, const param_desc_t *common_defaults, const param_desc_t *analog_defaults)
 {
-    const project_v6_t *src = (const project_v6_t *)data;
+    const uint8_t *raw = (const uint8_t *)data;
+    uint32_t magic, size, sum;
     uint32_t t, s, k;
-    if (!out || !data || !common_defaults || !analog_defaults || length != sizeof(project_v6_t) ||
-        src->magic != PROJ_V6_MAGIC || src->size != sizeof *src ||
-        src->sum != proj_v7_hash(src, (uint32_t)sizeof *src - 4u))
+    if (!out || !data || !common_defaults || !analog_defaults || length != sizeof(project_v6_t))
+        return 0;
+
+    /* Read the old image as bytes: callers may pass a project_t object whose
+     * effective C type differs even though its frozen FUN6 layout is exact. */
+    memcpy(&magic, raw + offsetof(project_v6_t, magic), sizeof magic);
+    memcpy(&size, raw + offsetof(project_v6_t, size), sizeof size);
+    memcpy(&sum, raw + offsetof(project_v6_t, sum), sizeof sum);
+    if (magic != PROJ_V6_MAGIC || size != sizeof(project_v6_t) ||
+        sum != proj_v7_hash(raw, (uint32_t)sizeof(project_v6_t) - 4u))
         return 0;
 
     if (lock_loss_mask)
@@ -67,10 +76,10 @@ int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length, uint8_t 
     memset(out, 0, sizeof *out);
     out->magic = PROJ_V7_MAGIC;
     out->size = sizeof *out;
-    memcpy(out->g, src->g, sizeof out->g);
-    out->sel = src->sel;
-    out->drdly = src->drdly;
-    memcpy(out->rsv, src->rsv, sizeof out->rsv);
+    memcpy(out->g, raw + offsetof(project_v6_t, g), sizeof out->g);
+    memcpy(&out->sel, raw + offsetof(project_v6_t, sel), sizeof out->sel);
+    memcpy(&out->drdly, raw + offsetof(project_v6_t, drdly), sizeof out->drdly);
+    memcpy(out->rsv, raw + offsetof(project_v6_t, rsv), sizeof out->rsv);
 
     for (t = 0; t < PROJ_V7_TRACKS; ++t) {
         uint32_t source_track;
@@ -81,8 +90,8 @@ int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length, uint8_t 
          * last. The old SLOOP drum track (index 3) therefore moves to 5. */
         if (t == 3u || t == 4u) {
             uint32_t id;
-            b->engine = 0u;       /* ANALOG is the initial default synth engine */
-            b->preset = 0xFFu;    /* default preset selection */
+            b->engine = 0u;
+            b->preset = 0xFFu;
             for (id = 0; id < P_E0; ++id) {
                 int16_t value = common_defaults[id].def;
                 if (id < PROJ_V6_NC)
@@ -98,27 +107,30 @@ int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length, uint8_t 
                 b->lock[k].step = LOCK_FREE;
             continue;
         }
+
         source_track = (t == 5u) ? 3u : t;
         {
-            const proj_trk_v6_t *a = &src->t[source_track];
-            memcpy(b->p, a->p, sizeof b->p);
-            memcpy(b->e, a->e, sizeof b->e);
-            memcpy(b->x, a->x, sizeof b->x);
-            b->engine = a->engine;
-            b->preset = a->preset;
-            memcpy(b->step, a->step, sizeof b->step);
+            const uint8_t *a = raw + offsetof(project_v6_t, t) + source_track * sizeof(proj_trk_v6_t);
+            plock_t lock;
+            memcpy(b->p, a + offsetof(proj_trk_v6_t, p), sizeof b->p);
+            memcpy(b->e, a + offsetof(proj_trk_v6_t, e), sizeof b->e);
+            memcpy(b->x, a + offsetof(proj_trk_v6_t, x), sizeof b->x);
+            memcpy(&b->engine, a + offsetof(proj_trk_v6_t, engine), sizeof b->engine);
+            memcpy(&b->preset, a + offsetof(proj_trk_v6_t, preset), sizeof b->preset);
+            memcpy(b->step, a + offsetof(proj_trk_v6_t, step), sizeof b->step);
 
             /* Preserve all fill conditions, discard the six-bit microtiming. */
             for (s = 0; s < NSTEP; ++s) {
-                uint8_t fill = (uint8_t)(a->mf[s] >> 6);
+                uint8_t fill = (uint8_t)(a[offsetof(proj_trk_v6_t, mf) + s] >> 6);
                 b->fill[s / 4u] |= (uint8_t)(fill << (2u * (s % 4u)));
             }
 
             for (k = 0; k < PROJ_V6_LOCKS; ++k) {
-                if (a->lock[k].step != LOCK_FREE && a->lock[k].step < NSTEP &&
-                    a->lock[k].param < P_COUNT && proj_v7_lockable(a->lock[k].param))
+                memcpy(&lock, a + offsetof(proj_trk_v6_t, lock) + k * sizeof(plock_t), sizeof lock);
+                if (lock.step != LOCK_FREE && lock.step < NSTEP &&
+                    lock.param < P_COUNT && proj_v7_lockable(lock.param))
                     ++valid_locks;
-                keep_lock(b, &a->lock[k], &kept);
+                keep_lock(b, &lock, &kept);
             }
             if (lock_loss_mask && valid_locks > PROJ_V7_LOCKS)
                 *lock_loss_mask |= (uint8_t)(1u << t);
