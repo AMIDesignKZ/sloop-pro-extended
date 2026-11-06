@@ -79,6 +79,33 @@ int s37_cat_load_section(const sm_io_t *io, const sm_map_t *map,
     return 0;
 }
 
+int s37_cat_prepare_create(s37_cat_overlay_t *o,
+                           project_v7_t *replacement, uint8_t section,
+                           uint16_t bars, uint8_t default_section)
+{
+    s37_cat_header_t h;
+    if (!o || !replacement || section >= S37_CAT_SECTIONS || !bars ||
+        default_section != section || !proj_v7_valid(replacement))
+        return -1;
+    memset(&h, 0, sizeof h);
+    h.magic = S37_CAT_MAGIC;
+    h.version = S37_CAT_VERSION;
+    h.header_size = S37_CAT_HEADER_SIZE;
+    h.payload_size = S37_CAT_PAYLOAD_SIZE;
+    h.present_mask = (uint8_t)(1u << section);
+    h.default_section = default_section;
+    h.section[section].project_crc = replacement->sum;
+    h.section[section].bars = bars;
+    h.section[section].flags = S37_CAT_PRESENT;
+    o->io = NULL;
+    o->map = NULL;
+    memset(&o->base, 0, sizeof o->base);
+    o->replacement = replacement;
+    o->header = h;
+    o->section = section;
+    return 0;
+}
+
 int s37_cat_prepare_overlay(s37_cat_overlay_t *o,
                             const sm_io_t *io, const sm_map_t *map,
                             const sm_state_t *state, project_v7_t *scratch,
