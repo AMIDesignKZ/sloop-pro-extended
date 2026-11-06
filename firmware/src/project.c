@@ -903,6 +903,203 @@ UI_SMALL static void project_load(uint32_t slot)
 #define AUTOSAVE_IDLE 2500u                    /* ms without input */
 #define AUTOSAVE_GAP 20000u                    /* ms between two saves at least */
 static project_t autosave_buf __attribute__((section(".pool")));
+
+#if BOARD_SMK37
+/* System 37 catalogue: two independent 12-sector copies. All four sample slots,
+ * the FM6 bank, user presets, DAW settings and stock-reserved flash remain untouched. */
+static const sm_map_t s37_cat_map = {
+    .object_id = 0x3738u,
+    .max_length = S37_CAT_PAYLOAD_SIZE,
+    .sectors = {
+        {0xEB000u,0xEC000u,0xED000u,0xEE000u,0xEF000u,0xF0000u,
+         0xF1000u,0xF2000u,0xF3000u,0xFE000u,0xB7000u,0xB8000u},
+        {0x9D000u,0x9E000u,0x9F000u,0xA0000u,0xA1000u,0xA2000u,
+         0xA3000u,0xA4000u,0xA9000u,0xAA000u,0xB9000u,0xBA000u}
+    },
+    .sector_count = {12u,12u}
+};
+static sm_state_t s37_cat_state;
+static s37_cat_header_t s37_cat_header;
+static project_v7_t s37_cat_scratch __attribute__((section(".pool")));
+static s37_cat_overlay_t s37_cat_overlay;
+static s37_cat_image_t s37_cat_image;
+
+static int s37_flash_read(void *context, uint32_t offset, void *dst, uint32_t length)
+{
+    (void)context;
+    return st_read(offset, dst, length);
+}
+static int s37_flash_erase(void *context, uint32_t offset)
+{
+    (void)context;
+    return st_erase(offset);
+}
+static int s37_flash_program(void *context, uint32_t offset, const void *src, uint32_t length)
+{
+    (void)context;
+    return st_prog(offset, src, length);
+}
+static const sm_io_t s37_cat_io = {
+    .context = 0, .read = s37_flash_read, .erase = s37_flash_erase, .program = s37_flash_program
+};
+
+static uint8_t s37_catalog_default(uint8_t mask)
+{
+    uint32_t i, wanted = song.g[G_SLOT] > 0 ? (uint32_t)song.g[G_SLOT] - 1u : 0xFFu;
+    if (wanted < S37_CAT_SECTIONS && (mask & (uint8_t)(1u << wanted)))
+        return (uint8_t)wanted;
+    for (i = 0; i < S37_CAT_SECTIONS; i++)
+        if (mask & (uint8_t)(1u << i))
+            return (uint8_t)i;
+    return 0xFFu;
+}
+
+static int s37_catalog_write_full(void)
+{
+    const project_v7_t *sections[S37_CAT_SECTIONS];
+    uint16_t bars[S37_CAT_SECTIONS];
+    uint8_t mask = 0u, def;
+    uint32_t i;
+    if (s37_cat_uncertain)
+        return -1;
+    for (i = 0; i < S37_CAT_SECTIONS; i++) {
+        if (project_valid(&proj_slot[i])) {
+            sections[i] = &proj_slot[i];
+            bars[i] = (uint16_t)section_bars(i);
+            if (!bars[i]) bars[i] = 1u;
+            mask |= (uint8_t)(1u << i);
+        } else {
+            sections[i] = 0;
+            bars[i] = 0u;
+        }
+    }
+    def = s37_catalog_default(mask);
+    proj_capture(&autosave_buf);
+    if (!proj_v7_valid(&autosave_buf) ||
+        s37_cat_prepare_image(&s37_cat_image, sections, bars, mask, def, &autosave_buf) ||
+        sm_save_stream(&s37_cat_io, &s37_cat_map, s37_cat_image_read, &s37_cat_image,
+                       S37_CAT_PAYLOAD_SIZE, &s37_cat_state) ||
+        s37_cat_validate(&s37_cat_io, &s37_cat_map, &s37_cat_state,
+                         &s37_cat_scratch, &s37_cat_header))
+        return -1;
+    s37_cat_ready = 1u;
+    s37_migrate_pending = 0u;
+    return 0;
+}
+
+static int s37_catalog_store_section(uint32_t slot, const project_t *p)
+{
+    uint16_t bars;
+    uint8_t def;
+    if (slot >= S37_CAT_SECTIONS || !p || !proj_v7_valid(p) || s37_cat_uncertain)
+        return -1;
+    if (!s37_cat_ready)
+        return s37_catalog_write_full();
+    bars = (uint16_t)section_bars(slot);
+    if (!bars) bars = 1u;
+    def = s37_cat_header.default_section;
+    if (def >= S37_CAT_SECTIONS)
+        def = (uint8_t)slot;
+    if (s37_cat_prepare_overlay(&s37_cat_overlay, &s37_cat_io, &s37_cat_map,
+                                &s37_cat_state, &s37_cat_scratch, (uint8_t)slot,
+                                bars, def, (project_v7_t *)p) ||
+        sm_save_stream(&s37_cat_io, &s37_cat_map, s37_cat_overlay_read,
+                       &s37_cat_overlay, S37_CAT_PAYLOAD_SIZE, &s37_cat_state) ||
+        s37_cat_validate(&s37_cat_io, &s37_cat_map, &s37_cat_state,
+                         &s37_cat_scratch, &s37_cat_header))
+        return -1;
+    return 0;
+}
+
+static int s37_catalog_erase_section(uint32_t slot)
+{
+    if (slot >= S37_CAT_SECTIONS || s37_cat_uncertain)
+        return -1;
+    if (!s37_cat_ready) {
+        memcpy(&s37_cat_scratch, &proj_slot[slot], sizeof s37_cat_scratch);
+        memset(&proj_slot[slot], 0, sizeof proj_slot[slot]);
+        if (s37_catalog_write_full()) {
+            memcpy(&proj_slot[slot], &s37_cat_scratch, sizeof proj_slot[slot]);
+            return -1;
+        }
+        return 0;
+    }
+    if (s37_cat_prepare_erase_overlay(&s37_cat_overlay, &s37_cat_io, &s37_cat_map,
+                                      &s37_cat_state, &s37_cat_scratch, (uint8_t)slot) ||
+        sm_save_stream(&s37_cat_io, &s37_cat_map, s37_cat_overlay_read,
+                       &s37_cat_overlay, S37_CAT_PAYLOAD_SIZE, &s37_cat_state) ||
+        s37_cat_validate(&s37_cat_io, &s37_cat_map, &s37_cat_state,
+                         &s37_cat_scratch, &s37_cat_header))
+        return -1;
+    return 0;
+}
+
+static int s37_catalog_load_section(uint32_t slot, project_t *p)
+{
+    if (!s37_cat_ready || slot >= S37_CAT_SECTIONS || !p)
+        return -1;
+    return s37_cat_load_section(&s37_cat_io, &s37_cat_map, &s37_cat_state,
+                                (uint8_t)slot, p, &s37_cat_header);
+}
+
+static int s37_catalog_store_working(const project_t *p)
+{
+    if (!p || !proj_v7_valid(p) || s37_cat_uncertain)
+        return -1;
+    if (!s37_cat_ready)
+        return s37_catalog_write_full();
+    if (s37_cat_prepare_working_overlay(&s37_cat_overlay, &s37_cat_io, &s37_cat_map,
+                                        &s37_cat_state, &s37_cat_scratch, (project_v7_t *)p) ||
+        sm_save_stream(&s37_cat_io, &s37_cat_map, s37_cat_overlay_read,
+                       &s37_cat_overlay, S37_CAT_PAYLOAD_SIZE, &s37_cat_state) ||
+        s37_cat_validate(&s37_cat_io, &s37_cat_map, &s37_cat_state,
+                         &s37_cat_scratch, &s37_cat_header))
+        return -1;
+    return 0;
+}
+
+static void s37_catalog_boot(void)
+{
+    uint32_t i;
+    int rc = sm_scan(&s37_cat_io, &s37_cat_map, &s37_cat_state);
+    s37_cat_ready = 0u;
+    s37_migrate_pending = 0u;
+    s37_cat_uncertain = 0u;
+    if (rc == 0) {
+        if (s37_cat_state.uncertain)
+            s37_cat_uncertain = 1u;
+        if (s37_cat_state.length == S37_CAT_PAYLOAD_SIZE &&
+            s37_cat_validate(&s37_cat_io, &s37_cat_map, &s37_cat_state,
+                             &s37_cat_scratch, &s37_cat_header) == 0 &&
+            s37_cat_header.working_sum != 0u) {
+            for (i = 0; i < S37_CAT_SECTIONS; i++) {
+                if (s37_cat_header.present_mask & (uint8_t)(1u << i)) {
+                    if (s37_cat_load_section(&s37_cat_io, &s37_cat_map, &s37_cat_state,
+                                             (uint8_t)i, &proj_slot[i], 0))
+                        break;
+                } else {
+                    memset(&proj_slot[i], 0, sizeof proj_slot[i]);
+                }
+            }
+            if (i == S37_CAT_SECTIONS &&
+                s37_cat_load_working(&s37_cat_io, &s37_cat_map, &s37_cat_state, &autosave_buf) == 0) {
+                s37_cat_ready = 1u;
+                return;
+            }
+        }
+        /* A storage-valid but semantically invalid catalogue is not safe to overwrite automatically. */
+        s37_cat_uncertain = 1u;
+        return;
+    }
+    if (rc == -2) {
+        s37_cat_uncertain = 1u;
+        return;
+    }
+    for (i = 0; i < S37_CAT_SECTIONS; i++)
+        proj_fetch(i); /* imports the four legacy project slots; E-H start empty */
+    s37_migrate_pending = 1u;
+}
+#endif
 static uint32_t autosave_hash, autosave_ms, autosave_checked;
 
 UI_SMALL static int audio_quiet(void)
