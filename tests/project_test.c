@@ -226,9 +226,10 @@ int main(void)
     for (t = 0; t < PROJ_V6_TRACKS; t++)
         ok &= track_ok_v2(&q.t[t], &v2.t[t], t);
     bad += check("FUN2 -> FUN6: every parameter mapped, SLICER OFF, CHORD OFF (4 tracks)", ok);
-    bad += check("FUN2 -> FUN6: engine bytes kept (WHEEL 7, ANALOG 0, TRIO 6), drum 0",
-                 q.t[0].engine == 7 && q.t[1].engine == 0 && q.t[2].engine == 6 && q.t[3].engine == 0 &&
-                 str_eq(ENGINES[7]->name, "WHEEL") && str_eq(ENGINES[6]->name, "TRIO") && NENGINES > 8);
+    bad += check("FUN2 -> FUN6: legacy engine bytes remain in the frozen wire record",
+                 q.t[0].engine == 7 && q.t[1].engine == 0 && q.t[2].engine == 6 && q.t[3].engine == 0);
+    bad += check("System 37 exposes only Analog and FM6",
+                 NENGINES == 2 && str_eq(ENGINES[0]->name, "ANALOG") && str_eq(ENGINES[1]->name, "FM6"));
 
     /* a FUN4 image (SLOOP 2.0 .. 2.3, as stored) -> FUN5: the same, zero nudges, every lock free */
     memset(&v4, 0, sizeof v4);
