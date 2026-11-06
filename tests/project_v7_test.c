@@ -57,9 +57,17 @@ int main(void)
         for (k = 7; k < PROJ_V6_LOCKS; ++k)
             tr->lock[k] = (plock_t){(uint8_t)(10u + k), (uint8_t)(P_E0 + (k % 8u)), (int16_t)k};
     }
+    /* Give the old drum track real lane data (rather than synth-note bytes). */
+    for (s = 0; s < NSTEP; ++s) {
+        dstep_t *d = &old.t[3].dstep[s];
+        memset(d, 0, sizeof *d);
+        d->on[0] = (uint8_t)(1u << (s & 7u));
+        d->lvl[0] = (uint8_t)((s & 3u) << (2u * (s & 3u)));
+        d->rat[0] = (uint8_t)(((s + 1u) & 3u) << (2u * (s & 3u)));
+    }
     old.sum = proj_v7_hash(&old, sizeof old - 4u);
 
-    bad += check("wire layouts: FUN6 3816 bytes; FUN7 5108 bytes; 6 tracks x 838", 
+    bad += check("wire layouts: FUN6 3816 bytes; FUN7 5396 bytes; 6 tracks x 886", 
                  sizeof old == 3816u && sizeof now == 5396u && sizeof(proj_trk_v7_t) == 886u);
     bad += check("valid FUN6 image migrates to valid FUN7", proj_v6_to_v7(&now, &old, sizeof old, &lock_loss, common_defaults, analog_defaults) && proj_v7_valid(&now));
     bad += check("all valid legacy locks fit without migration loss", lock_loss == 0u);
@@ -82,10 +90,12 @@ int main(void)
     bad += check("three legacy synth tracks, parameters, engine IDs and 64-step patterns preserved", ok);
     bad += check("fill conditions retained in 16 packed bytes; microtiming removed",
                  now.t[0].fill[0] != 0 && now.t[0].fill[15] != 0);
-    bad += check("locks sorted by step, stable ties, earliest 12 retained, invalid entries skipped",
+    bad += check("locks sorted by step with stable ties; all 22 valid locks retained",
                  now.t[0].lock[0].step == 1 && now.t[0].lock[1].step == 3 &&
                  now.t[0].lock[2].step == 3 && now.t[0].lock[3].step == 17 &&
-                 now.t[0].lock[11].step == 24);
+                 now.t[0].lock[6].step == 20 && now.t[0].lock[6].param == P_DIST &&
+                 now.t[0].lock[7].step == 20 && now.t[0].lock[7].param == P_E2 &&
+                 now.t[0].lock[21].step == 63);
     bad += check("new synth tracks 4–5 start empty with defaults",
                  now.t[3].engine == 0 && now.t[3].preset == 0xFFu && now.t[3].p[0] == common_defaults[0].def &&
                  now.t[3].x[0] == common_defaults[PROJ_V6_NC].def && now.t[3].e[0] == analog_defaults[0].def &&
@@ -98,7 +108,9 @@ int main(void)
         const proj_trk_v7_t *b = &now.t[PROJ_V7_DRUM_TRACK];
         ok = !memcmp(a->p, b->p, sizeof a->p) && !memcmp(a->e, b->e, sizeof a->e) &&
              !memcmp(a->x, b->x, sizeof a->x) && a->engine == b->engine && a->preset == b->preset &&
-             !memcmp(a->dstep, b->dstep, sizeof a->dstep);
+             !memcmp(a->dstep, b->dstep, sizeof a->dstep) &&
+             b->lock[0].step == 1 && b->lock[21].step == 63 &&
+             b->lock[22].step == LOCK_FREE && b->lock[23].step == LOCK_FREE;
         for (s = 0; s < NSTEP; ++s)
             ok &= ((b->fill[s / 4u] >> (2u * (s % 4u))) & 3u) == (a->mf[s] >> 6);
     }
