@@ -1579,6 +1579,12 @@ UI_SMALL static void persist_boot(void)                    /* before settings_in
     }
 #if BOARD_SMK37
     s37_catalog_boot();                            /* eight FUN7 sections plus the working autosave */
+#if FELUCCA_ARRANGER
+    if (!arr_valid(&arrangement, arrangement_ready())) {
+        arr_defaults(&arrangement);
+        song_dirty = 1u;
+    }
+#endif
 #else
     {   /* FM-1: original four FUN6 project slots */
         uint32_t i;
