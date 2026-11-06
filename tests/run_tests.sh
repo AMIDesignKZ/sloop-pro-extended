@@ -275,7 +275,7 @@ run "DSP render (ANALOG preset 0)" "$OUT/hostsim" 0 0 1 "$OUT/render.wav"
 mkdir -p build/tracks_demo
 run "TRACKS: 4-track pattern, live recording (lengths, swing), voice budget, engine switch, cost" env TRACKS=build/tracks_demo "$OUT/hostsim" 0 0 1 "$OUT/tracks.wav"
 $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/project_test" tests/project_test.c -lm
-run "project formats (FUN4 / FUN3 / FUN2 / FUN1 -> FUN5), capture / apply, autosave" "$OUT/project_test"
+run "legacy project formats FUN1–FUN6, FUN7 migration, capture / apply, autosave" "$OUT/project_test"
 $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/slicer_test" tests/slicer_test.c -lm
 mkdir -p build/slicer_demo
 run "SLICER: no clicks, timing, sync with the sequencer, STUT, cost, demos" "$OUT/slicer_test" build/slicer_demo
@@ -283,7 +283,7 @@ $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/fm6_test" tests/fm6_test.c -lm
 mkdir -p build/fm6_demo
 run "FM6: algorithms, envelopes, retrigger, DC, clipping, macros, patch formats, voices, the bank, demos" "$OUT/fm6_test" build/fm6_demo
 $CC -O2 -w -Ibuild/gen -Ifirmware/src -Ifirmware/hal -o "$OUT/unison_level_test" tests/unison_level_test.c -lm
-run "UNISON: every engine spreads its voices' phases (no stack of voices in phase over POLY)" "$OUT/unison_level_test"
+run "UNISON: both selectable engines spread their voices' phases (no stack over POLY)" "$OUT/unison_level_test"
 run "the editor protocol and the other inputs (USB / TRS MIDI, damaged flash) fuzzed under ASan + UBSan, and its reproducers" sh tests/editor_fuzz.sh "${EDFZ_N:-2000}" 1
 $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/regress" tests/regress.c -lm
 # the CPU budget: counted by the kernel on macOS; elsewhere under callgrind when valgrind is there (exact, ~45 s;
@@ -294,9 +294,8 @@ run "regression: golden renders, health, voices, CPU budget" "$OUT/regress" test
 
 run "regression: target cost of the render loops" python3 tests/target_budget.py \
     build/felucca.dis tests/target_budget.txt
-# the render split over the two cores (fx.c mix_units): the golden renders and tests/mix_split_test.c (three
-# FORMANT, FM6 or PHYS parts, S&H LFOs, mutes, the drums through the SLICER and the FILTER, the metronome: every
-# split of the units against none) under every mode of the host double of core 1, and under ThreadSanitizer
+# System 37 render split over the two cores: Analog / FM6 scenes, S&H LFOs, mutes, SLICER, filtered drums and
+# metronome under every mode of the host double of core 1, and under ThreadSanitizer
 run "the render split over the two cores: every mode of the second core's host double (tests/cpu1_modes.sh)" sh tests/cpu1_modes.sh
 
 run "installer CLI (fm1_install.py) against a simulated FM-1" python3 tests/install_test.py
