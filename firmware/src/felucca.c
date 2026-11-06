@@ -44,6 +44,7 @@
 #include "core.h"
 #include "cpu1.h"           /* the second core's job API (defined in cpu1.c; the host tests have their own) */
 #include "engines.c"
+#include "eng_sample.c"       /* retained sample subsystem: drum kits and user-sample playback */
 #include "drums.c"
 #include "params.c"
 #include "voice.c"
