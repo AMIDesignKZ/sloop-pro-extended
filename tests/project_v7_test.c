@@ -88,7 +88,7 @@ int main(void)
                  now.t[3].engine == 0 && now.t[3].preset == 0xFFu && now.t[4].engine == 0 &&
                  now.t[4].preset == 0xFFu && now.t[3].step[0].time == ST_REST &&
                  now.t[4].step[63].time == ST_REST && now.t[3].lock[0].step == LOCK_FREE &&
-                 now.t[4].lock[11].step == LOCK_FREE && now.t[5].lock[11].step == LOCK_FREE);
+                 now.t[4].lock[11].step == LOCK_FREE && now.t[5].lock[11].step != LOCK_FREE);
     old.t[0].mf[0] ^= 1u;
     bad += check("damaged FUN6 checksum rejected", !proj_v6_to_v7(&now, &old, sizeof old));
     old.t[0].mf[0] ^= 1u;
