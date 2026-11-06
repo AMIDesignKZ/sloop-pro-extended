@@ -366,10 +366,11 @@ UI_SMALL static void layer_key(uint32_t layer, uint32_t k, uint32_t down)
         ui_say("KEY ", N_NOTE[root]);
         return;
     }
-    case LY_SONG: {                                     /* sections A..H: white keys 1..8 play, 9..16 store */
+    case LY_SONG: {
         char b[2] = {0, 0};
         uint32_t s;
-        if (w < 0) {                                    /* black keys retain the song controls */
+        if (w < 0) {
+#if BOARD_SMK37
             if (k == 1u) {
                 if (srec) ui_message("REC IS ON");
                 else {
@@ -391,11 +392,12 @@ UI_SMALL static void layer_key(uint32_t layer, uint32_t k, uint32_t down)
             } else if (k == 5u) {
                 studio_open(SC_SONG);
             }
+#endif
             return;
         }
-        s = w < 8 ? (uint32_t)w : (uint32_t)w - 8u;
-        b[0] = (char)('A' + s);
-        if (w < 8) {
+        if ((uint32_t)w < ARR_SCENES) {
+            s = (uint32_t)w;
+            b[0] = (char)('A' + s);
             if (arrangement_clock.running) {
                 ui_message("SONG PLAYS");
             } else if (!((arrangement_ready() >> s) & 1u)) {
@@ -416,7 +418,9 @@ UI_SMALL static void layer_key(uint32_t layer, uint32_t k, uint32_t down)
                 section_load(s);
                 ui_say("LOADED ", b);
             }
-        } else {
+        } else if ((uint32_t)w < 2u * ARR_SCENES) {
+            s = (uint32_t)w - ARR_SCENES;
+            b[0] = (char)('A' + s);
             if (((arrangement_ready() >> s) & 1u) && !(sec_armed == s + 1u && fm1_ms - sec_armed_ms < 3000u)) {
                 sec_armed = (uint8_t)(s + 1u);
                 sec_armed_ms = fm1_ms;
@@ -426,6 +430,28 @@ UI_SMALL static void layer_key(uint32_t layer, uint32_t k, uint32_t down)
                 section_store(s);
                 ui_say("SAVED ", b);
             }
+#if !BOARD_SMK37
+        } else if (w == 12) {
+            if (srec) ui_message("REC IS ON");
+            else {
+                arrangement_enabled ^= 1u;
+                ui_message(arrangement_enabled ? "SONG MODE" : "LOOP MODE");
+            }
+        } else if (w == 13) {
+            if (srec) {
+                fm1_irq_off();
+                srec_stop();
+                fm1_irq_on();
+            } else if (arrangement_clock.running) {
+                ui_message("STOP FIRST");
+            } else {
+                arrangement_enabled = 0;
+                srec = 1;
+                ui_message(live_sec < 0 ? "PICK A PART" : "REC: NEXT BAR");
+            }
+        } else if (w == 15) {
+            studio_open(SC_SONG);
+#endif
         }
         return;
     }
