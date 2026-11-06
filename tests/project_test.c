@@ -34,7 +34,8 @@ static int project7_from_v6_ok(const project_t *p)
             return 0;
     if (memcmp(p->t[TRK_DRUM].dstep, project7_test.t[5].dstep, sizeof p->t[TRK_DRUM].dstep))
         return 0;
-    return project7_test.t[3].preset == 0xFFu && project7_test.t[4].preset == 0xFFu &&
+    return project7_test.sel == (p->sel == TRK_DRUM ? 5u : p->sel <= 2u ? p->sel : 0u) &&
+           project7_test.t[3].preset == 0xFFu && project7_test.t[4].preset == 0xFFu &&
            project7_test.t[3].p[P_LEVEL] == TP[P_LEVEL].def &&
            project7_test.t[3].x[0] == (uint8_t)TP[P_ITYPE].def &&
            project7_test.t[3].e[0] == ENGINES[0]->edit[0].def &&
