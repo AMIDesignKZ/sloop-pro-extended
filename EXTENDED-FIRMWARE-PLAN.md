@@ -364,3 +364,10 @@ The frozen FUN6 definitions now explicitly include four tracks, three synth part
 All `NTRK`, `NPART`, `NLOCK` and `TRK_DRUM` references have been removed from the legacy `project.c` layer and its regression helper; their loops and drum identification now use explicit FUN6 constants. This prevents a future change to live runtime constants from silently changing the legacy project's iteration bounds or interpreting the old drum track as the new index 5.
 
 The changes are committed, but the project regression test and full host suite have **not** yet been compiled or run. This isolates the legacy count contract; it does not make the existing project capture/apply functions suitable for the future six-track runtime. Those functions remain legacy-only and must be replaced by the FUN7 live adapter before runtime expansion.
+
+
+## Progress checkpoint — SMK-37 fader mapping audited (6 November 2026)
+
+The actual SMK-37 control mapping is now confirmed from `main.c`, `ui_fbank.c` and `ui_layers.c`: the four physical faders use five parameter banks (LEVEL, FILTER, REVERB, DELAY and selected-track ENVELOPE). Banks A–D address tracks 1–4; bank E addresses the selected synth track's ADSR. The GLO layer also exposes mute/solo and level controls for only tracks 1–4. These are not already a two-layer six-track mixer. Moving drums from index 3 to index 5 would also invalidate the current fader-bank drum special cases, which only iterate fader indices 0–3.
+
+The six-track mixer control mapping is therefore still an explicit design gate; no button/fader behaviour has been changed. The build script confirms that a baseline SMK-37 build reports image size, .data+.bss, lowram and .pool usage, and enforces at least 8 KiB of .pool headroom. The next measurement gate is an unchanged baseline build with the exact JieLi toolchain/SDK before any runtime memory-layout changes.
