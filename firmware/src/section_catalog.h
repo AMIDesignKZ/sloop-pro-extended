@@ -73,6 +73,10 @@ int s37_cat_prepare_image(s37_cat_image_t *image,
                           const project_v7_t *working);
 int s37_cat_image_read(void *context, uint32_t offset,
                        uint8_t *dst, uint32_t length);
+int s37_cat_prepare_erase_overlay(s37_cat_overlay_t *overlay,
+                                  const sm_io_t *io, const sm_map_t *map,
+                                  const sm_state_t *state, project_v7_t *scratch,
+                                  uint8_t section);
 int s37_cat_prepare_working_overlay(s37_cat_overlay_t *overlay,
                                     const sm_io_t *io, const sm_map_t *map,
                                     const sm_state_t *state, project_v7_t *scratch,
