@@ -87,12 +87,12 @@ int main(void)
     int bad = 0;
 
     memset(nor, 0xFF, sizeof nor);
-    bad += check("catalogue is 80-byte directory plus eight 5,108-byte records",
-                 sizeof(s37_cat_header_t) == 80u && S37_CAT_PAYLOAD_SIZE == 40944u);
+    bad += check("catalogue is 80-byte directory plus eight 5,396-byte records",
+                 sizeof(s37_cat_header_t) == 80u && S37_CAT_PAYLOAD_SIZE == 43248u);
     bad += check("eleven-sector A/B extents provide sufficient capacity",
                  sm_map_valid(&map) && sm_capacity(&map, 0u) == 44800u &&
                  sm_capacity(&map, 1u) == 44800u &&
-                 sm_capacity(&map, 0u) - S37_CAT_PAYLOAD_SIZE == 3856u);
+                 sm_capacity(&map, 0u) - S37_CAT_PAYLOAD_SIZE == 1552u);
 
     make_project(&replacement, 1u);
     expected[0] = replacement;
