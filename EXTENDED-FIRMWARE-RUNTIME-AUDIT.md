@@ -125,3 +125,16 @@ The first recommended implementation step is now committed:
 - The legacy project regression helper now uses the same frozen FUN6 constants.
 
 The change has been inspected at source/diff level. The project regression test and full test runner have not been compiled or executed. The next step is to obtain a baseline SMK-37 target build/map (the repository's build requires the JieLi Linux toolchain and SDK), then perform the synth-voice ownership refactor as an isolated change. Do not change runtime counts until those measurements and regression tests are available.
+
+
+## 7. SMK-37 physical fader and mixer control finding
+
+The control-map source has now been checked directly:
+
+- The SMK-37 has four physical faders. In the current SLOOP mapping, FADER BANK A controls LEVEL for tracks 1–4; B controls FILTER for tracks 1–4; C controls REVERB send for tracks 1–4; D controls DELAY send for tracks 1–4; E controls ATTACK/DECAY/SUSTAIN/RELEASE on the currently selected synth track.
+- FADER BANK A–E are **parameter banks**, not track banks. They do not currently provide a two-layer mapping for six tracks.
+- The existing `fb_param()` / `fb_move()` code iterates fader indices 0–3 and tests `i == TRK_DRUM`. With the drum track moving to index 5, that comparison can never match; the drum's level, reverb and delay special cases need an explicit track-bank/role mapping.
+- The GLO layer also documents keys 1–4 as mute, keys 5–8 as solo, and knobs as levels for tracks 1–4. That control layer is likewise not a six-track mixer yet.
+- The DAW-mode MIDI map has four fader controls in each of its two DAW banks. This is a separate MIDI-control mapping and should not be confused with the SLOOP FADER BANK A–E parameter pages.
+
+The target's four-fader/two-layer track mixer therefore remains a control-design gate. Before implementation, define which two track groups are controlled by the four faders, how the fifth synth and drum levels are addressed, and how the existing A–E parameter banks remain accessible (or are deliberately simplified). No mapping has been changed or assumed here.
