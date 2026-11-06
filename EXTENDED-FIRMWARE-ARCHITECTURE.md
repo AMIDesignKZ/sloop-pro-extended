@@ -137,6 +137,24 @@ Migrate the old 27-patch bank into Bank A slots 1–27. Keep the remaining slots
 
 Autosave remains a separate A/B project object. At 5,108 bytes it requires two sectors per copy (four sectors total). Use the same multi-sector transaction rules. This adds two sectors relative to the existing one-sector-per-copy object.
 
+## 5A. Host-tested storage primitive prototype
+
+A first isolated implementation now exists in firmware/src/storage_multi.h and firmware/src/storage_multi.c, with tests/storage_multi_test.c. It is not yet included by felucca.c and does not replace or modify storage.c.
+
+The primitive accepts per-copy, possibly non-contiguous sector lists and a flash callback interface. It provides:
+
+- A 32-byte versioned header with object identity, copy identity, sequence, payload length, sector count, payload CRC and header CRC.
+- Logical payload addressing across the first sector's 3,840-byte payload area and subsequent full sectors.
+- 256-byte page-bounded streaming writes using a caller-supplied source callback; a catalogue can therefore copy its old contents and overlay one section without a 41 KiB RAM staging buffer.
+- Full payload readback/CRC before the header is programmed as the commit record.
+- A/B selection with wrap-aware sequence comparison and CRC fallback.
+- A degraded-read state: a valid copy may still be read if its peer cannot be inspected, but saves are refused while either copy is uncertain. This prevents a transient read error from being mistaken for an empty store and causing an erase of a potentially valid copy.
+- Map validation for sector alignment, duplicate extents and payload capacity. The board flash callbacks must still enforce the independent hardware allow-list and protected-region guard.
+
+The host test uses a simulated NOR device that enforces erase-to-FF, 1-to-0 programming and 256-byte page boundaries. It checks non-contiguous reads/writes, streamed overlays, all erase/page/header failure points, partial page/header programming, read uncertainty, CRC corruption and fallback to the older committed copy.
+
+The standalone test was compiled with the host C compiler using -std=c11 -Wall -Wextra -Werror -O2 and passed. The same test is added to tests/run_tests.sh. This is host evidence for the generic primitive only; it is not a target build, not a hardware flash test, and not yet proof of the proposed SMK-37 extent map.
+
 ## 6. Proposed SMK-37 sector extent map
 
 This is a proposed allocation for validation, not permission to write these addresses before migration and guard tests pass.
