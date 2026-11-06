@@ -52,9 +52,9 @@ static int find(const char *name, uint32_t *e, uint32_t *pi)
 
 int main(void)
 {
-    /* the usual held sounds; the power-on ones first (ui.c TRK_DEF: 808 BOOM, RHODES, LOFI FLUTE) */
-    static const char *const USUAL[] = {"808 BOOM", "RHODES", "LOFI FLUTE", "SUPERSAW", "SINE PAD", "ATMOS PAD", "CLAV",
-                                        "CZ PAD", "SOUL ORGAN", "ENSEMBLE", "CHOIR AAH", "VOX PAD", "TINE EP", "DRAWBARS"};
+    /* supported System 37 sounds; the three power-on defaults first (808 BOOM, WARM PAD, GLASS BELL) */
+    static const char *const USUAL[] = {"808 BOOM", "WARM PAD", "GLASS BELL", "SUPERSAW", "SINE PAD", "ATMOS PAD", "ACID 303",
+                                        "FAT LEAD", "TINE EP", "DRAWBARS", "BRASS SECT", "SOFT PAD", "WOOD BARS", "NYLON PICK"};
     uint32_t e, pi, i, k, n = 0, lim_soft[2] = {0, 0}, lim_cl[2] = {0, 0}, ok, clip = 0;
     char b[128];
     res_t r;
