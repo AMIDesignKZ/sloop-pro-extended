@@ -55,6 +55,9 @@ int s37_cat_validate(const sm_io_t *io, const sm_map_t *map,
 int s37_cat_load_section(const sm_io_t *io, const sm_map_t *map,
                          const sm_state_t *state, uint8_t section,
                          project_v7_t *out, s37_cat_header_t *header);
+int s37_cat_prepare_create(s37_cat_overlay_t *overlay,
+                           project_v7_t *replacement, uint8_t section,
+                           uint16_t bars, uint8_t default_section);
 int s37_cat_prepare_overlay(s37_cat_overlay_t *overlay,
                             const sm_io_t *io, const sm_map_t *map,
                             const sm_state_t *state, project_v7_t *scratch,
