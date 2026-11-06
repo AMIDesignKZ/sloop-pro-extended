@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* SLOOP 2.4 stress test: the real UI and audio (the ui_pages_test harness) pushed hard on what 2.4 added.
+/* System 37 stress test: the real UI and audio (the ui_pages_test harness) pushed hard on the current build.
  *   font    FONT_L is FONT_S's bitmaps drawn at 2x (no copy in flash): every L glyph, drawn by the real
  *           cv_text, is checked pixel for pixel against the same glyph enlarged from S here; then
  *           random text (every byte 1..255) at random places, partly or wholly off random canvases
