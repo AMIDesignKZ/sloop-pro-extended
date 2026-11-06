@@ -3,7 +3,7 @@
  * All calls are main-loop operations. The caller supplies flash callbacks;
  * firmware callbacks must retain the board's independent flash guard.
  */
-#include "libc.h"
+#include <stddef.h>
 #include "storage_multi.h"
 
 static uint32_t sm_crc_update(uint32_t crc, const uint8_t *p, uint32_t n)
