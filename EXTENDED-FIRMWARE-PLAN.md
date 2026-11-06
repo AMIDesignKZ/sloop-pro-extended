@@ -65,7 +65,7 @@ These are accepted product-direction decisions and proposed scope. No firmware s
 
 ## Current status
 
-This is an implementation plan and audit checkpoint, not a completed firmware modification. No firmware source has been changed by this plan.
+This initial checkpoint recorded the design before implementation. See the progress checkpoints below for isolated host-tested prototypes. Runtime track counts, live project persistence, flash mapping and audio behaviour have not yet been changed.
 
 
 ## Verified source audit checkpoint (6 November 2026)
