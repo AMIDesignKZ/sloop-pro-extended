@@ -3360,15 +3360,12 @@ static int __attribute__((noinline)) midi_learned(uint32_t cc, uint32_t value)
     return hit;
 }
 
-/* SLOOP 2.7, after renebohne's pull request #71 (Felucca 1.1.5's standard CC map, discussion #103): CC 74 ("brightness",
- * the cutoff knob of most controllers) sweeps the engine's own cutoff or brightness over its range, from dark to bright,
- * where it has one; the others (DIGITAL, VOICE, WHEEL) and the drum track keep the track FILTER (64 off, as before).
- * The engine's EDIT slot, by its name */
+/* CC 74 ("brightness") sweeps the supported engine's cutoff / brightness parameter over its range.
+ * The drum track keeps the track FILTER. The engine's EDIT slot, by its name. */
 static uint32_t cc74_slot(const engine_t *e)      /* 0..7, or 8: none */
 {
     static const struct { const char *name; uint8_t slot; } T[] = {
-        {"ANALOG", 4}, {"PHASE", 2}, {"LOFI", 7}, {"SAMPLE", 4}, {"TRIO", 5}, {"GRAIN", 7}, {"FM6", 2}, {"PHYS", 2},
-        {"NOISE", 2}, {"SLICE", 7}};
+        {"ANALOG", 4}, {"FM6", 2}};
     uint32_t i;
     for (i = 0; i < NELEM(T); i++)
         if (str_eq(e->name, T[i].name) && e->edit[T[i].slot].max > e->edit[T[i].slot].min &&
