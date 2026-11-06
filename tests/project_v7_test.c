@@ -67,7 +67,7 @@ int main(void)
     }
     old.sum = proj_v7_hash(&old, sizeof old - 4u);
 
-    bad += check("wire layouts: FUN6 3816 bytes; FUN7 5396 bytes; 6 tracks x 886", 
+    bad += check("wire layouts: FUN6 3816 bytes; FUN7 5366 bytes; 6 tracks x 881", 
                  sizeof old == 3816u && sizeof now == 5366u && sizeof(proj_trk_v7_t) == 881u);
     bad += check("valid FUN6 image migrates to valid FUN7", proj_v6_to_v7(&now, &old, sizeof old, &lock_loss, common_defaults, analog_defaults) && proj_v7_valid(&now));
     bad += check("all valid legacy locks fit without migration loss", lock_loss == 0u);
@@ -75,6 +75,7 @@ int main(void)
     for (t = 0; t < 3u; ++t) {
         const proj_trk_v6_t *a = &old.t[t];
         const proj_trk_v7_t *b = &now.t[t];
+        for (k = 0; k < PROJ_V6_NC; ++k) ok &= b->p[k] == a->p[k];
         ok &= !memcmp(a->e, b->e, sizeof a->e) &&
               !memcmp(a->x, b->x, sizeof a->x) && a->engine == b->engine && a->preset == b->preset &&
               !memcmp(a->step, b->step, sizeof a->step);
@@ -110,7 +111,8 @@ int main(void)
     {
         const proj_trk_v6_t *a = &old.t[3];
         const proj_trk_v7_t *b = &now.t[PROJ_V7_DRUM_TRACK];
-        ok = !memcmp(a->e, b->e, sizeof a->e) &&
+        for (k = 0; k < PROJ_V6_NC; ++k) ok &= b->p[k] == a->p[k];
+        ok &= !memcmp(a->e, b->e, sizeof a->e) &&
              !memcmp(a->x, b->x, sizeof a->x) && a->engine == b->engine && a->preset == b->preset &&
              !memcmp(a->dstep, b->dstep, sizeof a->dstep) &&
              b->lock[0].step == 1 && b->lock[21].step == 63 &&
