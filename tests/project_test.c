@@ -35,6 +35,9 @@ static int project7_from_v6_ok(const project_t *p)
     if (memcmp(p->t[TRK_DRUM].dstep, project7_test.t[5].dstep, sizeof p->t[TRK_DRUM].dstep))
         return 0;
     return project7_test.t[3].preset == 0xFFu && project7_test.t[4].preset == 0xFFu &&
+           project7_test.t[3].p[P_LEVEL] == TP[P_LEVEL].def &&
+           project7_test.t[3].x[0] == (uint8_t)TP[P_ITYPE].def &&
+           project7_test.t[3].e[0] == ENGINES[0]->edit[0].def &&
            project7_test.t[3].step[0].time == ST_REST && project7_test.t[4].step[63].time == ST_REST;
 }
 
