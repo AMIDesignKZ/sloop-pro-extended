@@ -74,7 +74,7 @@ Add compile-time sizeof assertions. Host tests must verify exact layout, checksu
 
 Map old synth tracks 0–2 to new synth tracks 0–2. Initialise new synth tracks 3–4 from the Analog default. Move the old drum track from index 3 to new index 5. Preserve globals, patterns, drum lanes, fill conditions and compatible common parameters. Discard micro-timing.
 
-Old projects can contain up to 24 locks per track. Format 7 can retain only 12. Before implementation, choose and test a deterministic policy (recommended: retain the earliest-step valid locks, with stable parameter/order tie-breaking) and expose a migration warning if any locks are dropped. Do not silently claim lossless conversion.
+Old projects can contain up to 24 locks per track. Format 7 can retain only 12. Migration retains the 12 earliest-step valid locks. For locks on the same step, preserve original slot order as the tie-break. Drop later-step locks and expose a migration warning if any are lost. Host tests must cover empty, 12-lock, 13-lock and 24-lock cases.
 
 ### Section catalogue
 
