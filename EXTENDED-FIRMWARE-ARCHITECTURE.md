@@ -257,7 +257,7 @@ An isolated FUN6-to-FUN7 schema and conversion module has been added:
 
 The FUN6 mirror fixes its historical four-track and 24-lock counts explicitly. It must not depend on future runtime `NTRK` or `NLOCK` values, or a later expansion could corrupt the legacy reader's layout.
 
-The converter preserves globals, parameters, engine/preset bytes and all 64 steps. It packs each old step's two-bit fill condition into a 16-byte array and discards the six-bit micro-timing value. The old synth tracks 0–2 remain at 0–2; the two new synth tracks occupy 3–4; the old dedicated drum track moves from 3 to 5. New synth records start empty, with Analog selected, common and Analog-specific parameters populated from the supplied descriptors, and the default-preset sentinel.
+The converter preserves globals, parameters, engine/preset bytes and all 64 steps. It packs each old step's two-bit fill condition into a 16-byte array and discards the six-bit micro-timing value. The old synth tracks 0–2 remain at 0–2; the two new synth tracks occupy 3–4; the old dedicated drum track moves from 3 to 5. A saved selection of the old drum track is remapped from index 3 to index 5 as well. New synth records start empty, with Analog selected, common and Analog-specific parameters populated from the supplied descriptors, and the default-preset sentinel.
 
 Lock migration uses the same lockable-parameter rules as the current sequencer. It retains the globally earliest 12 valid locks, sorts them by step, and preserves original source-slot order for equal-step ties. A per-track warning mask is returned when more than 12 valid locks existed; the eventual UI must present that warning to the user.
 
