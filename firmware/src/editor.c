@@ -404,7 +404,7 @@ UI_SMALL static const param_desc_t *ed_desc(uint32_t scope, uint32_t id, int16_t
  * then writes it through the usual A/B commit: a cut-off restore never leaves half an object. */
 #if FELUCCA_FLASH
 #if BOARD_SMK37
-static uint8_t ed_bk_raw[sizeof(project_v7_t)] __attribute__((section(".pool")));
+static uint8_t ed_bk_raw[sizeof(project_v7_t)] __attribute__((section(".noinit")));
 #define ED_BK_RAW ed_bk_raw
 #define ED_BK_RAW_SIZE sizeof ed_bk_raw
 #else
