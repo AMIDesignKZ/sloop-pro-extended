@@ -31,6 +31,21 @@ Target hardware: M-VAVE SMK-37.
 
 These are design decisions and constraints, not implemented firmware changes.
 
+
+## Accepted instrument architecture (6 November 2026)
+
+- The five synth parts are **freely assignable**: each part can select either FM6 or Analog independently. Do not reserve fixed tracks for either engine.
+- The sixth track remains the dedicated drum track, independent of the synth engine selection.
+- Prioritise FM6 as a DX7-style six-operator engine, including full standard 32-voice SysEx bank import/export and a bank library design that can retain complete 32-patch banks. Current implementation supports standard 32-voice bank parsing but only 27 persistent user slots; expansion is a design requirement, not an existing capability.
+- Prioritise Analog as the main subtractive engine for bass, leads and pads.
+- Retain sample playback support for sampled drum kits and two user sample slots. Removing the general SAMPLE synth engine must not remove drum sample playback or user drum-kit functionality.
+- Drum direction: retain the dedicated synthesised drum engine and organise/refine kits around 808, 909, hybrid and experimental/electronic characters, after auditing existing SYN1–SYN4 kits. Retain sampled kits.
+- Proposed engine simplification: remove or make optional DIGITAL, PHASE, LOFI, FORMANT/VOICE, TRIO, DRAWBAR, GRAIN, PHYS and NOISE, subject to dependency and memory/flash measurement. FM6, ANALOG, drum synthesis and sample playback remain.
+- Preserve old engine numeric IDs as reserved/disabled values; never renumber IDs stored in existing projects or presets.
+- The incoming external FM-1 is outside this SMK-37 firmware's internal engine budget; consider it later as a separate MIDI instrument.
+
+These are accepted product-direction decisions and proposed scope. No firmware source has been changed to implement them.
+
 ## Implementation phases
 
 1. **Complete dependency and storage audit.** Trace every use of `NPART`, `NTRK`, drum indices, section masks, project slot counts, project format versions, backup/restore paths, MIDI channel settings, mixer/fader routing, and editor serialization.
