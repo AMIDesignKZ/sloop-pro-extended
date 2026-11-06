@@ -26,7 +26,7 @@ static uint8_t project7_lock_loss;
 static int project7_from_v6_ok(const project_t *p)
 {
     uint32_t i;
-    if (!proj_v6_to_v7(&project7_test, p, sizeof *p, &project7_lock_loss) ||
+    if (!proj_v6_to_v7(&project7_test, p, sizeof *p, &project7_lock_loss, TP, ENGINES[0]->edit) ||
         !proj_v7_valid(&project7_test))
         return 0;
     for (i = 0; i < 3u; ++i)
