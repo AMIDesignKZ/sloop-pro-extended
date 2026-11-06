@@ -107,6 +107,23 @@ int main(void)
          (lock_loss & 1u) && now.t[0].lock[11].step == 11;
     bad += check("13th later lock is dropped and raises a per-track warning", ok);
 
+    for (k = 0; k < PROJ_V6_LOCKS; ++k)
+        old.t[0].lock[k] = (plock_t){(uint8_t)(23u - k), (uint8_t)(P_E0 + (k % 8u)), (int16_t)k};
+    old.sum = proj_v7_hash(&old, sizeof old - 4u);
+    lock_loss = 0;
+    ok = proj_v6_to_v7(&now, &old, sizeof old, &lock_loss) &&
+         (lock_loss & 1u) && now.t[0].lock[0].step == 0 && now.t[0].lock[11].step == 11;
+    bad += check("24 valid locks: earliest 12 retained", ok);
+
+    for (k = 0; k < PROJ_V6_LOCKS; ++k)
+        old.t[0].lock[k] = (plock_t){LOCK_FREE, 0, 0};
+    old.sum = proj_v7_hash(&old, sizeof old - 4u);
+    lock_loss = 0;
+    ok = proj_v6_to_v7(&now, &old, sizeof old, &lock_loss) &&
+         !(lock_loss & 1u) && now.t[0].lock[0].step == LOCK_FREE &&
+         now.t[0].lock[11].step == LOCK_FREE;
+    bad += check("empty lock array remains empty", ok);
+
     old.t[0].mf[0] ^= 1u;
     bad += check("damaged FUN6 checksum rejected", !proj_v6_to_v7(&now, &old, sizeof old, NULL));
     old.t[0].mf[0] ^= 1u;
