@@ -5,6 +5,10 @@
 set -e
 cd "$(dirname "$0")/.."
 OUT=build/host/edfz
+if [ -n "$SKIP_ASAN" ]; then
+    echo "editor fuzz under ASan + UBSan: SKIP_ASAN=1, skipped"
+    exit 0
+fi
 mkdir -p "$OUT/gen"
 # SMP_DATA read through a pointer: the user sample slots are addressed as offsets from it (one flash), which
 # -fsanitize=bounds would take for an overflow of the array; AddressSanitizer still checks every byte
