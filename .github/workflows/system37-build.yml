@@ -1,0 +1,65 @@
+name: System 37 build and validation
+
+on:
+  push:
+    branches:
+      - extended-firmware
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install build and test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl git xz-utils valgrind
+          python -m pip install --upgrade pip Pillow
+
+      - name: Install JieLi toolchain
+        run: tools/get_toolchain.sh "$HOME/.jieli"
+
+      - name: Fetch JieLi AC79 SDK
+        run: |
+          git clone --depth 1 --branch AC79NN_SDK_V1.2.1_2023-12-13 \
+            https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git "$HOME/fw-AC79_AIoT_SDK"
+
+      - name: Build System 37 Pro, Elite, MKE and FM-1 reference
+        run: tools/build_pro.sh
+
+      - name: Run complete host, sanitizer, target-budget and web test suite
+        env:
+          SKIP_CPU_VALGRIND: "0"
+          EDFZ_N: "2000"
+        run: tests/run_tests.sh
+
+      - name: Publish firmware packages and installer site
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: system37-build-${{ github.sha }}
+          if-no-files-found: warn
+          path: |
+            build/release/system37.fwsc
+            build/release/system37-elite.fwsc
+            build/release/system37-mke.fwsc
+            build/release/SHA256SUMS.txt
+            build/system37-site/
+            build/felucca.fwsc
