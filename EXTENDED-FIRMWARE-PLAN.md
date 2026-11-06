@@ -182,3 +182,15 @@ Before any source or flash-map change:
 5. Reconcile the sample-slot count with the stock-mapping detector, sample upload, drum sample references, backup/restore, browser editor and flash guards.
 
 No source code, flash address, sample slot or storage allocation has been changed by this capacity model.
+
+### Two-slot sample dependency audit (6 November 2026)
+
+The two-slot decision affects more than the sample-slot constant:
+
+- eng_sample.c uses SMP_USER_SLOTS=4 for zone arrays, scan state, names and slot addressing. Its SMK-37 addresses are 0xC2000, 0xCC000, 0xD6000 and 0xE0000. The encoded slot decoder also assumes four slots.
+- drums.c exposes four single-slot user drum kits plus a special USR3+4 paired kit that reads slot indexes 2 and 3. With two slots, retain one user drum kit per slot (USR1 and USR2) and retire the USR3/USR4 entries and paired-kit path. Sampled drum playback and user drum kits in the two retained slots remain supported.
+- The browser editor hard-codes four sample records, backup object IDs 32–35, four sample selectors in SAMPLE/GRAIN engine descriptions, and the USR3+4 kit split/upload workflow. Its backup UI and user-facing text also describe four slots. These require a coordinated protocol and editor update.
+- New backups should contain only USR1 and USR2. Restore must continue to read legacy four-slot backups, restore the first two slots, and ignore retired slots rather than writing into reassigned storage.
+- Keep legacy stock-mapping detection aware of old sample headers while old data may exist. Preserve the stock marker release before the first erase/write in the USRFLASH region. The 0xEA000 marker sector remains protected.
+
+No sample-slot constant, drum-kit index, backup object, browser-editor path or flash guard has been changed yet.
