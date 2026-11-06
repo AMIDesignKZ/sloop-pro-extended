@@ -43,7 +43,7 @@ int sm_map_valid(const sm_map_t *map)
             return 0;
         for (i = 0; i < map->sector_count[c]; i++) {
             uint32_t a = map->sectors[c][i];
-            if ((a & (SM_SECTOR_SIZE - 1u)) != 0u)
+            if ((a & (SM_SECTOR_SIZE - 1u)) != 0u || a > UINT32_MAX - (SM_SECTOR_SIZE - 1u))
                 return 0;
             for (c2 = 0; c2 <= c; c2++) {
                 uint32_t limit = c2 == c ? i : map->sector_count[c2];
@@ -121,14 +121,16 @@ static int sm_copy_check(const sm_io_t *io, const sm_map_t *map, uint32_t copy,
 {
     uint32_t crc;
     if (io->read(io->context, map->sectors[copy][0], header, sizeof *header))
-        return -1;
+        return -2;
     if (header->magic != SM_MAGIC || header->version != SM_VERSION ||
         header->object_id != map->object_id || header->copy != copy ||
         header->sector_count != map->sector_count[copy] ||
         header->length > map->max_length ||
         header->header_crc != sm_crc32(header, (uint32_t)offsetof(sm_header_t, header_crc)))
         return -1;
-    if (sm_payload_crc(io, map, copy, header->length, &crc) || crc != header->payload_crc)
+    if (sm_payload_crc(io, map, copy, header->length, &crc))
+        return -2;
+    if (crc != header->payload_crc)
         return -1;
     return 0;
 }
@@ -141,21 +143,23 @@ static int sm_seq_newer(uint32_t a, uint32_t b)
 int sm_scan(const sm_io_t *io, const sm_map_t *map, sm_state_t *state)
 {
     sm_header_t h[2];
-    int valid[2], chosen;
+    int check[2], chosen;
     if (!io || !io->read || !state || !sm_map_valid(map))
         return -1;
-    valid[0] = sm_copy_check(io, map, 0u, &h[0]) == 0;
-    valid[1] = sm_copy_check(io, map, 1u, &h[1]) == 0;
-    chosen = valid[1] && (!valid[0] || sm_seq_newer(h[1].sequence, h[0].sequence)) ? 1 : 0;
-    if (!valid[chosen]) {
+    check[0] = sm_copy_check(io, map, 0u, &h[0]);
+    check[1] = sm_copy_check(io, map, 1u, &h[1]);
+    chosen = check[1] == 0 && (check[0] != 0 || sm_seq_newer(h[1].sequence, h[0].sequence)) ? 1 : 0;
+    if (check[chosen] != 0) {
         state->copy = -1;
         state->sequence = state->length = state->payload_crc = 0u;
-        return -1;
+        state->uncertain = 0u;
+        return check[0] == -2 || check[1] == -2 ? -2 : -1;
     }
     state->copy = (int8_t)chosen;
     state->sequence = h[chosen].sequence;
     state->length = h[chosen].length;
     state->payload_crc = h[chosen].payload_crc;
+    state->uncertain = (uint8_t)(check[0] == -2 || check[1] == -2);
     return 0;
 }
 
@@ -181,7 +185,12 @@ int sm_save_stream(const sm_io_t *io, const sm_map_t *map,
         !new_state || !sm_map_valid(map) || length > map->max_length)
         return -1;
 
-    have_current = sm_scan(io, map, &current) == 0;
+    {
+        int scan_rc = sm_scan(io, map, &current);
+        if (scan_rc == -2 || (scan_rc == 0 && current.uncertain))
+            return -9; /* a failed peer read is not an empty store: never erase on uncertainty */
+        have_current = scan_rc == 0;
+    }
     dst = have_current ? (uint32_t)(current.copy ^ 1) : 0u;
     seq = have_current ? current.sequence + 1u : 1u;
 
@@ -234,5 +243,6 @@ int sm_save_stream(const sm_io_t *io, const sm_map_t *map,
     new_state->sequence = seq;
     new_state->length = length;
     new_state->payload_crc = crc;
+    new_state->uncertain = 0u;
     return 0;
 }
