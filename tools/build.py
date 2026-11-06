@@ -10,11 +10,11 @@ felucca.fwsc (package). See BUILDING.md for the toolchain and the SDK.
 
 BOARD=smk37 (or --board smk37) builds SLOOP Pro for the M-Vave SMK-37 Pro: -DBOARD_SMK37=1 for the app and
 the loader, identity SMK-37 Pro_900 (release SMK-37 Pro_9XY), the SMK flash layout (fm1pkg_make.py), and
-the package build/sloop-pro.fwsc (sloop-pro-X.Y.fwsc for a release). Without BOARD: the FM-1 (SLOOP, the
+the package build/system37.fwsc (system37-X.Y.fwsc for a release). Without BOARD: the FM-1 (SLOOP, the
 reference build the host tests use; build.sh builds both).
 MODEL=elite / mke (or --model) with smk37: the same build under the SMK-37 Elite's or the MKE-P37's model
 name (identity SMK-37 Elite_900 / MKE-P37_900, the loader's and the update record's name too; -DSMK_MODEL),
-so M-Vave's updater still takes that unit's factory package; build/sloop-pro-elite.fwsc, -mke.fwsc.
+so M-Vave's updater still takes that unit's factory package; build/system37-elite.fwsc, -mke.fwsc.
 
 The JieLi toolchain is Linux x86-64 only. JIELI_TOOLCHAIN points at it; on
 macOS (or with JIELI_DOCKER=1) each tool runs in a linux/amd64 container.
