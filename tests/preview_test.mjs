@@ -23,15 +23,16 @@ async function request(m, [cmd, a]) {
   const inp = [...m.access.inputs.values()][0], out = [...m.access.outputs.values()][0];
   return new Promise((resolve) => { inp.onmidimessage = ({data}) => resolve(E.unframe(data)); out.send(E.frame(cmd, a)); });
 }
-for (let engine = 0; engine < 12; engine++) {
+for (const { editorEngine, firmwareEngine } of [{editorEngine: 0, firmwareEngine: 0}, {editorEngine: 9, firmwareEngine: 1}]) {
   const m = device();
-  await request(m, E.req.set(1, 20, engine));
-  await request(m, E.req.preset(engine, 0));
+  await request(m, E.req.set(1, 20, editorEngine));
+  await request(m, E.req.preset(editorEngine, 0));
   const state = E.previewSnapshot(m.state);
+  state.tracks[0].engine = firmwareEngine; // System 37 IDs: Analog 0, FM6 1
   state.tracks[0].p[17] = 0; // direct note, no arp in this comparison
   const dsp = new FirmwareAudio(module); dsp.sync(state);
   const t = state.tracks[0], frames = 8192;
-  const cfg = Int32Array.from([engine, t.preset, 60, frames, ...t.p, ...state.g]);
+  const cfg = Int32Array.from([firmwareEngine, t.preset, 60, frames, ...t.p, ...state.g]);
   const raw = execFileSync('build/host/preview_native', { input: Buffer.concat([Buffer.from(cfg.buffer), Buffer.from(t.fm6)]) });
   const native = new Float32Array(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength));
   dsp.w.preview_note(0, 60, 1);
@@ -39,12 +40,12 @@ for (let engine = 0; engine < 12; engine++) {
   dsp.w.preview_note(0, 60, 0);
   const b = render(dsp, frames/2);
   const left = [...a.l, ...b.l], right = [...a.r, ...b.r];
-  assert(a.energy + b.energy > 0.01, `engine ${engine} must sound`);
+  assert(a.energy + b.energy > 0.01, `firmware engine ${firmwareEngine} must sound`);
   let delta = 0;
   for (let i = 0; i < frames; i++) delta = Math.max(delta, Math.abs(left[i] - native[i*2]), Math.abs(right[i] - native[i*2+1]));
 
-  assert(delta <= 1/32768, `engine ${engine}: native/WASM delta ${delta}`);
-  console.log(`engine ${engine}: native/WASM match (${delta})`);
+  assert(delta <= 1/32768, `firmware engine ${firmwareEngine}: native/WASM delta ${delta}`);
+  console.log(`firmware engine ${firmwareEngine}: native/WASM match (${delta})`);
   m.stop();
 }
 {
@@ -63,9 +64,11 @@ for (let engine = 0; engine < 12; engine++) {
   const sample = Int16Array.from({length: 4096}, (_, i) => Math.round(10000 * Math.sin(i / 16)));
   const {hdr, data} = E.buildSlot('LOCAL', [{s: sample, root: 60}]);
   const flash = m.state.smp[0].flash; flash.set(hdr); flash.set(data, 512);
-  m.state.tracks[0].engine = 4; m.state.tracks[0].p[63] = 8; m.state.tracks[0].p[17] = 0;
+  m.state.tracks[3].p[63] = 37; // USR1 drum kit (DRUM_USR) uses the uploaded user sample slot
   dsp.sync(E.previewSnapshot(m.state, true)); render(dsp, 8192);
-  dsp.w.preview_note(0, 60, 1); assert(render(dsp).energy > 0.01, 'uploaded sample must be audible');
+  dsp.w.preview_note(3, 36, 1);
+  assert(render(dsp).energy > 0.01, 'uploaded USR1 drum sample must be audible');
+  dsp.w.preview_note(3, 36, 0);
   m.stop();
   console.log('sequence, live mute/unmute, stop, and uploaded samples: passed');
 }
