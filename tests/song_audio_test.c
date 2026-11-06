@@ -28,8 +28,8 @@ int main(int argc, char **argv)
     const uint32_t frames = (FS * 9u / CTL) * CTL;
     host_tracks_init();
     host_preset(&trk[0], 0, 4);        /* bass */
-    host_preset(&trk[1], 1, 5);        /* pad */
-    host_preset(&trk[2], 3, 0);        /* melody */
+    host_preset(&trk[1], ENGI_FM6, 4); /* SOFT PAD */
+    host_preset(&trk[2], ENGI_FM6, 1); /* GLASS BELL */
     for (i = 0; i < NTRK; i++) {
         trk[i].p[P_SLEN] = 16;
         trk[i].p[P_SDIV] = 2;
