@@ -747,9 +747,19 @@ static const char *const SEC_NAME[8] = {"A", "B", "C", "D", "E", "F", "G", "H"} 
 #if BOARD_SMK37
 static uint8_t proj_save_err;                   /* SLOOP Pro: the last project_save could not write the flash (editor.c) */
 #endif
+#if BOARD_SMK37
+static int s37_catalog_store_section(uint32_t slot, const project_t *p);
+static int s37_catalog_erase_section(uint32_t slot);
+static int s37_catalog_load_section(uint32_t slot, project_t *p);
+#endif
+
 UI_SMALL static void project_save(uint32_t slot)
 {
+#if BOARD_SMK37
+    project_t *p = &proj_slot[slot & 7u];
+#else
     project_t *p = &proj_slot[slot & 3u];
+#endif
 #if FELUCCA_ARRANGER
     if (song.playing || transport_req) { ui_message("STOP BEFORE SAVE"); return; }
 #endif
@@ -757,15 +767,18 @@ UI_SMALL static void project_save(uint32_t slot)
 #if FELUCCA_FLASH
     if (flash_ok) {
 #if BOARD_SMK37
-        /* SLOOP Pro (after ChanceTheMaker's sloop-smk): a save the flash did not take leaves the section as the flash
-         * has it, so what the slot shows is what a restart finds; the editor is told (editor.c ED_PROJECT, status 2) */
         proj_save_err = 0;
-        if (st_save(OBJ_PROJECT0 + (slot & 3u), p, sizeof *p)) {
+        if (s37_catalog_store_section(slot & 7u, p)) {
             proj_save_err = 1;
-            proj_fetch(slot);
+            if (s37_cat_ready)
+                (void)s37_catalog_load_section(slot & 7u, p);
+            else
+                memset(p, 0, sizeof *p);
             ui_message("NOT SAVED: FLASH ERROR");
-        } else
-            ui_say("SAVED SECTION ", SEC_NAME[slot & 3u]);
+        } else {
+            sec_dirty &= (uint8_t)~(1u << (slot & 7u));
+            ui_say("SAVED SECTION ", SEC_NAME[slot & 7u]);
+        }
 #else
         if (st_save(OBJ_PROJECT0 + (slot & 3u), p, sizeof *p))
             ui_message("SAVE ERROR");
@@ -775,27 +788,40 @@ UI_SMALL static void project_save(uint32_t slot)
         return;
     }
 #endif
+#if BOARD_SMK37
+    sec_dirty |= (uint8_t)(1u << (slot & 7u));
+#endif
     ui_message("SAVED (RAM)");
 }
 
-/* SAVE > PROJECT > ERASE (SLOOP 2.6, after a YouTube comment): the slot (section A..D) empty again. In flash as the
- * editor's restore leaves an empty slot (project_restore): an object of no bytes, which proj_fetch (older SLOOP too)
- * reads as no project. The song's steps that played that section are taken out (the default song if none is left),
- * so song mode still plays. Stopped only: a flash erase stops the audio ~50 ms */
+/* Erase a section's directory entry; its old record remains unreachable until overwritten. */
 UI_SMALL static void project_erase(uint32_t slot)
 {
+#if BOARD_SMK37
+    slot &= 7u;
+#else
     slot &= 3u;
+#endif
 #if FELUCCA_ARRANGER
     if (song.playing || transport_req) { ui_message("STOP BEFORE ERASE"); return; }
 #endif
-    if (!proj_ok(&proj_slot[slot])) {
+    if (!project_valid(&proj_slot[slot])) {
         ui_say("EMPTY SECTION ", SEC_NAME[slot]);
         return;
     }
 #if FELUCCA_FLASH
-    if (flash_ok && st_save(OBJ_PROJECT0 + slot, &proj_slot[slot], 0)) {
-        ui_message("ERASE ERROR");
-        return;
+    if (flash_ok) {
+#if BOARD_SMK37
+        if (s37_catalog_erase_section(slot)) {
+            ui_message("ERASE ERROR");
+            return;
+        }
+#else
+        if (st_save(OBJ_PROJECT0 + slot, &proj_slot[slot], 0)) {
+            ui_message("ERASE ERROR");
+            return;
+        }
+#endif
     }
 #endif
     fm1_irq_off();
@@ -805,40 +831,37 @@ UI_SMALL static void project_erase(uint32_t slot)
         live_sec = -1;
 #if FELUCCA_ARRANGER
     if (arr_drop_scene(&arrangement, slot))
-        song_dirty = 1;                                     /* (saved with the settings, when quiet) */
+        song_dirty = 1;
 #endif
     fm1_irq_on();
     ui_say("ERASED SECTION ", SEC_NAME[slot]);
 }
 
-/* (2.8.4) a part whose sound is on an engine this firmware does not have (a project Clipper wrote: HYBRID,
- * FMX, VECTOR...; left in the flash when SLOOP is installed after Clipper): proj_apply wrapped the engine number round
- * onto another engine with the other one's values (Clipper's HYBRID played as 808 BOOM without its TRN -24: two
- * octaves high, until another sound was chosen). The part's default sound instead; its pattern and mix stay */
+/* Unsupported legacy engines are substituted with the track's safe default sound; pattern and mix survive. */
 UI_SMALL static void proj_foreign_parts(const project_t *p)
 {
     uint32_t k;
-    for (k = 0; k < PROJ_V6_PARTS; k++)
+    for (k = 0; k < NPART; k++)
         if (p->t[k].preset != 0xFFu && p->t[k].engine >= NENGINES) {
             set_engine_of(&trk[k], TRK_DEF[k][0]);
             apply_preset_to(&trk[k], TRK_DEF[k][1]);
         }
 }
 
-/* a project into the working one: the transport stops, everything sounding is released */
+/* A complete project into the working state. The audio ISR must not see a partial apply. */
 UI_SMALL static void project_apply(const project_t *p)
 {
     uint32_t k;
     transport_req = 2;
-    panic_req = (1u << PROJ_V6_TRACKS) - 1u;
-    drum_mute = 0;                                      /* (the live mutes: a performance's, not the project's) */
-    for (k = 0; k < PROJ_V6_TRACKS; k++)
-        ex_off[k] = 0;                                  /* (2.7.1) MIDI EXPRESSION: full again, as after CC 121 */
-    fm1_irq_off();                                      /* the audio ISR must not see half a project */
+    panic_req = (1u << NTRK) - 1u;
+    drum_mute = 0;
+    for (k = 0; k < NTRK; k++)
+        ex_off[k] = 0;
+    fm1_irq_off();
     proj_apply(p, 1);
-    song.sel = (uint8_t)(p->sel < PROJ_V6_TRACKS ? p->sel : 0u);
+    song.sel = (uint8_t)(p->sel < NTRK ? p->sel : 0u);
     fm1_irq_on();
-    for (k = 0; k < PROJ_V6_PARTS; k++)                         /* a format 1 project: the default sounds of tracks 2, 3 */
+    for (k = 0; k < NPART; k++)
         if (p->t[k].preset == 0xFFu) {
             apply_preset_to(&trk[k], TRK_DEF[k][1]);
             steps_clear(&trk[k]);
@@ -850,20 +873,24 @@ UI_SMALL static void project_apply(const project_t *p)
 
 UI_SMALL static void project_load(uint32_t slot)
 {
+#if BOARD_SMK37
+    project_t *p = &proj_slot[slot & 7u];
+#else
     project_t *p = &proj_slot[slot & 3u];
+#endif
 #if FELUCCA_ARRANGER
     if (song.playing || transport_req) { ui_message("STOP BEFORE LOAD"); return; }
 #endif
 #if FELUCCA_FLASH
-    if (flash_ok && !proj_ok(p))
+    if (flash_ok && !project_valid(p))
         proj_fetch(slot);
 #endif
-    if (!proj_ok(p)) {
-        ui_say("EMPTY SECTION ", SEC_NAME[slot & 3u]);
+    if (!project_valid(p)) {
+        ui_say("EMPTY SECTION ", SEC_NAME[slot & (BOARD_SMK37 ? 7u : 3u)]);
         return;
     }
     project_apply(p);
-    ui_say("LOADED SECTION ", SEC_NAME[slot & 3u]);
+    ui_say("LOADED SECTION ", SEC_NAME[slot & (BOARD_SMK37 ? 7u : 3u)]);
 }
 
 /* ---- the working project, kept in flash by itself: saved when it changed, the transport is stopped,
