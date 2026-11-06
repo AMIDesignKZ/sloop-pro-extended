@@ -809,7 +809,7 @@ static uint32_t track_render(track_t *t, int32_t *out, uint32_t n)
         }
         if (v->penv)                                    /* the pitch envelope: ~40 ms */
             v->penv = (int16_t)(v->penv - ((v->penv * 590 + 32767) >> 15));
-        if (!env && !m.amp0 && v->stage == 2 && !eng_sampled(e))
+        if (!env && !m.amp0 && v->stage == 2)
             continue;                                   /* held at a silent sustain (SUS 0): nothing to render */
         {   /* the pitch in 1/4096 semitone: glide, LFO, the pitch envelope; the fraction goes into the increment */
             int32_t q = (v->pitch_cur << 8) + v->pitch_frac + ((lfo * p[P_LD_PIT] * 3) >> 7) +
