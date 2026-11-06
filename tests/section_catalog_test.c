@@ -81,7 +81,7 @@ int main(void)
     static project_v7_t scratch, replacement, loaded, expected[8];
     sm_io_t io = {0, nor_read, nor_erase, nor_program};
     sm_state_t state;
-    s37_cat_header_t header;
+    s37_cat_header_t header = {0};
     s37_cat_overlay_t source;
     uint32_t i;
     int bad = 0;
