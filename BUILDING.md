@@ -1,17 +1,17 @@
-# Building SLOOP Pro (and SLOOP)
+# Building System 37 (and SLOOP)
 
-SLOOP Pro is SLOOP's SMK-37 build. On Windows, `INSTALL-SLOOP-PRO.bat` builds the three SLOOP Pro packages in WSL
+System 37 is the SMK-37 product build, based on the SLOOP/Felucca codebase. On Windows, `INSTALL-SLOOP-PRO.bat` builds the three System 37 packages in WSL
 (`build-sloop-pro.ps1`: `SLOOP_WSL_DISTRO`, `SLOOP_TOOLCHAIN`, `SLOOP_SDK`, defaults as SLOOP's own script; the SDK
 files are taken from `build\deps\ac79` here or in a `sloop-fm1` folder next to this one), writes them with their
 SHA-256 to `build\release\`, and opens the installer on <http://localhost:8767/webapp/installer/>. On Linux or
-WSL: `tools/build_pro.sh` (the three packages, the site in `build/sloop-pro-site/`, then the FM-1 reference build
+WSL: `tools/build_pro.sh` (the three packages, the site in `build/system37-site/`, then the FM-1 reference build
 for the tests).
 
 | Package | Model | Identity |
 | --- | --- | --- |
-| `sloop-pro.fwsc` | SMK-37 Pro, Starrykey 37 Play | `SMK-37 Pro_900` |
-| `sloop-pro-elite.fwsc` | SMK-37 Elite | `SMK-37 Elite_900` |
-| `sloop-pro-mke.fwsc` | MKE-P37 | `MKE-P37_900` |
+| `system37.fwsc` | SMK-37 Pro, Starrykey 37 Play | `SMK-37 Pro_900` |
+| `system37-elite.fwsc` | SMK-37 Elite | `SMK-37 Elite_900` |
+| `system37-mke.fwsc` | MKE-P37 | `MKE-P37_900` |
 
 The rest of this page is SLOOP's (the FM-1 build is the default of `./build.sh`, the reference the host tests use).
 
@@ -80,12 +80,12 @@ Build options (environment, `0` or `1`; defaults in `firmware/src/felucca.c`):
 Target board: `BOARD=smk37 ./build.sh` (or `./build.sh --board smk37`) builds for the M-Vave SMK-37 Pro:
 `-DBOARD_SMK37=1` for the app and the update loader, identity `SMK-37 Pro_900` (release `SMK-37 Pro_9XY`),
 the SMK flash layout (PRCT 0x9D000, the stock region table with USRTRIM / USRFLASH) and the package
-`build/sloop-pro.fwsc` (SLOOP Pro). The intermediate files (`build/felucca.bin`, `build/loader/ota.bin`, `build/felucca.dis`)
+`build/system37.fwsc` (SLOOP Pro). The intermediate files (`build/felucca.bin`, `build/loader/ota.bin`, `build/felucca.dis`)
 are shared: build the FM-1 again before `tests/run_tests.sh`. The default stays the FM-1, byte for byte.
 The SMK-37 Elite and the MKE-P37 are the same keyboard under other model names, and M-Vave's updater only takes
 a unit's own model: `MODEL=elite` or `MODEL=mke` (with `BOARD=smk37`) builds under that name (identity
-`SMK-37 Elite_900` / `MKE-P37_900`, `build/sloop-pro-elite.fwsc` / `-mke.fwsc`).
-The SMK-37 models, controls and install: [SLOOP-PRO.md](SLOOP-PRO.md).
+`SMK-37 Elite_900` / `MKE-P37_900`, `build/system37-elite.fwsc` / `-mke.fwsc`).
+The inherited SMK-37 controls and install notes: [SLOOP-PRO.md](SLOOP-PRO.md).
 
 ## Samples
 
@@ -142,14 +142,14 @@ The standalone downloaded HTML editor does not include the WASM asset.
 
 ## Install
 
-SLOOP Pro on Windows: `INSTALL-SLOOP-PRO.bat` builds and opens the web installer (Chrome or Edge). The `.fwsc` of
-each release is on the GitHub releases page. SLOOP Pro's site: `python3 web/make_site.py --pro X.Y OUT
-sloop-pro.fwsc sloop-pro-elite.fwsc sloop-pro-mke.fwsc`.
+System 37 on Windows: `INSTALL-SLOOP-PRO.bat` builds and opens the web installer (Chrome or Edge). The `.fwsc` of
+each release is on the GitHub releases page. System 37's site: `python3 web/make_site.py --pro X.Y OUT
+system37.fwsc system37-elite.fwsc system37-mke.fwsc`.
 
 From the command line (needs `pip3 install mido python-rtmidi`):
 
 ```
-python3 tools/fm1_install.py build/release/          # SLOOP Pro: the package for the connected model
+python3 tools/fm1_install.py build/release/          # System 37: the package for the connected model
 python3 tools/fm1_install.py build/felucca.fwsc      # SLOOP (FM-1)
 python3 tools/fm1_install.py --info                  # identity of the connected keyboard
 ```
