@@ -32,9 +32,9 @@
  *                    (the stock firmware's mapping until a sample is stored there)
  *   0xEA000-0xEAFFF  USRFLASH tail: the stock end marker "usrdata" at 0xEAFF8; erased (only) before the
  *                    first write into FL_SMP, or on request (FL_STOCKTAG)
- *   0xEB000-0xF3FFF  free (unlisted), unused
+ *   0xEB000-0xF3FFF  free (unlisted), reserved for System 37 catalogue A/B
  *   0xF4000-0xFDFFF  USR (stock resources; kept for a rollback)   NEVER
- *   0xFE000-0xFEFFF  free, unused
+ *   0xFE000-0xFEFFF  free, reserved for System 37 catalogue A/B
  *   0xFF000-0xFFFFF  key_mac                        NEVER
  * Everything below is an explicit allow-list; the asserts keep each allowed window out of the
  * protected ranges at compile time. */
@@ -54,6 +54,10 @@
 #define FL_OTA_LO       0x000BB000u                /* M-UPGRADE loader staging, ota.c */
 #define FL_OTA_HI       0x000C0000u
 #define FL_SMP_LO       0x000C2000u                /* user sample slots (eng_sample.c) */
+#define FL_CAT_FREE_LO  0x000EB000u
+#define FL_CAT_FREE_HI  0x000F4000u
+#define FL_CAT_TAIL_LO  0x000FE000u
+#define FL_CAT_TAIL_HI  0x000FF000u
 #define FL_SMP_HI       0x000EA000u
 /* USRFLASH is the stock firmware's mapping (global settings 0xC2000, 8 presets from 0xC3000) with its end marker
  * "usrdata\0" at 0xEAFF8: while the marker is there the stock firmware trusts the area and never rebuilds it. Its
@@ -71,6 +75,8 @@
 _Static_assert(FL_WIN_SAFE(FL_DATA_LO, FL_DATA_HI), "SMK: FL_DATA overlaps a protected range");
 _Static_assert(FL_WIN_SAFE(FL_OTA_LO, FL_OTA_HI), "SMK: FL_OTA overlaps a protected range");
 _Static_assert(FL_WIN_SAFE(FL_SMP_LO, FL_SMP_HI), "SMK: FL_SMP overlaps a protected range");
+_Static_assert(FL_WIN_SAFE(FL_CAT_FREE_LO, FL_CAT_FREE_HI), "SMK: System 37 catalogue free window");
+_Static_assert(FL_WIN_SAFE(FL_CAT_TAIL_LO, FL_CAT_TAIL_HI), "SMK: System 37 catalogue tail sector");
 _Static_assert(FL_WIN_SAFE(FL_STOCKTAG_LO, FL_STOCKTAG_HI) && FL_STOCKTAG_LO == FL_SMP_HI &&
                FL_STOCKTAG_OFF + 8u == FL_STOCKTAG_HI, "SMK: the stock marker sector");
 _Static_assert(FL_WIN_SAFE(FL_APP_LO, FL_APP_HI), "SMK: FL_APP overlaps a protected range");
@@ -81,7 +87,8 @@ _Static_assert(FL_DATA_HI <= FL_OTA_LO && FL_APP_HI <= FL_DATA_LO, "SMK: windows
 /* the update loader (loader.c): the app area, and records only in the VM below BTIF */
 #define FL_LDR_RANGE_OK(off, n) (FL_IN(off, n, FL_APP_LO, FL_APP_HI) || FL_IN(off, n, FL_REC_LO, FL_REC_HI))
 /* SLOOP's own store: FL_DATA and the sample slots */
-#define FL_STORE_OK(off, n) (FL_IN(off, n, FL_DATA_LO, FL_DATA_HI) || FL_IN(off, n, FL_SMP_LO, FL_SMP_HI))
+#define FL_STORE_OK(off, n) (FL_IN(off, n, FL_DATA_LO, FL_DATA_HI) || FL_IN(off, n, FL_SMP_LO, FL_SMP_HI) || \
+                             FL_IN(off, n, FL_CAT_FREE_LO, FL_CAT_FREE_HI) || FL_IN(off, n, FL_CAT_TAIL_LO, FL_CAT_TAIL_HI))
 #ifndef FL_RANGE_OK
 #define FL_RANGE_OK(off, n) (FL_STORE_OK(off, n) || FL_IN(off, n, FL_OTA_LO, FL_OTA_HI) || FL_STOCKTAG_OK(off, n))
 #endif
