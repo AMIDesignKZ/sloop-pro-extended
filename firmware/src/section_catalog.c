@@ -114,8 +114,8 @@ int s37_cat_prepare_overlay(s37_cat_overlay_t *o,
                             uint16_t bars, uint8_t default_section)
 {
     s37_cat_header_t h;
-    if (!o || !replacement || !scratch || scratch == replacement || section >= S37_CAT_SECTIONS || !bars ||
-        default_section >= S37_CAT_SECTIONS ||
+    if (!o || !replacement || !scratch || scratch == replacement || !state || state->uncertain ||
+        section >= S37_CAT_SECTIONS || !bars || default_section >= S37_CAT_SECTIONS ||
         s37_cat_validate(io, map, state, scratch, &h) ||
         !proj_v7_valid(replacement))
         return -1;
