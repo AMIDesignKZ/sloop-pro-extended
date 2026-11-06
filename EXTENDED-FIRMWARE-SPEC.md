@@ -50,7 +50,7 @@ Target: M-VAVE SMK-37 Pro. This document defines the agreed product target. It i
 - 12 parameter locks per track.
 - Remove per-step micro-timing/nudge.
 - Retain fill conditions, step notes/velocity, drum lanes, ratchets, swing and the other existing sequencer functions unless a specific compatibility issue is found.
-- Format migration must preserve fill conditions while discarding old micro-timing. If an old track has more than 12 valid locks, migration must apply a deterministic documented truncation policy and report the loss where the UI permits.
+- Format migration must preserve fill conditions while discarding old micro-timing. If an old track has more than 12 valid locks, retain the 12 earliest-step locks; for locks on the same step, preserve their original slot order. Drop later-step locks and report the loss in the editor/migration status.
 
 ## 6. Mixing and MIDI
 
