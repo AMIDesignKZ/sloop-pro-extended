@@ -188,6 +188,8 @@ Each migration step must be idempotent. On power loss, the next boot must identi
 - Four physical faders use two layers. Proposed first layer: synth tracks 1–4. Proposed second layer: synth track 5 and drums on two faders, with the remaining two assigned to master/FX or user-selectable controls. Confirm the actual panel button/layer interaction against the SMK-37 hardware map before coding.
 - Keep the dedicated drum engine. Retain the generated synth kit library, 808/909, editable SYN1–SYN4 kits and sampled drum playback.
 - With two sample slots, expose only USR1 and USR2 as user sample drum kits. Remove USR3, USR4 and USR3+4 from new UI paths while preserving legacy backup parsing.
+
+Drum-kit identifiers are persistent project values too. Do not let DRUM_SYN become a different numeric value merely because SMP_USER_SLOTS changes. Keep the old USR3, USR4 and USR3+4 identifiers reserved, and keep SYN1–SYN4 at their current numeric IDs. Hide the retired values from new selectors. When a legacy project references a retired user kit whose sample data is no longer available, map it explicitly to the default GM/sample kit (or another documented safe default); never reinterpret it as SYN1 or another different kit. Add tests for every old kit ID.
 - Update the browser editor's NTRK/TRK_DRUM constants, six-track controls, A–H scene logic, 12-lock UI, fader layers, FM6 bank A–D selector, two sample slots, backup IDs and protocol version. Do not use broad unreviewed regex replacements in the large generated editor HTML.
 
 ## 9. Validation gates before hardware build/install
