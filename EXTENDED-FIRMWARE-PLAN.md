@@ -75,8 +75,8 @@ The following details have now been checked against the current source, rather t
 ### Drum architecture and kits
 
 - The dedicated drum track already has a substantial synthesis engine in `drum_synth.c`. It synthesises tones, pitch drops, transient clicks, white/metal/cymbal/chip noise, clap bursts, resonant filtering, drive and sample-rate/bit-depth crushing. It is not dependent on the general SAMPLE synth engine.
-- The generated drum-kit source currently defines **31 synthesised kits**, including named `808`, `909`, `606`, `80S`, `VINTAGE`, `TECHNO`, `ELECTRO`, `SYNTHWV`, `CHIP`, `INDUSTR` and others. This already provides the requested 808 and 909 starting points, plus broad electronic coverage.
-- The drum UI also exposes four additional `SYN1`–`SYN4` kits through a separate `dsu_kit` path. These are distinct from the 31 generated `DS_KITS`; their definitions still need a separate audit before deciding whether to retain, rename or replace them.
+- The generated drum-kit source currently defines **32 synthesised kits**, including named `808`, `909`, `606`, `80S`, `VINTAGE`, `TECHNO`, `ELECTRO`, `SYNTHWV`, `CHIP`, `INDUSTR` and others. This already provides the requested 808 and 909 starting points, plus broad electronic coverage.
+- The drum UI also exposes four additional editable `SYN1`–`SYN4` kits through a separate `dsu_kit` path. The host test confirms their initial contents are copies of 808, 909, TRAP and TECHNO respectively; they can be edited in the web editor and are retained as user kits.
 - Sampled drum kits and user-sample drum kits are handled separately in `drums.c`. Any removal of the selectable SAMPLE synth engine must leave this drum sample playback path intact.
 
 ### FM6 bank capacity
