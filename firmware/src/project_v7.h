@@ -46,11 +46,12 @@ typedef struct {
 } project_v6_t;
 
 typedef struct {
-    int16_t p[PROJ_V6_NC];
+    int8_t p[PROJ_V6_NC]; /* all common parameters fit signed 8-bit; frees space for packed microtiming */
     int16_t e[8];
     uint8_t x[PROJ_V6_NX];
     uint8_t engine, preset;
     union { step_t step[PROJ_V7_STEPS]; dstep_t dstep[PROJ_V7_STEPS]; };
+    uint8_t micro[48]; /* 64 signed 6-bit values, bit-packed; preserves FUN6 microtiming */
     uint8_t fill[PROJ_V7_FILL_BYTES]; /* four 2-bit FC_* values per byte */
     plock_t lock[PROJ_V7_LOCKS];
 } proj_trk_v7_t;
@@ -68,8 +69,27 @@ _Static_assert(NSTEP == PROJ_V6_STEPS && NSTEP == PROJ_V7_STEPS && PROJ_V6_NC ==
 _Static_assert(sizeof(plock_t) == 4u, "parameter lock wire size");
 _Static_assert(sizeof(proj_trk_v6_t) == 934u, "format 6 track wire size");
 _Static_assert(sizeof(project_v6_t) == 3816u, "format 6 project wire size");
-_Static_assert(sizeof(proj_trk_v7_t) == 886u, "format 7 track wire size");
-_Static_assert(sizeof(project_v7_t) == 5396u, "format 7 project wire size");
+_Static_assert(sizeof(proj_trk_v7_t) == 881u, "format 7 track wire size");
+_Static_assert(sizeof(project_v7_t) == 5366u, "format 7 project wire size");
+
+static inline void proj_v7_micro_set(proj_trk_v7_t *track, uint32_t step, int32_t value)
+{
+    uint32_t bit = step * 6u, byte = bit >> 3, shift = bit & 7u;
+    uint32_t word = track->micro[byte] | (uint32_t)track->micro[byte + 1u] << 8;
+    uint32_t raw = (uint32_t)value & 63u;
+    word = (word & ~(63u << shift)) | (raw << shift);
+    track->micro[byte] = (uint8_t)word;
+    if (shift > 2u)
+        track->micro[byte + 1u] = (uint8_t)(word >> 8);
+}
+
+static inline int32_t proj_v7_micro_get(const proj_trk_v7_t *track, uint32_t step)
+{
+    uint32_t bit = step * 6u, byte = bit >> 3, shift = bit & 7u;
+    uint32_t word = track->micro[byte] | (uint32_t)track->micro[byte + 1u] << 8;
+    int32_t value = (int32_t)((word >> shift) & 63u);
+    return value >= 32 ? value - 64 : value;
+}
 
 uint32_t proj_v7_hash(const void *data, uint32_t length);
 int proj_v7_valid(const project_v7_t *project);
