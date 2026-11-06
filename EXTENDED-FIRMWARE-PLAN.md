@@ -99,7 +99,7 @@ The following details have now been checked against the current source, rather t
 
 - `eng_sample.c` currently defines four 40 KiB user slots at 0xC2000, 0xCC000, 0xD6000 and 0xE0000 (160 KiB total).
 - The SMK-37 flash-map comments describe the same 0xC2000–0xE9FFF region as two 80 KiB slots. The implementation and documentation therefore describe different logical layouts over the same physical range.
-- Before changing sample storage, choose between two 40 KiB slots (which would release two 40 KiB regions) and two 80 KiB slots (which would preserve total sample capacity but release no flash). No flash remapping has been made.
+- The user has since confirmed two 40 KiB slots. The intended retained positions are 0xC2000 and 0xCC000; 0xD6000 and 0xE0000 are candidates to retire. The 80 KiB released range is not yet allocated. No flash remapping has been made.
 
 ### Immediate implementation order
 
@@ -121,3 +121,64 @@ On 6 November 2026 the user confirmed **two user sample slots of 40 KiB each**.
 - This potentially releases 80 KiB (0xD6000–0xE9FFF) for a future storage redesign. It is not yet reassigned to projects or FM6: the flash map, loader allow-list, stock marker handling, backup/restore and all editor references must be reconciled first.
 - Keep the existing 40 KiB per-slot capacity and sample encoding. Do not silently convert either slot to 80 KiB.
 - The current flash-map comments incorrectly describe two 80 KiB slots, while the implementation has four 40 KiB slots. Update those comments only as part of the coordinated flash-map change, not as an isolated documentation-only claim.
+
+### Storage capacity model (6 November 2026)
+
+This is a source-derived capacity model for the accepted six-track / eight-section design. It is a planning calculation, not a flash-layout implementation.
+
+#### Six-track project payload
+
+The current format-6 project is 3,816 bytes with four tracks. Its stored track structure contains:
+
+- 64 steps × 10 bytes = 640 bytes.
+- 64 bytes of per-step micro-timing/fill flags.
+- 24 parameter locks × 4 bytes = 96 bytes.
+- Existing parameter and engine fields.
+
+The project has 76 bytes before its track array and a 4-byte checksum after it. The current per-track record is therefore 934 bytes (3,816 − 80, divided by four).
+
+The accepted changes remove the 64-byte micro-timing/fill field and reduce locks from 24 to 12 (48 bytes). Retaining the existing step and parameter representation gives a modelled track record of 822 bytes. Six tracks therefore produce:
+
+- 76-byte project header + (6 × 822-byte track records) + 4-byte checksum
+- **5,012 bytes per section**, before any future fields or compiler/layout changes.
+
+This is a direct structure-size model; it must be confirmed with a target/host compiler sizeof assertion before implementation. It is already larger than the current 3,840-byte one-sector payload.
+
+A two-sector copy provides 8,192 − 256 = 7,936 payload bytes, so a 5,012-byte project can fit in two sectors per copy. With A/B safety, each section would occupy four sectors. Eight sections would occupy 32 sectors (128 KiB), versus the current four one-sector A/B projects occupying eight sectors (32 KiB): **24 additional sectors / 96 KiB**.
+
+#### FM6 bank storage
+
+A standard DX7 bank contains 32 × 128-byte patch records = 4,096 bytes. Eight complete banks require 32,768 bytes before directory, version, checksums or metadata.
+
+The current FM6 object is 3,472 bytes and uses one sector per A/B copy. A versioned eight-bank object would need nine sectors per copy (36,864 bytes of sector space, 36,608 bytes available after the first-sector header offset). That is 18 sectors total, or **16 additional sectors / 64 KiB** over the current two-sector A/B allocation.
+
+The eight-section project expansion plus eight FM6 banks therefore needs an estimated **40 additional sectors / 160 KiB**, before extra metadata or future growth.
+
+#### Candidate free/released SMK-37 sectors
+
+The current source map identifies these candidate areas, all of which still require coordinated allow-list, erase-guard, recovery and stock-firmware review:
+
+- Retiring USR3 and USR4: 0xD6000–0xE9FFF = 20 sectors / 80 KiB.
+- Existing SLOOP spare area: 0xB7000–0xBAFFF = 4 sectors / 16 KiB.
+- Unlisted free area: 0xEB000–0xF3FFF = 9 sectors / 36 KiB.
+- Unlisted free sector: 0xFE000–0xFEFFF = 1 sector / 4 KiB.
+
+Total candidate capacity: **34 sectors / 136 KiB**. This is six sectors / 24 KiB short of the 40-sector estimate for eight sections plus eight FM6 banks. The 0xEA000 stock-marker sector and all protected stock/resource, OTA, BTIF, calibration, key_mac and recovery regions remain excluded.
+
+This means the original eight-bank target cannot currently be promised alongside the eight-section design using only the identified free/released sectors. Options to evaluate are: reduce the FM6 bank count, reduce project storage through a more compact format, identify additional genuinely unused flash after a full image/partition audit, or use a different storage scheme. Do not choose one by silently weakening A/B power-loss protection.
+
+#### RAM consequence
+
+The current four-project array occupies almost all of the 0x3D50-byte .noinit region. Eight 5,012-byte project objects would require about 40 KiB and cannot simply be placed in .noinit. The linker provides a separate 0x54000-byte .pool, but its actual remaining headroom has not yet been measured. The storage design must therefore include a RAM placement/cache strategy and a target linker-map check; simply changing proj_slot[4] to [8] is unsafe.
+
+#### Next design gate
+
+Before any source or flash-map change:
+
+1. Add host compile-time size assertions for the proposed compact six-track project format and the multi-sector A/B object.
+2. Measure .pool, .bss, .data, XIP and RAMTEXT headroom from an actual SMK-37 build/map.
+3. Decide how many complete FM6 banks fit after the project allocation and required metadata.
+4. Specify multi-sector A/B write/verify/rollback semantics and migration from current one-sector objects.
+5. Reconcile the sample-slot count with the stock-mapping detector, sample upload, drum sample references, backup/restore, browser editor and flash guards.
+
+No source code, flash address, sample slot or storage allocation has been changed by this capacity model.
