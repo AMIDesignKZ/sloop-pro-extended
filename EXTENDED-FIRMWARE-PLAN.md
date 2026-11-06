@@ -194,3 +194,14 @@ The two-slot decision affects more than the sample-slot constant:
 - Keep legacy stock-mapping detection aware of old sample headers while old data may exist. Preserve the stock marker release before the first erase/write in the USRFLASH region. The 0xEA000 marker sector remains protected.
 
 No sample-slot constant, drum-kit index, backup object, browser-editor path or flash guard has been changed yet.
+
+
+## Design freeze — four FM6 banks and eight-section catalogue (6 November 2026)
+
+The user has approved four complete 32-patch FM6 banks (128 patches total). The functional target is recorded in EXTENDED-FIRMWARE-SPEC.md and the pre-implementation architecture in EXTENDED-FIRMWARE-ARCHITECTURE.md.
+
+Important correction to the earlier capacity model: fill conditions are retained. The new track record is modelled at 838 bytes (not 822), and the six-track project at 5,108 bytes (not 5,012). Autosave also grows and must be included. Eight independent section A/B objects would consume all candidate sectors, so the preferred design is one A/B catalogue containing all eight sections.
+
+The corrected model is 22 sectors for the section catalogue, 10 for four FM6 banks, and 4 for autosave: 36 sectors total versus 12 current, an increment of 24. The proposed allocation uses the 20 sectors retired from USR3/USR4 and the four existing spare sectors at 0xB7000–0xBAFFF, leaving 10 unlisted sectors unused. The architecture document specifies proposed extents, segmented multi-sector A/B semantics, migration order and flash guard changes.
+
+This is a capacity-feasible paper design, not an implementation or target-build result. The compiler sizes, linker headroom, flash extent map, guards, migration and power-loss behaviour must be validated before firmware source changes or device installation.
