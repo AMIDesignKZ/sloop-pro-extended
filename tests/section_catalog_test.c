@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "section_catalog.h"
+#include "section_prefetch_io.h"
 
 #define NOR_SIZE 0x40000u
 static uint8_t nor[NOR_SIZE];
@@ -109,6 +110,19 @@ int main(void)
                  !memcmp(&loaded, &expected[0], sizeof loaded));
     bad += check("absent section cannot be loaded",
                  s37_cat_load_section(&io, &map, &state, 1u, &loaded, NULL) != 0);
+    {
+        s37_prefetch_t pf;
+        s37_pf_init(&pf);
+        bad += check("prefetch loader fails closed for an absent catalogue section",
+                     s37_pf_request(&pf, 1u) != 0u &&
+                     s37_pf_service(&pf, &io, &map, &scratch) == -1 &&
+                     pf.state == S37_PF_FAILED && !s37_pf_take(&pf, 1u));
+        bad += check("prefetch loader publishes a validated section for one-shot consumption",
+                     s37_pf_request(&pf, 0u) != 0u &&
+                     s37_pf_service(&pf, &io, &map, &scratch) == 1 &&
+                     s37_pf_take(&pf, 0u) && !memcmp(&scratch, &expected[0], sizeof scratch) &&
+                     pf.state == S37_PF_IDLE);
+    }
     {
         s37_cat_header_t invalid = header;
         invalid.present_mask ^= 0x02u;
