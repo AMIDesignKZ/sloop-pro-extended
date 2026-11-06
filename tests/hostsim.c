@@ -185,7 +185,7 @@ static int tracks_demo(const char *dir, const char *name, uint32_t solo)
     song.g[G_BPM] = 120;
     host_preset(t1, 0, 4);
     host_preset(t2, 1, 5);
-    host_preset(t3, 3, 0);
+    host_preset(t3, ENGI_FM6, 1);
     for (i = 0; i < 16u; i++) {
         uint8_t n = ACID[i];
         put_step(t1, i, n ? 1u : 0u, &n, n ? ST_NOTE : ST_REST, ACIDF[i]);
@@ -369,7 +369,7 @@ static int steal_test(const char *dir)
     host_tracks_init();
     for (p = 0; p < NPART; p++) {
         track_t *t = &trk[p];
-        host_preset(t, 0, 5);                      /* ANALOG SINE KEY, as a plain held sine: */
+        host_preset(t, ENGI_ANALOG, 21);           /* SINE PAD, as a plain held sine: */
         t->p[P_E4] = 127;                          /* filter open, no resonance, no drive */
         t->p[P_E5] = t->p[P_E6] = 0;
         t->p[P_ED_FLT] = 0;
@@ -432,7 +432,7 @@ static int steal_test(const char *dir)
  * Writes DIR/engine_switch.wav. */
 static void xfade_sine(track_t *t)
 {
-    host_preset(t, 0, 5);                          /* ANALOG, as a plain held sine */
+    host_preset(t, ENGI_ANALOG, 21);               /* SINE PAD, as a plain held sine */
     t->p[P_E0] = 3;                                /* (SIN, whichever preset that is) */
     t->p[P_E1] = t->p[P_E2] = t->p[P_E3] = 0;
     t->p[P_ED_FX] = 0;
@@ -542,9 +542,9 @@ static int rec_test(void)
     int ok_len, ok_short, ok_half, ok_cap, ok_swing, ok_mono, ok_chord, fail;
     host_tracks_init();
     song.g[G_BPM] = 120;
-    host_preset(t1, 0, 1);                          /* POLY pad */
-    host_preset(t2, 0, 1);
-    host_preset(t3, 0, 0);                          /* SAW LEAD */
+    host_preset(t1, ENGI_ANALOG, 13);               /* WARM PAD */
+    host_preset(t2, ENGI_ANALOG, 13);
+    host_preset(t3, ENGI_ANALOG, 17);               /* FAT LEAD */
     t1->p[P_VOICE] = t2->p[P_VOICE] = V_POLY;
     t3->p[P_VOICE] = V_MONO;
     t2->p[P_SLEN] = 4;
@@ -762,10 +762,15 @@ static int tracks_test(const char *dir)
     printf("tracks: one part, 8 notes held + drums (host -O2, ns per sample, heaviest preset per engine):");
     for (e = 0; e < NENGINES; e++)
         printf(" %s %s %.1f%s", ENGINES[e]->name, ENGINES[e]->presets[heavy[e]].name, best_e[e], e + 1u < NENGINES ? "," : "\n");
-    {   /* DIGITAL, PHASE, VOICE (their heaviest presets) at once: 3 + 3 + 2 notes = the budget of 8 */
-        uint8_t parts[NPART][3] = {{1, (uint8_t)heavy[1], 3}, {2, (uint8_t)heavy[2], 3}, {5, (uint8_t)heavy[5], 2}};
-        uint8_t full[NPART][3] = {{1, (uint8_t)heavy[1], 8}, {2, (uint8_t)heavy[2], 8}, {5, (uint8_t)heavy[5], 4}};
-        uint8_t vv[NPART][3] = {{5, (uint8_t)heavy[5], 4}, {5, (uint8_t)heavy[5], 4}, {0, 0, 0}};
+    {   /* Analog + FM6 + Analog at once: 3 + 3 + 2 notes = the shared budget of 8 */
+        uint8_t parts[NPART][3] = {{ENGI_ANALOG, (uint8_t)heavy[ENGI_ANALOG], 3},
+                                   {ENGI_FM6, (uint8_t)heavy[ENGI_FM6], 3},
+                                   {ENGI_ANALOG, (uint8_t)heavy[ENGI_ANALOG], 2}};
+        uint8_t full[NPART][3] = {{ENGI_ANALOG, (uint8_t)heavy[ENGI_ANALOG], 8},
+                                  {ENGI_FM6, (uint8_t)heavy[ENGI_FM6], 8},
+                                  {ENGI_ANALOG, (uint8_t)heavy[ENGI_ANALOG], 4}};
+        uint8_t vv[NPART][3] = {{ENGI_FM6, (uint8_t)heavy[ENGI_FM6], 4},
+                                {ENGI_FM6, (uint8_t)heavy[ENGI_FM6], 4}, {0, 0, 0}};
         uint8_t idle[NPART][3] = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
         uint32_t bm2 = 0, bm3 = 0;
         double two_voice, none;
@@ -774,7 +779,7 @@ static int tracks_test(const char *dir)
         two_voice = tracks_cost(vv, &bm3);
         none = tracks_cost(idle, 0);
         printf("tracks: worst single part: %s %s %.1f ns\n", ENGINES[worst_e]->name, ENGINES[worst_e]->presets[worst_p].name, worst);
-        printf("tracks: DIGITAL + PHASE + VOICE + drums, 3 + 3 + 2 notes: %.1f ns (%.2f x the worst single part), "
+        printf("tracks: Analog + FM6 + Analog + drums, 3 + 3 + 2 notes: %.1f ns (%.2f x the worst single part), "
                "%u voices\n", four, four / worst, bm);
         printf("tracks: the same, 8 + 8 + 4 notes asked for (budget keeps %u): %.1f ns (%.2f x)\n", bm2, four_full,
                four_full / worst);
