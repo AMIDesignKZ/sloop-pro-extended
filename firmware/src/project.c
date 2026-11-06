@@ -53,6 +53,99 @@ typedef proj_trk_v6_t proj_trk_t;
 typedef project_v6_t project_t;
 _Static_assert(sizeof(project_t) == 3816u && sizeof(project_t) <= 3840u,
                "FUN6 remains a 3,816-byte legacy flash object");
+/* Historical FUN1-FUN5 wire layouts. These are read-only migration inputs:
+ * keep their field order and dimensions independent of the live runtime. */
+typedef struct { uint8_t note[4], n, time, flags, vel; } step8_t;
+typedef struct {
+    int16_t p[PROJ_NP_V5];
+    uint8_t engine, preset;
+    union { step_t step[PROJ_V6_STEPS]; dstep_t dstep[PROJ_V6_STEPS]; };
+    int8_t micro[PROJ_V6_STEPS];
+    plock_t lock[PROJ_V6_LOCKS];
+    uint8_t fill[PROJ_V6_STEPS / 4u];
+} proj_trk_v5_t;
+typedef struct {
+    uint32_t magic, size;
+    int16_t g[PROJ_V6_GLOBALS];
+    uint8_t sel, drdly, rsv[2];
+    proj_trk_v5_t t[PROJ_V6_TRACKS];
+    uint32_t sum;
+} project_v5_t;
+typedef struct {
+    int16_t p[PROJ_NP_V4];
+    uint8_t engine, preset;
+    union { step_t step[PROJ_V6_STEPS]; dstep_t dstep[PROJ_V6_STEPS]; };
+} proj_trk_v4_t;
+typedef struct {
+    uint32_t magic, size;
+    int16_t g[PROJ_V6_GLOBALS];
+    uint8_t sel, rsv[3];
+    proj_trk_v4_t t[PROJ_V6_TRACKS];
+    uint32_t sum;
+} project_v4_t;
+typedef struct {
+    int16_t p[PROJ_NP_V3];
+    uint8_t engine, preset;
+    step8_t step[PROJ_V6_STEPS];
+} proj_trk_v3_t;
+typedef struct {
+    uint32_t magic, size;
+    int16_t g[PROJ_NG_V3];
+    uint8_t sel, rsv[3];
+    proj_trk_v3_t t[PROJ_V6_TRACKS];
+    uint32_t sum;
+} project_v3_t;
+typedef struct {
+    int16_t p[PROJ_NP_V2];
+    uint8_t engine, preset;
+    step8_t step[PROJ_V6_STEPS];
+} proj_trk_v2_t;
+typedef struct {
+    uint32_t magic, size;
+    int16_t g[PROJ_NG_V2];
+    uint8_t sel, rsv[3];
+    proj_trk_v2_t t[PROJ_V6_TRACKS];
+    uint32_t sum;
+} project_v2_t;
+typedef struct {
+    uint32_t magic, size;
+    int16_t g[PROJ_NG_V2];
+    proj_trk_v2_t t;
+    uint32_t sum;
+} project_v1_t;
+
+_Static_assert(sizeof(project_v2_t) == 2552u && sizeof(project_v1_t) == 688u &&
+               sizeof(project_v3_t) == 2584u && sizeof(project_v4_t) == 3112u &&
+               sizeof(project_v5_t) == 3840u,
+               "FUN1-FUN5 wire layouts must remain byte-for-byte compatible");
+
+/* Accessors for the split-parameter FUN6 representation. */
+static int16_t pt_get(const proj_trk_t *t, uint32_t id)
+{
+    return id < PROJ_NC6 ? t->p[id] :
+           id < P_E0 ? (int16_t)t->x[id - PROJ_NC6] :
+           t->e[(id - P_E0) & 7u];
+}
+UI_SMALL static void pt_set(proj_trk_t *t, uint32_t id, int32_t v)
+{
+    if (id < PROJ_NC6)
+        t->p[id] = (int16_t)v;
+    else if (id < P_E0)
+        t->x[id - PROJ_NC6] = (uint8_t)clamp(v, 0, 255);
+    else
+        t->e[(id - P_E0) & 7u] = (int16_t)v;
+}
+static int32_t pt_micro(const proj_trk_t *t, uint32_t i)
+{
+    int32_t m = t->mf[i] & 63;
+    return m >= 32 ? m - 64 : m;
+}
+static uint32_t pt_fill(const proj_trk_t *t, uint32_t i) { return (uint32_t)t->mf[i] >> 6; }
+UI_SMALL static void pt_set_mf(proj_trk_t *t, uint32_t i, int32_t micro, uint32_t fill)
+{
+    t->mf[i] = (uint8_t)(((uint32_t)micro & 63u) | (fill & 3u) << 6);
+}
+
 project_t proj_slot[4] __attribute__((section(".noinit")));
 
 UI_SMALL static uint32_t proj_hash(const void *p, uint32_t n)   /* FNV-1a over n bytes */
