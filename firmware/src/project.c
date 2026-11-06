@@ -991,7 +991,7 @@ static const sm_map_t s37_cat_map = {
 };
 static sm_state_t s37_cat_state;
 static s37_cat_header_t s37_cat_header;
-static project_v7_t s37_cat_scratch __attribute__((section(".pool")));
+static project_v7_t s37_cat_scratch __attribute__((section(".noinit")));
 static s37_cat_overlay_t s37_cat_overlay;
 static s37_cat_image_t s37_cat_image;
 
