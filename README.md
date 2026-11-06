@@ -39,8 +39,8 @@ M-VAVE SMK-37 — with what the bigger keyboard brings:
 ## Install
 
 1. Back up the keyboard's flash once (see [Safety](SYSTEM37.md#safety)).
-2. Open the installer: **[isod89.github.io/sloop-pro](https://isod89.github.io/sloop-pro/)** in Chrome or Edge,
-   nothing to build. (Or build it yourself on Windows: `INSTALL-SLOOP-PRO.bat` builds the three packages in WSL and
+2. Open the installer: **[isod89.github.io/sloop-pro](https://amidesignkz.github.io/system37/)** in Chrome or Edge,
+   nothing to build. (Or build it yourself on Windows: `INSTALL-SYSTEM37.bat` builds the three packages in WSL and
    opens the same installer from your computer.) The keyboard must run M-VAVE's V016 first: update an older one
    with M-VAVE's own updater.
 3. Connect the SMK-37 straight to the computer (a USB data cable), close other MIDI apps, tick the box, press
