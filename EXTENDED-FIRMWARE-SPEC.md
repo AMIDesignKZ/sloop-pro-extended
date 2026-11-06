@@ -36,6 +36,7 @@ Target: M-VAVE SMK-37 Pro. This document defines the agreed product target. It i
 - Retain the existing synthesised drum engine and kit library, including 808, 909, 606, 80s, vintage, techno and other electronic kits.
 - Retain the four editable SYN1–SYN4 user synth kits.
 - Retain sampled drum playback and one user drum kit per retained user sample slot.
+- Keep persistent drum-kit IDs stable. Reserve the old USR3, USR4 and USR3+4 IDs; keep SYN1–SYN4 at their existing IDs. Legacy references to retired user kits must map to a safe available kit rather than being reinterpreted as a different kit.
 - Two user sample slots, USR1 and USR2, each 40 KiB.
 - Retire USR3, USR4 and the USR3+4 paired kit from the new user interface.
 - Preserve the current sample encoding and upload semantics unless a measured issue requires a separately approved change.
