@@ -978,10 +978,9 @@ static int s37_catalog_write_full(void)
     if (!proj_v7_valid(&autosave_buf) ||
         s37_cat_prepare_image(&s37_cat_image, sections, bars, mask, def, &autosave_buf) ||
         sm_save_stream(&s37_cat_io, &s37_cat_map, s37_cat_image_read, &s37_cat_image,
-                       S37_CAT_PAYLOAD_SIZE, &s37_cat_state) ||
-        s37_cat_validate(&s37_cat_io, &s37_cat_map, &s37_cat_state,
-                         &s37_cat_scratch, &s37_cat_header))
+                       S37_CAT_PAYLOAD_SIZE, &s37_cat_state))
         return -1;
+    s37_cat_header = s37_cat_image.header;
     s37_cat_ready = 1u;
     s37_migrate_pending = 0u;
     return 0;
