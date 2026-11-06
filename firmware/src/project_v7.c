@@ -78,6 +78,10 @@ int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length, uint8_t 
     out->size = sizeof *out;
     memcpy(out->g, raw + offsetof(project_v6_t, g), sizeof out->g);
     memcpy(&out->sel, raw + offsetof(project_v6_t, sel), sizeof out->sel);
+    if (out->sel == 3u)
+        out->sel = 5u; /* the legacy drum track moved to System 37 track six */
+    else if (out->sel > 2u)
+        out->sel = 0u;
     memcpy(&out->drdly, raw + offsetof(project_v6_t, drdly), sizeof out->drdly);
     memcpy(out->rsv, raw + offsetof(project_v6_t, rsv), sizeof out->rsv);
 
