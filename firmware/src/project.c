@@ -41,7 +41,7 @@
 #define PROJ_NG 32u                            /* globals of formats 4..6 */
 _Static_assert(G_DRDLY == PROJ_NG && G_TXSRC == PROJ_NG + 5u,
                "the globals a project holds, then G_DRDLY (then 2.6's GLO > MIDI: settings of the FM-1)");
-_Static_assert(G_FXFADE == G_CLKOUT + 1u && G_COUNT == G_FXFADE + 1u, "G_FXFADE (2.7.2) is the last global, a setting of the FM-1");
+_Static_assert(G_FXFADE == G_CLKOUT + 1u && G_CH4 == G_FXFADE + 1u && G_CH5 == G_CH4 + 1u && G_COUNT == G_CH5 + 1u, "System 37 appends MIDI channels 4 and 5 after legacy globals");
 #define PROJ_NC6 PROJ_V6_NC
 #define PROJ_NX6 PROJ_V6_NX
 _Static_assert(PROJ_NC6 == PROJ_NP_V5 - 8u && PROJ_NX6 == 10u, "format 6: format 5's parameters, then ten bytes");
@@ -1041,7 +1041,7 @@ UI_SMALL static void midi_part_fill(uint8_t *b)
 }
 UI_SMALL static int midi_part_default(const uint8_t *b)
 {
-    static const uint8_t def[10] = MIDI_SET_DEF;
+    static const uint8_t def[12] = MIDI_SET_DEF;
     uint32_t k;
     for (k = 0; k < 2u * ML_N; k++)
         if (b[k])
@@ -1346,9 +1346,9 @@ UI_SMALL static void sections_flush(void)                        /* main loop */
         settings_later = 1;
     }
     {   /* 2.6: GLO > MIDI (CH1 CH2 CH3 OTHER) and GLO > DRUMS > CH: the same */
-        static const uint8_t gid[10] = {G_CH1, G_CH2, G_CH3, G_DRCH, G_CHOTH, G_BEND, G_FXCH, G_DRMAP, G_RMCH, G_CLKOUT};
+        static const uint8_t gid[12] = {G_CH1, G_CH2, G_CH3, G_DRCH, G_CHOTH, G_BEND, G_FXCH, G_DRMAP, G_RMCH, G_CLKOUT, G_CH4, G_CH5};
         uint32_t k;
-        for (k = 0; k < 10u; k++)
+        for (k = 0; k < 12u; k++)
             if ((uint32_t)song.g[gid[k]] != midi_set[k]) {
                 midi_set[k] = (uint8_t)song.g[gid[k]];
                 settings_later = 1;
