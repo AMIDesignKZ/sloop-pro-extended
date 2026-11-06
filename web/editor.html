@@ -6265,7 +6265,8 @@ async function load(d) {
       d.names[e] = r.names;
       d.titles[e] = r.titles;
     }
-    for (let k = 0; k < 4; k++) {                    /* PROJECT op 2: is the slot used */
+    d.slotUsed = Array(d.info.ntrk >= 6 ? 8 : 4).fill(null);
+    for (let k = 0; k < d.slotUsed.length; k++) {       /* PROJECT op 2: is the slot used */
       try { d.slotUsed[k] = parse[CMD.PROJECT](await d.link.request(req.project(2, k))).used; }
       catch (e) { if (e.message === "closed") throw e; }
     }
@@ -6765,10 +6766,11 @@ function report(err) { if (err && err.message !== "closed") { console.warn(err);
 function renderSlots() {
   const box = $("slots");
   box.replaceChildren();
-  for (let i = 0; i < 4; i++) {
+  const count = dev.info.ntrk >= 6 ? 8 : 4, names = "ABCDEFGH";
+  for (let i = 0; i < count; i++) {
     const u = dev.slotUsed[i];
     box.append(el("div", { class: "slot" + (u ? " used" : "") },
-      el("b", { text: "ABCD"[i] }),
+      el("b", { text: names[i] }),
       el("span", { class: "st", text: u == null ? t("unknown") : t(u ? "used" : "empty") }),
       el("p", { class: "bar" },
         el("button", { class: u ? "pri" : null, ic: "symbol_folder_open", onclick: () => project(0, i) }, t("load")),
@@ -6777,7 +6779,7 @@ function renderSlots() {
 }
 async function project(op, slot) {
   if (!dev) return;
-  if (!confirm(t(op ? "confirmSave" : "confirmLoad").replace("{n}", "ABCD"[slot]))) return;
+  if (!confirm(t(op ? "confirmSave" : "confirmLoad").replace("{n}", "ABCDEFGH"[slot]))) return;
   busy++;
   try {
     /* save writes flash: a long timeout and no retry */
@@ -6788,7 +6790,7 @@ async function project(op, slot) {
     dev.slotUsed[slot] = r.used;
     renderSlots();
     if (!op && r.used) await afterSoundChange();
-    sayK(op ? "secSaved" : r.used ? "secLoaded" : "secEmpty", "ABCD"[slot]);
+    sayK(op ? "secSaved" : r.used ? "secLoaded" : "secEmpty", "ABCDEFGH"[slot]);
   } catch (err) { report(err); } finally { busy--; }
 }
 
@@ -10076,8 +10078,8 @@ async function songExport() {
 async function songLoadUI(file, progress) {
   selfLoad();
   await songLoad(rq, file, progress);
-  dev.slotUsed = [null, null, null, null];
-  for (let k = 0; k < 4; k++) {
+  dev.slotUsed = Array(dev.info.ntrk >= 6 ? 8 : 4).fill(null);
+  for (let k = 0; k < dev.slotUsed.length; k++) {
     try { dev.slotUsed[k] = parse[CMD.PROJECT](await rq(req.project(2, k))).used; } catch (e) { if (e.message === "closed") throw e; }
   }
   SG.dev = null;                                    /* (the Song tab reads the order again) */
@@ -10113,7 +10115,7 @@ $("bk-file").addEventListener("change", async () => {
     try {
       selfLoad();
       await backupRestore(rq, file, bkProgress("bkRestoring"));
-      dev.slotUsed = [null, null, null, null];
+      dev.slotUsed = Array(dev.info.ntrk >= 6 ? 8 : 4).fill(null);
       renderSlots();
       try { await smpInfo(); renderSamples(); } catch (e) { /* shown by the next action */ }
       await afterSoundChange("bkRestored");
@@ -10728,16 +10730,17 @@ function lvBuild() {
     el("div", { class: "lvgrp lvright" }, U.cpu, U.panic, U.full), lvxBuildTools(),
     el("div", { class: "lvlearnbar" }, U.learnMsg, U.learnClear));
   /* sections */
-  U.secs = [0, 1, 2, 3].map((k) => {
-    const b = el("button", { type: "button", class: "lvsec", style: `--c:${TCOL[k]}`, "data-lvm": "sec:" + k, onclick: () => lvTap(LIVE.LY_SONG, LIVE.SEC + k) },
-      el("b", { text: "ABCD"[k] }), el("small", {}));
+  const sectionCount = dev.info.ntrk >= 6 ? 8 : 4, sectionNames = "ABCDEFGH";
+  U.secs = Array.from({ length: sectionCount }, (_, k) => {
+    const b = el("button", { type: "button", class: "lvsec", style: `--c:${TCOL[k % TCOL.length]}`, "data-lvm": "sec:" + k, onclick: () => lvTap(LIVE.LY_SONG, LIVE.SEC + k) },
+      el("b", { text: sectionNames[k] }), el("small", {}));
     return b;
   });
-  U.stores = [0, 1, 2, 3].map((k) => el("button", { type: "button", class: "lvstore", text: "ABCD"[k], onclick: () => lvStore(k) }));
+  U.stores = Array.from({ length: sectionCount }, (_, k) => el("button", { type: "button", class: "lvstore", text: sectionNames[k], onclick: () => lvStore(k) }));
   /* (2.7) a chain: sections in a row, each for its bars, looped (as SAVE + several keys) */
   LV.chain = LV.chain || [];
   U.chainList = el("span", { class: "lvchainlist" });
-  U.chainAdd = [0, 1, 2, 3].map((k) => el("button", { type: "button", class: "lvstore", text: "ABCD"[k], "data-lvm": "chain:" + k,
+  U.chainAdd = Array.from({ length: sectionCount }, (_, k) => el("button", { type: "button", class: "lvstore", text: sectionNames[k], "data-lvm": "chain:" + k,
     onclick: () => { if (LV.chain.length < LIVE.CHAIN_MAX) LV.chain.push(k); lvxRenderChain(); } }));
   U.chainGo = el("button", { type: "button", class: "pri", text: t("lvxChainPlay"), "data-lvm": "chain:play", onclick: () => {
     if (!LV.s || !LV.s.playing) { sayK("lvxChainStopped"); return; }
@@ -10785,7 +10788,7 @@ function lvBuild() {
   const fxBox = el("div", { class: "card lvcard lvfxbox" }, el("div", { class: "lvhead" }, el("h2", { text: t("lvFx") }), U.latch),
     el("p", { class: "dim lvhint", text: t("lvFxHint") }), ...groups);
   /* the keys */
-  U.targets = [0, 1, 2, 3].slice(0, n).map((i) => el("button", { type: "button", class: "tog", style: `--trk:${TCOL[i]}`, text: lvDrum(i) ? "D" : String(i + 1), onclick: () => lvTarget(i) }));
+  U.targets = Array.from({ length: n }, (_, i) => el("button", { type: "button", class: "tog", style: `--trk:${TCOL[i % TCOL.length]}`, text: lvDrum(i) ? "D" : String(i + 1), onclick: () => lvTarget(i) }));
   U.octDn = el("button", { type: "button", text: "−", "aria-label": t("lvOct") + " −", onclick: () => { LV.oct = Math.max(1, LV.oct - 1); lvRenderPlay(); } });
   U.octUp = el("button", { type: "button", text: "+", "aria-label": t("lvOct") + " +", onclick: () => { LV.oct = Math.min(7, LV.oct + 1); lvRenderPlay(); } });
   U.octV = el("span", { class: "lvoct" });
@@ -10887,11 +10890,11 @@ function lvStep(i, d) {
 async function lvStore(k) {
   if (!lvOk()) return;
   const used = LV.s && (LV.s.ready >> k) & 1;
-  if (used && !confirm(t("lvStoreAsk").replace("{x}", "ABCD"[k]))) return;
+  if (used && !confirm(t("lvStoreAsk").replace("{x}", "ABCDEFGH"[k]))) return;
   if (used) await lvTap(LIVE.LY_SONG, LIVE.STORE + k);     /* (over a used section the FM-1 asks for a second press) */
   const s = await lvTap(LIVE.LY_SONG, LIVE.STORE + k);
   dev.slotUsed[k] = true;
-  sayK("lvStored", "ABCD"[k]);
+  sayK("lvStored", "ABCDEFGH"[k]);
   return s;
 }
 function lvBuildKeys() {
@@ -11005,7 +11008,7 @@ function lvxRenderChain() {
   const U = LV.ui;
   if (!U.chainList) return;
   const s = LV.s, run = s && s.chainN >= 2;
-  U.chainList.textContent = LV.chain.length ? LV.chain.map((k) => "ABCD"[k]).join(" ") : t("lvxChainEmpty");
+  U.chainList.textContent = LV.chain.length ? LV.chain.map((k) => "ABCDEFGH"[k]).join(" ") : t("lvxChainEmpty");
   U.chainList.classList.toggle("run", !!run);
   U.chainGo.disabled = LV.chain.length < 2;
   U.chainStop.disabled = !run;
