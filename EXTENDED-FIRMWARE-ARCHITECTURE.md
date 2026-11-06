@@ -245,3 +245,22 @@ The functional scope is agreed, but these items require source/test evidence bef
 7. Establish the target audio CPU budget with five synth parts.
 
 Until those gates pass, the allocation is **capacity-feasible on paper, not yet proven safe or hardware-feasible**.
+
+
+## 5B. System 37 Project Format 7 prototype
+
+An isolated FUN6-to-FUN7 schema and conversion module has been added:
+
+- `firmware/src/project_v7.h` defines the read-only FUN6 wire layout and the new six-track FUN7 layout.
+- `firmware/src/project_v7.c` validates the FUN6 checksum, constructs FUN7, calculates the new checksum and reports a per-track lock-loss bitmask.
+- `tests/project_v7_test.c` covers the compiler-sized wire layouts and migration behaviour; it is wired into `tests/run_tests.sh`.
+
+The FUN6 mirror fixes its historical four-track and 24-lock counts explicitly. It must not depend on future runtime `NTRK` or `NLOCK` values, or a later expansion could corrupt the legacy reader's layout.
+
+The converter preserves globals, parameters, engine/preset bytes and all 64 steps. It packs each old step's two-bit fill condition into a 16-byte array and discards the six-bit micro-timing value. The old synth tracks 0–2 remain at 0–2; the two new synth tracks occupy 3–4; the old dedicated drum track moves from 3 to 5. New synth records start empty, with Analog selected and the default-preset sentinel.
+
+Lock migration uses the same lockable-parameter rules as the current sequencer. It retains the globally earliest 12 valid locks, sorts them by step, and preserves original source-slot order for equal-step ties. A per-track warning mask is returned when more than 12 valid locks existed; the eventual UI must present that warning to the user.
+
+The module is deliberately isolated. It is not included by `felucca.c`, does not alter `project.c` or `proj_import`, and does not change runtime track constants, section RAM, autosave or flash storage. The existing FUN1–FUN6 import path therefore remains untouched. A local strict-warning host harness and its ASan/UBSan run passed. The complete repository host suite and the JieLi target build have not yet been run in this working session.
+
+The next integration gate is to test the full legacy path (FUN1–FUN5 through the existing importer into FUN6, then FUN6 into FUN7), including lock-loss reporting, before connecting this converter to project persistence or changing runtime track counts.
