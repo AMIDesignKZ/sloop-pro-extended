@@ -110,3 +110,14 @@ The following details have now been checked against the current source, rather t
 5. Only then begin changing the runtime track count and browser/device UI.
 
 No firmware source, flash address, stock region, recovery path or installed device has been changed by this audit.
+
+
+### User decision: sample capacity
+
+On 6 November 2026 the user confirmed **two user sample slots of 40 KiB each**.
+
+- Keep the first two existing slot positions as the intended user-facing slots: USR1 at 0xC2000 and USR2 at 0xCC000.
+- Retire USR3 at 0xD6000 and USR4 at 0xE0000 from the user-sample interface.
+- This potentially releases 80 KiB (0xD6000–0xE9FFF) for a future storage redesign. It is not yet reassigned to projects or FM6: the flash map, loader allow-list, stock marker handling, backup/restore and all editor references must be reconciled first.
+- Keep the existing 40 KiB per-slot capacity and sample encoding. Do not silently convert either slot to 80 KiB.
+- The current flash-map comments incorrectly describe two 80 KiB slots, while the implementation has four 40 KiB slots. Update those comments only as part of the coordinated flash-map change, not as an isolated documentation-only claim.
