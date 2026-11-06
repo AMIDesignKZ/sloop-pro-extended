@@ -47,6 +47,9 @@ typedef struct {
     uint32_t sum;
 } project_v6_t;
 
+/* These two structs are byte-stream formats, not native ABI records. Explicit
+ * packing keeps FUN7's 881-byte track / 5,366-byte project layout identical
+ * on the host compiler and the PI32V2 target (where int16_t alignment differs). */
 typedef struct {
     int8_t p[PROJ_V6_NC]; /* all common parameters fit signed 8-bit; frees space for packed microtiming */
     int16_t e[8];
