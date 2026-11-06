@@ -925,23 +925,16 @@ static void cpu1_units_job(uint32_t arg)                /* core 1's job: the uni
  * less the parts that must stay here (above) */
 static uint32_t units_split(void)
 {
-    uint32_t mask = cpu1_units < 0 ? (1u << (NPART - 1u)) | U_DRUMS : (uint32_t)cpu1_units & U_ALL, k, nform = 0;
+    uint32_t mask = cpu1_units < 0 ? (1u << (NPART - 1u)) | U_DRUMS : (uint32_t)cpu1_units & U_ALL, k;
     if (!mask)
         return 0;
-    for (k = 0; k < NPART; k++)
-        nform += ENGINES[trk[k].engine] == &ENG_FORMANT;
     for (k = 0; k < NPART; k++) {
         const track_t *t = &trk[k];
-        const engine_t *e = ENGINES[t->engine];
-        uint32_t fade = t->xf_on && t->xf, inc;
-        const int16_t *p = fade && t->pold ? t->p_old : t->p;   /* the values this block renders with (mix_part: a
-                                                         * preset fading out keeps its old sound; voice.c track_render:
-                                                         * an engine fading out its old engine values, pe_old) */
+        uint32_t inc;
         if (!(mask & (1u << k)))
             continue;
-        inc = p[P_LSYNC] ? lfo_sync_inc(p) : LFO_INC[p[P_LRATE] & 127];   /* (2.6: LFO 2 SYNC, as track_lfo_tick) */
-        if (t->lfo_ph + inc < t->lfo_ph || (e == &ENG_PHYS && phys_render_draws(t, fade ? t->pe_old[0] : p[P_E0])) ||
-            (e == &ENG_FORMANT && nform > 1u))
+        inc = t->p[P_LSYNC] ? lfo_sync_inc(t->p) : LFO_INC[t->p[P_LRATE] & 127];
+        if (t->lfo_ph + inc < t->lfo_ph)
             mask &= ~(1u << k);
     }
     return mask;
