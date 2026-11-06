@@ -314,3 +314,11 @@ The new `section_prefetch` module is an isolated state machine for the single st
 The host test is wired into `tests/run_tests.sh`. Isolated strict C11 compilation (`-Wall -Wextra -Werror`) and execution passed; a UBSan build and execution passed. ASan execution was blocked by the local environment's ASan runtime ordering. The full repository test runner and SMK-37 target build remain unrun.
 
 The state machine is deliberately not yet connected to `seq.c` or `arranger.c`. Integration still needs a pre-boundary prefetch policy for the 16-entry arrangement, quick chain and live section jumps, plus first-section readiness before song playback starts. It must define deterministic underrun behaviour; a late or invalid load must never be applied. No runtime buffer, flash map or audio callback has been changed.
+
+## Progress checkpoint — legacy drum migration removed (6 November 2026)
+
+The isolated FUN6-to-FUN7 converter now migrates only legacy synth tracks 0–2. The old drum track at index 3 is intentionally ignored: its pattern, kit selection, per-lane sound values and parameter locks are not copied into FUN7. New synth tracks 3–4 and the dedicated drum track 5 are initialised from defaults. The new drum track's E0 value is explicitly set to the default drum kit (kit 0), rather than inheriting the Analog engine's E0 default. A saved selection of legacy track 3 still selects the new dedicated drum track at index 5.
+
+The migration test now expects lock-loss bits only for the three migrated synth tracks (mask 0x07), checks the three legacy synth tracks, and checks that all three new tracks are empty with default parameters and free locks. The old FUN6 source record is still validated as a complete 3,816-byte image before conversion; no legacy persistence or recovery path is changed.
+
+The source and test changes are committed and wired into the repository host runner. **The updated test has not yet been compiled or executed in this session.** The full host suite and SMK-37 target build remain unrun. This completes the migration-policy change only; it does not integrate FUN7 into live project persistence or the sequencer.
