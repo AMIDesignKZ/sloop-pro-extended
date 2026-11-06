@@ -257,3 +257,15 @@ The existing arranger has been inspected before changing its scene count or runt
 - Song-mode backup/restore currently captures the working project at start and restores it at stop. Its buffer and timing must be included in the six-track RAM budget.
 
 No runtime constants, project arrays, audio callbacks, arranger UI, flash access or linker sections have been changed by this audit. Next gate: obtain the exact target linker map and pool/stack usage, then specify and host-test a small section-preload state machine before wiring it into the audio path.
+
+
+## Memory-budget finding — section prefetch design (6 November 2026)
+
+The target linker script and RAM notes have now been inspected. The relevant constraints are more precise than the earlier `.noinit` estimate:
+
+- `firmware/app.ld` gives `.noinit` exactly 0x3D50 (15,696) bytes. Four current FUN6 projects occupy 4 × 3,816 = 15,264 bytes, leaving 432 bytes before other `.noinit` objects. Eight FUN7 projects would require 40,864 bytes and are impossible there.
+- The documented `.pool` region is 0x54000 (344,064) bytes, with 333,900 bytes used in the RAM audit: 10,164 bytes spare. Increasing both song backup and autosave from 3,816 to 5,108 bytes costs another 2,584 bytes. Two additional 5,108-byte section buffers would cost 10,216 bytes and exceed the reported spare pool by 52 bytes, even before other changes.
+- The ordinary 96 KiB RAM region had 58,220 bytes used in the RAM audit, leaving 40,084 bytes at that checkpoint. The project import staging union currently lives in this region and will also need review when FUN7 becomes the runtime format.
+- Song-mode backup and autosave are not live at the same time in the current control flow: autosave refuses to run while `song.playing`, and section flush avoids autosaving while the arrangement clock runs. A shared backup/autosave buffer is therefore a plausible optimisation, but it must be verified against every reset, editor, import and save path before implementation.
+
+This points to a leaner architecture than two full section caches: keep the eight-section catalogue in flash, use one FUN7 staging project for prefetch and boundary application, and investigate sharing the song-backup/autosave buffer. The active section is already copied into the live track state by `proj_apply()`; it does not need to remain as a second resident project snapshot. This is a design candidate, not yet an approved memory layout. The RAM audit values are a prior measured baseline, not measurements of the System 37 build. The next step is to confirm the actual current target build's map and stack/pool headroom before allocating anything.
