@@ -38,7 +38,7 @@ int main(void)
             tr->step[s].n = 1;
             tr->step[s].time = ST_NOTE;
         }
-        for (k = 0; k < NLOCK; ++k) {
+        for (k = 0; k < PROJ_V6_LOCKS; ++k) {
             tr->lock[k].step = LOCK_FREE;
             tr->lock[k].param = 0;
             tr->lock[k].val = 0;
