@@ -40,24 +40,32 @@ Five tracks increase the per-track state and the number of sequencer/effects uni
 
 ### Engine identity and lifecycle
 
-Only Analog and FM6 are selectable in the target UI. Keep their persistent engine IDs unchanged: Analog remains 0 and FM6 remains 9. Keep all historical engine IDs reserved; never compact or renumber the engine table.
+System 37 is an alternative firmware based on SLOOP, not a backwards-compatible SLOOP build.
 
-Introduce an explicit legacy-engine mapper at project/preset load. IDs 0 and 9 load as Analog and FM6. Other historical IDs load as a safe Analog default while retaining common parameter values, pattern data, track level/pan/mute and locks that remain valid. Engine-specific values are clamped or defaulted against Analog descriptors. Do not use modulo arithmetic to map unsupported IDs.
+- The selectable engine table contains exactly two engines: Analog (System 37 ID 0) and FM6 (System 37 ID 1).
+- Any of the five synth parts can select either engine independently.
+- System 37 IDs are local to the new project format. Historical SLOOP engine IDs are not preserved or interpreted.
+- No FUN1–FUN6 project import or legacy engine mapper is required. New projects start from System 37 defaults.
+- Retain the existing 808/909-capable drum synthesis and sampled-drum playback as a separate subsystem; neither consumes a synth engine ID or synth engine arena.
+- The incoming FM-1 remains an external MIDI instrument, not an internal engine.
 
-Remove unsupported engines from the selectable engine list. Source modules and arena members should only be removed after dependency analysis and target memory/flash measurements; disabled IDs must still be recognised by migration code. The engine arena union should ultimately contain only state required by enabled engines, but its final size must be compiler-measured.
+Remove the legacy selectable-engine table and its per-part arena members only after all remaining references in voice, sequencer, effects, UI, editor and project code have been accounted for. The final target engine-state allocation should be one FM6 state record per synth part; Analog requires no separate per-voice engine arena. Confirm the exact compiled size and linker placement with the SMK-37 toolchain.
+ 
+## 3. Project format
 
-## 3. Project format and migration
+System 37 owns its project format and does not import SLOOP FUN1–FUN6 projects. This deliberately removes the need to translate historical engine IDs or preserve old project semantics. The existing legacy readers may remain temporarily in the source during the runtime transition, but they are not part of the System 37 product contract and must not be connected to the new project-loading path.
 
 ### Format 7
 
-Preserve the existing format-6 reader as a read-only migration input. Define a new format-7 project structure with:
+The current proposed FUN7 layout contains:
 
 - Six track records.
 - Existing 64 × 10-byte step representation.
 - A 16-byte fill-condition array per track (two bits per step).
 - No micro-timing array.
 - 12 parameter locks per track.
-- Existing global/project fields and checksum, with an explicit format/version marker.
+- Existing project-level musical fields and checksum, with an explicit format/version marker.
+- System 37 engine IDs: Analog = 0, FM6 = 1. Unsupported engine values fail validation rather than being silently remapped.
 
 Source-derived size calculation:
 
@@ -68,27 +76,7 @@ Source-derived size calculation:
 - New track record: 934 − 64 + 16 − 48 = **838 bytes**.
 - New project: 76 + (6 × 838) + 4 = **5,108 bytes**.
 
-Add compile-time sizeof assertions. Host tests must verify exact layout, checksum, fill round-trip, lock truncation, invalid values and legacy migration. Do not rely on this arithmetic as a substitute for compiler output.
-
-### Format-6 migration
-
-Map old synth tracks 0–2 to new synth tracks 0–2. Initialise new synth tracks 3–4 from the Analog default. Move the old drum track from index 3 to new index 5. Preserve globals, patterns, drum lanes, fill conditions and compatible common parameters. Discard micro-timing.
-
-Old projects can contain up to 24 locks per track. Format 7 can retain only 12. Migration retains the 12 earliest-step valid locks. For locks on the same step, preserve original slot order as the tie-break. Drop later-step locks and expose a migration warning if any are lost. Host tests must cover empty, 12-lock, 13-lock and 24-lock cases.
-
-### Section catalogue
-
-Do not allocate eight independent A/B objects. Store all eight format-7 projects in one catalogue payload:
-
-- Project records: 8 × 5,108 = 40,864 bytes.
-- Catalogue header/directory allowance: approximately 80 bytes.
-- Modelled payload: approximately 40,944 bytes.
-- Eleven sectors per copy: 44,800 bytes available after the first-sector 256-byte header area.
-- A/B catalogue: 22 sectors total.
-
-The catalogue directory should include format version, section-presence bits and compact metadata needed by the arranger (for example, cached section bar lengths). Project records retain their own magic/checksum; the outer storage record has its own length and CRC. Section reads load one 5,108-byte record from the selected catalogue copy into a RAM cache buffer and validate its project checksum.
-
-Saving one section is a whole-catalogue copy-on-write transaction: stream the current valid catalogue into the inactive copy using a 256-byte page buffer, overlay the changed section record and its directory metadata, calculate the complete payload CRC, verify the written payload, then program the commit header last. Do not stage the 40 KiB catalogue in RAM. The old copy remains untouched until the new one is committed and read back. This costs more writes per section save but gives a single atomic A/B snapshot for A–H.
+Add compile-time sizeof assertions. Host tests must verify exact layout, checksum, fill round-trip, lock validation and rejection of unsupported engine IDs.
 
 ## 4. Section RAM/cache strategy
 
@@ -400,3 +388,19 @@ This is a compatibility boundary only. The legacy `proj_capture()` and `proj_app
 Source inspection of `main.c`, `ui_fbank.c` and `ui_layers.c` confirms that the four physical faders currently operate five parameter banks: A LEVEL, B FILTER, C REVERB, D DELAY for fixed track indices 0–3, and E ADSR for the selected synth track. The GLO layer's mute/solo keys and level knobs also cover only four tracks. The existing banks are parameter layers, not the required two-layer six-track assignment. In particular, the drum special cases in `ui_fbank.c` compare fader index 0–3 against `TRK_DRUM`; that fails once the drum index becomes 5. A new six-track mapping must be specified before those controls are changed.
 
 The target build script reports image, `.data+.bss`, `.lowram` and `.pool` sizes and enforces at least 8 KiB spare in the pool. The next safe measurement is an unchanged SMK-37 baseline build using the exact JieLi toolchain and AC79 SDK. Runtime memory refactoring should follow that measurement, not precede it.
+
+
+## Progress checkpoint — standalone engine scope and baseline build (6 November 2026)
+
+The user has confirmed that System 37 is an alternative firmware based on SLOOP, not a backwards-compatible SLOOP project environment. Only Analog and FM6 are required as internal synth engines. No legacy project import or historical engine-ID mapper is required. The dedicated drum subsystem must retain its synthesised kits, explicitly including 808 and 909, and sampled drum playback.
+
+An unchanged SMK-37 target build has now succeeded using the exact local JieLi toolchain and AC79 SDK. Build report:
+
+- Application image: 601,512 bytes.
+- `.data + .bss`: 63,948 / 98,304 bytes.
+- `.lowram`: 22,772 / 29,360 bytes.
+- `.pool`: 335,756 / 344,064 bytes, leaving 8,308 bytes.
+
+The ELF symbol table identifies `trk` as 8,576 bytes (four × 2,144-byte `track_t`), `eng_arena` as 25,776 bytes (three × 8,592-byte arenas), and the legacy four-project `proj_slot` as 15,264 bytes in `.noinit`. Source defines `voice_t` as 84 bytes. FM6's per-part state is six 244-byte `fm6_note_t` records plus two 32-sample int32 buses: 1,720 bytes per part. Thus a five-part FM6-only arena would be 8,600 bytes, versus 42,960 bytes for five legacy multi-engine arenas. This is a source-derived design estimate, not a target measurement of the proposed allocation.
+
+The next implementation unit is the synth voice-ownership refactor and engine-state reduction, initially preserving the current three-synth runtime counts and audio behaviour. Only Analog and FM6 need to remain selectable; drum synthesis and sampled drums remain independent. Do not change `NPART`, `NTRK`, `TRK_DRUM`, live lock count, UI or flash layout in this isolated milestone. Target rebuild and host regression tests are required before moving on to the six-track runtime expansion.
