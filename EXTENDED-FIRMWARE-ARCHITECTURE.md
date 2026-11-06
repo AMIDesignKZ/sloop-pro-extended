@@ -393,3 +393,10 @@ No runtime constants, track layout, voice ownership, lock count, microtiming, au
 The legacy project definitions now pin the historical counts independently of live runtime constants: four tracks, three synth parts, drum index 3, 64 steps and 24 locks. `project.c` and its legacy regression helper no longer reference `NTRK`, `NPART`, `NLOCK` or `TRK_DRUM`; they use the explicit `PROJ_V6_*` values instead. Compile-time assertions retain the FUN6 934-byte track and 3,816-byte project layouts.
 
 This is a compatibility boundary only. The legacy `proj_capture()` and `proj_apply()` routines still address the old four-track runtime and must not be used after the live runtime changes. The new six-track FUN7 callback adapter remains the future live-project path. The modified project regression test and full host suite have not yet been executed.
+
+
+## 11. SMK-37 fader control map
+
+Source inspection of `main.c`, `ui_fbank.c` and `ui_layers.c` confirms that the four physical faders currently operate five parameter banks: A LEVEL, B FILTER, C REVERB, D DELAY for fixed track indices 0–3, and E ADSR for the selected synth track. The GLO layer's mute/solo keys and level knobs also cover only four tracks. The existing banks are parameter layers, not the required two-layer six-track assignment. In particular, the drum special cases in `ui_fbank.c` compare fader index 0–3 against `TRK_DRUM`; that fails once the drum index becomes 5. A new six-track mapping must be specified before those controls are changed.
+
+The target build script reports image, `.data+.bss`, `.lowram` and `.pool` sizes and enforces at least 8 KiB spare in the pool. The next safe measurement is an unchanged SMK-37 baseline build using the exact JieLi toolchain and AC79 SDK. Runtime memory refactoring should follow that measurement, not precede it.
