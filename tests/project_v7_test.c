@@ -20,7 +20,7 @@ int main(void)
     uint8_t lock_loss = 0;
     int bad = 0, ok = 1;
     for (k = 0; k < P_E0; ++k) common_defaults[k].def = (int16_t)(k + 10u);
-    for (k = 0; k < 8u; ++k) analog_defaults[k].def = (int16_t)(k - 3);
+    for (k = 0; k < 8u; ++k) analog_defaults[k].def = (int16_t)((int32_t)k - 3);
 
     old.magic = PROJ_V6_MAGIC;
     old.size = sizeof old;
