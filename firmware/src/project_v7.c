@@ -53,7 +53,7 @@ static void keep_lock(proj_trk_v7_t *dst, const plock_t *src, uint32_t *count)
         ++*count;
 }
 
-int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length)
+int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length, uint8_t *lock_loss_mask)
 {
     const project_v6_t *src = (const project_v6_t *)data;
     uint32_t t, s, k;
@@ -62,6 +62,8 @@ int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length)
         src->sum != proj_v7_hash(src, (uint32_t)sizeof *src - 4u))
         return 0;
 
+    if (lock_loss_mask)
+        *lock_loss_mask = 0;
     memset(out, 0, sizeof *out);
     out->magic = PROJ_V7_MAGIC;
     out->size = sizeof *out;
@@ -73,7 +75,7 @@ int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length)
     for (t = 0; t < PROJ_V7_TRACKS; ++t) {
         uint32_t source_track;
         proj_trk_v7_t *b = &out->t[t];
-        uint32_t kept = 0;
+        uint32_t kept = 0, valid_locks = 0;
 
         /* System 37 orders five synth parts first and the dedicated drums
          * last. The old SLOOP drum track (index 3) therefore moves to 5. */
@@ -102,8 +104,14 @@ int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length)
                 b->fill[s / 4u] |= (uint8_t)(fill << (2u * (s % 4u)));
             }
 
-            for (k = 0; k < NLOCK; ++k)
+            for (k = 0; k < NLOCK; ++k) {
+                if (a->lock[k].step != LOCK_FREE && a->lock[k].step < NSTEP &&
+                    a->lock[k].param < P_COUNT && proj_v7_lockable(a->lock[k].param))
+                    ++valid_locks;
                 keep_lock(b, &a->lock[k], &kept);
+            }
+            if (lock_loss_mask && valid_locks > PROJ_V7_LOCKS)
+                *lock_loss_mask |= (uint8_t)(1u << t);
             for (; kept < PROJ_V7_LOCKS; ++kept) {
                 b->lock[kept].step = LOCK_FREE;
                 b->lock[kept].param = 0;
