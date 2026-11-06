@@ -179,3 +179,12 @@ The standalone host test passed with -std=c11 -Wall -Wextra -Werror -O2 and also
 This module is **not yet included by felucca.c**, does not replace storage.c, and has not been tested with the JieLi target compiler or physical SMK-37 flash. The board callbacks and fixed extent tables still need to be implemented and validated against fm1_flash_map.h before integration.
 
 Next: extend the host tests to the exact 11-sector catalogue and 5-sector FM6 extent shapes, then implement format-7 project structures and migration tests. Only after these are stable should the generic storage module be integrated into the firmware's single compilation unit.
+
+
+## Follow-up checkpoint — proposed extent map covered by host tests (6 November 2026)
+
+The storage primitive test now instantiates the proposed SMK-37 extent tables for the section catalogue, four-bank FM6 object and autosave. It checks all 36 sectors are unique, exactly 12 sectors are reused from legacy objects, 24 are newly allocated, and every address lies in one of the identified candidate regions. This confirms the arithmetic and overlap-free nature of the proposed table; it does not establish that those regions are safe to erase on a real device.
+
+The standalone test passed again with AddressSanitizer and UndefinedBehaviorSanitizer enabled. It is wired into tests/run_tests.sh. The complete repository test suite was not run because it requires the firmware build output and JieLi SDK/toolchain, which are not available in this working session.
+
+Next engineering task: define the format-7 structures alongside the read-only format-6 structure, then add host migration tests before changing project persistence or runtime track counts.
