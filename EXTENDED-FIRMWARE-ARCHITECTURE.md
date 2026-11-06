@@ -335,3 +335,23 @@ The runtime transition must freeze the FUN6 wire layout independently of future 
 - Preserve the old storage readers and recovery route; do not write FUN7 to legacy project sectors as if it were FUN6.
 
 The current branch has not yet made any runtime-constant or live-project changes. No full host suite or target build has been run for the migration change. The next implementation unit is a host-testable FUN7 live-project adapter and its regression tests, followed by a coordinated runtime model change only when all legacy wire-format dependencies are isolated.
+
+## Progress checkpoint — catalogue-backed prefetch service and RAM gate (6 November 2026)
+
+A small main-loop service now joins the existing catalogue reader to the tested prefetch state machine:
+
+- New files: firmware/src/section_prefetch_io.h and firmware/src/section_prefetch_io.c.
+- s37_pf_service() claims at most one request, scans the A/B multi-sector object, loads the requested A–H record through s37_cat_load_section(), and publishes READY only after the catalogue and FUN7 checks succeed.
+- A failed scan, absent section, invalid directory or invalid project checksum publishes FAILED. If a newer request supersedes the synchronous load, its completion ticket is rejected and the stale buffer is not made READY.
+- The service owns no staging memory. The caller supplies one project_v7_t buffer. It is intended for the main loop only; it must never be called from the audio callback.
+- tests/section_catalog_test.c now exercises a missing-section failure and a successful load/one-shot consume. tests/run_tests.sh links the service and prefetch modules into the catalogue test.
+
+This connects the persistence prototype to the prefetch primitive at the host-module boundary, but does not allocate a runtime buffer or connect seq.c/arranger.c. The updated catalogue test has not yet been compiled or run in this session.
+
+### RAM decision remains a gate
+
+The existing audit is still only a baseline: .noinit is 0x3D50 bytes, with 15,264 bytes already occupied by four FUN6 slots; the documented .pool baseline has 10,164 bytes free. A single 5,108-byte staging project is the only section-buffer design currently worth pursuing. The current song backup and autosave are each separate 3,816-byte objects; keeping them separate and growing both to 5,108 bytes, plus one staging object, adds 7,692 bytes net to the old .pool baseline, leaving only about 2,472 bytes before any other changes. Sharing the song backup/autosave storage could reduce that footprint, but their non-overlapping lifetimes have not yet been proven across every editor, import, reset and error path.
+
+The larger unknown is the live audio model: five synth track_t objects instead of three add two complete synth tracks, including their voice state. The actual target compiler/linker map, stack high-water marks, and track_t/voice_t sizes must be measured before changing NPART/NTRK or allocating the staging record. The previous RAM audit is not a substitute for a System 37 target build.
+
+No flash map, flash guard, linker placement, runtime track constants, live project application or audio callback has changed. The next safe runtime task is to isolate the legacy FUN6 wire reader from the new FUN7 live project type and build host tests around that boundary. Sequencer/arranger integration remains blocked until that runtime apply path and the memory budget are proven.
