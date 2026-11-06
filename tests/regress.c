@@ -10,10 +10,10 @@
  *    64-bit FNV-1a hash of its output samples, compared with GOLDEN_FILE (tests/golden.txt).
  *    Every render runs in its own fork()ed child of a process that never touched the DSP state, so
  *    all state starts as at boot: the noise / RAND / unison-phase / arp seeds (libc.c rng_state,
- *    eng_formant.c formant_nz, voice.c's unison seed), the FX buffers, the limiter.
+ *    FM6 / Analog state, voice.c's unison seed), the FX buffers, the limiter.
  * 2. health checks on every render: no sample beyond 16 bits, none near full scale, DC offset, the
  *    peak level, every voice free after the release, silence at the end. Fails with the numbers.
- * 3. CPU budget: per engine x preset (8 notes held; VOICE: its 4) and a few mixes, the cost per
+ * 3. CPU budget: per engine x preset (8 notes held) and a few mixes, the cost per
  *    sample relative to the idle + drums mix (= 1000): instructions counted by the kernel where there
  *    is a counter (macOS proc_pid_rusage, ~1 % run to run; elsewhere CPU_VALGRIND=1 counts each job
  *    under callgrind, exact), else the best of three timed seconds (noisier, so the tolerance is
@@ -21,7 +21,7 @@
  *    (tests/cpu_baseline.txt) at +25 % (instructions) or +35 % (time); ns per sample printed for
  *    information. A counted cost over the budget fails, a timed one or one far under it only warns.
  * 4. voices: the shared budget of 8 across 3 parts, stolen voices fade (no step), MONO / LEGATO /
- *    UNISON keep their note under pressure, the VOICE engine's 4-voice cap, release frees voices, and
+ *    UNISON keep their note under pressure, release frees voices, and
  *    no hanging note after the note-offs on any routing (USB channels 1..3, 10, others while the
  *    selected track changes, the keys while the selected track changes, with ARP and the voice modes).
  * env: GOLDEN_UPDATE=1 rewrites GOLDEN_FILE, BUDGET_UPDATE=1 rewrites CPU_FILE (on purpose: review the
@@ -234,7 +234,7 @@ static void job_drums(const job_t *j)           /* every GM note through the dru
 }
 
 /* the SLICER on the phrase (its clock free-running, no transport): arg 0 GATE (ANALOG ACID,
- * pattern 6, 1/16), 1 STUT (DIGITAL PAD, pattern 7, 1/32, DEPTH 100 %) */
+ * pattern 6, 1/16), 1 STUT (FM6 PAD, pattern 7, 1/32, DEPTH 100 %) */
 static void job_slicer(const job_t *j)
 {
     static const int16_t S[2][4] = {{SL_GATE, 6, 1, 120}, {SL_STUT, 7, 2, 127}};
@@ -674,7 +674,7 @@ static int chk_voice_cap(char *msg, uint32_t n)
         if (!parts_free())
             most[mode] = 99;
     }
-    snprintf(msg, n, "VOICE engine, 8 keys: at most %u voices in POLY, %u in UNISON (cap 4); freed after release",
+    snprintf(msg, n, "synth part, 8 keys: at most %u voices in POLY, %u in UNISON (cap 4); freed after release",
              most[0], most[1]);
     return most[0] == 4u && most[1] == 4u;
 }
