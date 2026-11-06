@@ -44,6 +44,12 @@ jobs:
       - name: Build System 37 Pro, Elite, MKE and FM-1 reference
         run: sh tools/build_pro.sh
 
+      - name: Verify all three System 37 package identities and flash layouts
+        run: |
+          python3 tests/smk_pkg_test.py build/release/system37.fwsc "SMK-37 Pro_900"
+          python3 tests/smk_pkg_test.py build/release/system37-elite.fwsc "SMK-37 Elite_900"
+          python3 tests/smk_pkg_test.py build/release/system37-mke.fwsc "MKE-P37_900"
+
       - name: Run complete host, sanitizer, target-budget and web test suite
         env:
           SKIP_CPU_VALGRIND: "0"
