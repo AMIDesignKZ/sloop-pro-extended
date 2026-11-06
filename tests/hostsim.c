@@ -36,6 +36,7 @@ static void fm1_irq_on(void) {}
 #include "../firmware/src/cpu1.h"
 #include "cpu1_host.c"                  /* the second core on the host: CORES=1 inline, CORES=2 a thread */
 #include "../firmware/src/engines.c"
+#include "../firmware/src/eng_sample.c" /* sample definitions used by the dedicated drum sampler */
 #include "../firmware/src/drums.c"
 #include "../firmware/src/params.c"
 #include "../firmware/src/voice.c"
