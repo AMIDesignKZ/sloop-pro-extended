@@ -748,7 +748,62 @@ static const char *const SEC_NAME[8] = {"A", "B", "C", "D", "E", "F", "G", "H"};
 static uint8_t proj_save_err;                   /* SLOOP Pro: the last project_save could not write the flash (editor.c) */
 #if BOARD_SMK37
 static uint8_t s37_cat_ready, s37_migrate_pending, s37_cat_uncertain;
-static void s37_catalog_boot(void);
+static void s37_catalog_boot(void)
+{
+    uint32_t i;
+    int rc = sm_scan(&s37_cat_io, &s37_cat_map, &s37_cat_state);
+    s37_cat_ready = 0u;
+    s37_migrate_pending = 0u;
+    s37_cat_uncertain = 0u;
+    if (rc == 0) {
+        if (s37_cat_state.uncertain)
+            s37_cat_uncertain = 1u;
+        if (s37_cat_state.length == S37_CAT_PAYLOAD_SIZE &&
+            s37_cat_validate(&s37_cat_io, &s37_cat_map, &s37_cat_state,
+                             &s37_cat_scratch, &s37_cat_header) == 0 &&
+            s37_cat_header.working_sum != 0u) {
+            for (i = 0; i < S37_CAT_SECTIONS; i++) {
+                uint32_t warm = proj_v7_valid(&proj_slot[i]);
+                if (warm)
+                    memcpy(&autosave_buf, &proj_slot[i], sizeof autosave_buf);
+                if (s37_cat_header.present_mask & (uint8_t)(1u << i)) {
+                    if (s37_cat_load_section(&s37_cat_io, &s37_cat_map, &s37_cat_state,
+                                             (uint8_t)i, &proj_slot[i], 0))
+                        break;
+                } else {
+                    memset(&proj_slot[i], 0, sizeof proj_slot[i]);
+                }
+                if (warm && memcmp(&autosave_buf, &proj_slot[i], sizeof autosave_buf)) {
+                    memcpy(&proj_slot[i], &autosave_buf, sizeof proj_slot[i]);
+                    sec_dirty |= (uint8_t)(1u << i);
+                }
+            }
+            if (i == S37_CAT_SECTIONS &&
+                s37_cat_load_working(&s37_cat_io, &s37_cat_map, &s37_cat_state, &autosave_buf) == 0) {
+                s37_cat_ready = 1u;
+                return;
+            }
+        }
+        /* A storage-valid but semantically invalid catalogue is not safe to overwrite automatically. */
+        s37_cat_uncertain = 1u;
+        return;
+    }
+    if (rc == -2) {
+        s37_cat_uncertain = 1u;
+        return;
+    }
+    for (i = 0; i < S37_CAT_SECTIONS; i++) {
+        uint32_t warm = proj_v7_valid(&proj_slot[i]);
+        if (warm)
+            memcpy(&autosave_buf, &proj_slot[i], sizeof autosave_buf);
+        proj_fetch(i); /* imports the four legacy project slots; E-H start empty */
+        if (warm && memcmp(&autosave_buf, &proj_slot[i], sizeof autosave_buf)) {
+            memcpy(&proj_slot[i], &autosave_buf, sizeof proj_slot[i]);
+            sec_dirty |= (uint8_t)(1u << i);
+        }
+    }
+    s37_migrate_pending = 1u;
+}
 #endif
 #endif
 #if BOARD_SMK37
@@ -1394,9 +1449,10 @@ UI_SMALL static void persist_boot(void)                    /* before settings_in
                 panel = old;
         }
     }
-    {   /* projects: fill empty RAM slots from flash, so the slot list is right after power-on. A slot
-         * still valid in RAM (a warm reset: an update, UPDATE MODE, a crash) may never have reached
-         * flash (a live section stored while playing): marked to be written when quiet */
+#if BOARD_SMK37
+    s37_catalog_boot();                            /* eight FUN7 sections plus the working autosave */
+#else
+    {   /* FM-1: original four FUN6 project slots */
         uint32_t i;
         for (i = 0; i < 4u; i++)
             if (!proj_ok(&proj_slot[i])) {
@@ -1407,6 +1463,7 @@ UI_SMALL static void persist_boot(void)                    /* before settings_in
                     sec_dirty |= (uint8_t)(1u << i);
             }
     }
+#endif
     dsu_boot();                                    /* SLOOP 2.5: the SYN kits (after the settings) */
 #if BOARD_SMK37
     wcal_boot();                                   /* SMK-37: the wheels' calibration */
