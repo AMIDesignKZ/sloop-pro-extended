@@ -95,6 +95,8 @@ run "after Felucca 1.4 / 1.5: INSERT, filter TYPE, ENV SYNC, LFO 2, drum mutes, 
 
 $CC -O2 -w -Ibuild/gen -Ifirmware/src -Ifirmware/hal -o "$OUT/ui_pages_test" tests/ui_pages_test.c -lm
 run "live UI: pages, layers (punch, steps, erase, roll, key, mix), holds, drums, REC, fuzz" "$OUT/ui_pages_test" "$OUT"
+$CC -O2 -w -Ibuild/gen -Ifirmware/src -Ifirmware/hal -o "$OUT/system37_ui_test" tests/system37_ui_test.c -lm
+run "System 37 hardware UI: MIDI 4/5 page and six-way channel collision handling" "$OUT/system37_ui_test"
 $CC -O2 -w -Ibuild/gen -Ifirmware/src -Ifirmware/hal -o "$OUT/pick_test" tests/pick_test.c -lm
 run "SMK-37 Pro pad sound picker: pages by kind, pads load, < >, drum kits" "$OUT/pick_test" "$OUT"
 $CC -O2 -w -Ibuild/gen -Ifirmware/src -Ifirmware/hal -o "$OUT/fbank_test" tests/fbank_test.c -lm
