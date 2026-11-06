@@ -36,7 +36,7 @@ static void test_failed_load_and_retry(void)
     s37_pf_init(&pf);
     ticket = s37_pf_request(&pf, 5u);
     assert(s37_pf_begin(&pf, &section, &ticket));
-    assert(!s37_pf_complete(&pf, ticket, section, 0) == 0); /* success return means accepted */
+    assert(s37_pf_complete(&pf, ticket, section, 0)); /* failure was recorded */
     assert(pf.state == S37_PF_FAILED && pf.error);
     assert(!s37_pf_take(&pf, 5u));
     retry = s37_pf_request(&pf, 5u);
