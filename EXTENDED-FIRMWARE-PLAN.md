@@ -216,3 +216,29 @@ Migration rules implemented in the isolated prototype:
 The isolated test source is wired into the repository host suite. A local strict-warning host harness using the same wire types passed, including AddressSanitizer and UndefinedBehaviorSanitizer. The complete repository suite and target build have **not** been run in this session; the repository suite requires the existing build output and JieLi SDK/toolchain.
 
 This prototype is deliberately **not integrated** into `project.c`, `proj_import`, runtime track arrays, autosave, section storage or the multi-sector layer. Existing FUN1–FUN6 import behaviour and live project handling remain unchanged. Next step: compile and run the expanded project host tests in the repository build environment, then integrate the FUN6-to-FUN7 hand-off without changing runtime constants prematurely. The test source now exercises FUN1–FUN6 through the existing importer.
+
+
+## Progress checkpoint — System 37 A–H section catalogue prototype (6 November 2026)
+
+Added an isolated catalogue format and streaming section-update source:
+
+- `firmware/src/section_catalog.h`
+- `firmware/src/section_catalog.c`
+- `tests/section_catalog_test.c`
+- `tests/run_tests.sh` now builds and runs the catalogue test after the storage and format-7 tests.
+
+Catalogue format v1 uses an 80-byte directory followed by eight fixed 5,108-byte FUN7 project records. Total payload is exactly 40,944 bytes. Each 8-byte directory entry stores a project checksum, cached bar count, presence flag and reserved byte. The directory stores the present-section bitmask and default section. The multi-sector A/B layer supplies the outer sequence number, payload CRC, copy identity and commit header; each present project also retains its own FUN7 checksum.
+
+The catalogue API provides:
+- Header/directory validation, including reserved fields and present-mask consistency.
+- Full-catalogue validation by streaming each present project through one caller-supplied 5,108-byte scratch buffer.
+- Loading one section with both project and directory checksum verification.
+- First-catalogue creation from an erased/blank logical payload without allocating the full catalogue.
+- Copy-on-write update of one section. The source callback reads the existing committed catalogue, overlays the changed directory and project record, and feeds the existing 256-byte streaming A/B writer. No 40 KiB RAM staging buffer is needed.
+- A cached bar-count field per section and an explicit default-section value.
+
+The proposed eleven-sector A/B extents provide 44,800 bytes per copy, leaving 3,856 bytes unused per copy after the 40,944-byte v1 payload.
+
+The new host test exercises first creation, adding all eight sections, reading all eight back, replacing section D while preserving the other seven byte-for-byte, metadata/default-section updates, invalid section/default rejection and invalid project checksum rejection. The test is wired into `tests/run_tests.sh`, but it has **not yet been compiled or executed** in this session. The complete repository runner and JieLi target build remain unrun.
+
+This is still an isolated persistence prototype. It does not alter the live project runtime, arranger, autosave, flash map, flash allow-list or boot/recovery behaviour. Before integration, the next gate is to run the new catalogue test and existing storage/format tests in the repository's host build environment, then review the actual linker/RAM map and board flash guard before assigning any physical sectors.
