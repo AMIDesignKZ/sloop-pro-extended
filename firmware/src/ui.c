@@ -578,7 +578,14 @@ UI_SMALL static void go_home(void)
  * writes the sequencer: every pattern is the one the player records or enters. */
 
 /* the parts' sounds at power-on (engine, preset): bass, pad, lead */
-static const uint8_t TRK_DEF[NPART][2] = {{ENGI_ANALOG, 0}, {ENGI_ANALOG, 13}, {ENGI_FM6, 1}};   /* 808 BOOM, WARM PAD, GLASS BELL */
+#if BOARD_SMK37
+static const uint8_t TRK_DEF[NPART][2] = {
+    {ENGI_ANALOG, 0}, {ENGI_ANALOG, 13}, {ENGI_FM6, 1},
+    {ENGI_ANALOG, 0}, {ENGI_FM6, 1}
+}; /* 808 BOOM, WARM PAD, GLASS BELL, then safe defaults for tracks 4–5 */
+#else
+static const uint8_t TRK_DEF[NPART][2] = {{ENGI_ANALOG, 0}, {ENGI_ANALOG, 13}, {ENGI_FM6, 1}};
+#endif
 UI_SMALL static uint32_t trk_def_engine(uint32_t i) { return i < NPART ? TRK_DEF[i][0] : 0u; }
 
 UI_SMALL static int seq_is_empty(const track_t *t) { return track_empty(t); }
