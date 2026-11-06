@@ -159,10 +159,10 @@ int main(void)
                       f.last_all == 0);
 
     f.validate_tracks = f.apply_tracks = f.apply_globals = 0;
-    f.fail_validate_track = 4u;
+    f.fail_validate_track = 5u;
     failures += check("failed sixth-track preflight prevents every live mutation",
                       s37_project_v7_apply(&captured, &ops, 1) == -2 &&
-                      f.validate_tracks == 5u && f.apply_globals == 0u &&
+                      f.validate_tracks == 6u && f.apply_globals == 0u &&
                       f.apply_tracks == 0u);
     f.fail_validate_track = 0xFFu;
 
@@ -189,8 +189,10 @@ int main(void)
                       f.capture_tracks == 4u && !proj_v7_valid(&captured));
 
     f.fail_capture_track = 0xFFu;
-    failures += check("all six indexed track records are addressed exactly once",
-                      (track = f.capture_tracks, track == 4u));
+    f.capture_tracks = 0;
+    failures += check("successful capture visits every track index 0–5 exactly once",
+                      s37_project_v7_capture(&captured, &ops) == 0 &&
+                      (track = f.capture_tracks, track == PROJ_V7_TRACKS));
 
     return failures ? 1 : 0;
 }
