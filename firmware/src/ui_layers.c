@@ -337,7 +337,7 @@ UI_SMALL static void layer_key(uint32_t layer, uint32_t k, uint32_t down)
             ui.step_held &= (uint16_t)~(1u << w);
             if (layer == LY_STEP)
                 step_up((uint32_t)w);
-            if (layer == LY_MIX && w == 8)
+            if (layer == LY_MIX && w == 12)
                 fill_held = 0;                              /* GLO + key 9 let go: the fill ends */
         }
         return;
@@ -366,34 +366,57 @@ UI_SMALL static void layer_key(uint32_t layer, uint32_t k, uint32_t down)
         ui_say("KEY ", N_NOTE[root]);
         return;
     }
-    case LY_SONG: {                                     /* sections A..D: play, store; loop / song; SONG REC */
+    case LY_SONG: {                                     /* sections A..H: white keys 1..8 play, 9..16 store */
         char b[2] = {0, 0};
-        if (w < 0)
+        uint32_t s;
+        if (w < 0) {                                    /* black keys retain the song controls */
+            if (k == 1u) {
+                if (srec) ui_message("REC IS ON");
+                else {
+                    arrangement_enabled ^= 1u;
+                    ui_message(arrangement_enabled ? "SONG MODE" : "LOOP MODE");
+                }
+            } else if (k == 3u) {
+                if (srec) {
+                    fm1_irq_off();
+                    srec_stop();
+                    fm1_irq_on();
+                } else if (arrangement_clock.running) {
+                    ui_message("STOP FIRST");
+                } else {
+                    arrangement_enabled = 0;
+                    srec = 1;
+                    ui_message(live_sec < 0 ? "PICK A PART" : "REC: NEXT BAR");
+                }
+            } else if (k == 5u) {
+                studio_open(SC_SONG);
+            }
             return;
-        b[0] = (char)('A' + (w & 3));
-        if (w < 4) {
+        }
+        s = w < 8 ? (uint32_t)w : (uint32_t)w - 8u;
+        b[0] = (char)('A' + s);
+        if (w < 8) {
             if (arrangement_clock.running) {
                 ui_message("SONG PLAYS");
-            } else if (!((arrangement_ready() >> w) & 1u)) {
+            } else if (!((arrangement_ready() >> s) & 1u)) {
                 ui_say("EMPTY ", b);
             } else if (song.playing) {
-                if (!chain_taps) {                          /* the first tap: as ever, and any chain stops */
+                if (!chain_taps) {
                     fm1_irq_off();
                     chain_n = 0;
-                    live_req = (int8_t)w;
+                    live_req = (int8_t)s;
                     fm1_irq_on();
                     ui_say("NEXT: ", b);
                 } else {
-                    ui.msg_t = 0;                           /* (the sub line shows the chain) */
+                    ui.msg_t = 0;
                 }
                 if (chain_taps < CHAIN_MAX && (fm1_in.buttons & ly_bit[LY_SONG]))
-                    chain_tap[chain_taps++] = (uint8_t)w;   /* (SAVE held: more taps make a chain) */
+                    chain_tap[chain_taps++] = (uint8_t)s;
             } else {
-                section_load((uint32_t)w);
+                section_load(s);
                 ui_say("LOADED ", b);
             }
-        } else if (w < 8) {
-            uint32_t s = (uint32_t)w - 4u;
+        } else {
             if (((arrangement_ready() >> s) & 1u) && !(sec_armed == s + 1u && fm1_ms - sec_armed_ms < 3000u)) {
                 sec_armed = (uint8_t)(s + 1u);
                 sec_armed_ms = fm1_ms;
@@ -403,40 +426,19 @@ UI_SMALL static void layer_key(uint32_t layer, uint32_t k, uint32_t down)
                 section_store(s);
                 ui_say("SAVED ", b);
             }
-        } else if (w == 12) {
-            if (srec) {
-                ui_message("REC IS ON");
-            } else {
-                arrangement_enabled ^= 1u;
-                ui_message(arrangement_enabled ? "SONG MODE" : "LOOP MODE");
-            }
-        } else if (w == 13) {
-            if (srec) {
-                fm1_irq_off();
-                srec_stop();                            /* (playing: the order so far is the song) */
-                fm1_irq_on();
-            } else if (arrangement_clock.running) {
-                ui_message("STOP FIRST");
-            } else {
-                arrangement_enabled = 0;
-                srec = 1;
-                ui_message(live_sec < 0 ? "PICK A PART" : "REC: NEXT BAR");
-            }
-        } else if (w == 15) {
-            studio_open(SC_SONG);
         }
         return;
     }
     case LY_MIX:
         if (k == 1u) {                                      /* (2.6) the black key F#3: MIDI LEARN on / off */
             ml_toggle();
-        } else if (w >= 0 && w < 4) {
+        } else if (w >= 0 && w < NTRK) {
             trk[w].p[P_MUTE] = (int16_t)!trk[w].p[P_MUTE];
-        } else if (w >= 4 && w < 8) {
-            song.solo ^= (uint8_t)(1u << (w - 4));
-        } else if (w == 8) {
+        } else if (w >= NTRK && w < 2 * NTRK) {
+            song.solo ^= (uint8_t)(1u << (w - NTRK));
+        } else if (w == 12) {
             fill_held = 1;                                  /* FILL while held */
-        } else if (w == 9) {
+        } else if (w == 13) {
             fill_arm = (uint8_t)!fill_arm;                  /* FILL NEXT BAR (again: cancelled) */
             ui_message(fill_arm ? "FILL: NEXT BAR" : "FILL BAR OFF");
         } else if (w == 15) {
@@ -471,7 +473,7 @@ UI_SMALL static void chain_sub(char *sub, uint32_t n)
     str_cpy(sub, "chain", n);
     for (i = 0; i < m && i < CHAIN_MAX && k + 2u < n; i++) {
         sub[k++] = ' ';
-        sub[k++] = (char)('A' + ((chain_taps >= 2u ? chain_tap[i] : chain_sec[i]) & 3u));
+        sub[k++] = (char)('A' + ((chain_taps >= 2u ? chain_tap[i] : chain_sec[i]) & 7u));
     }
     sub[k] = 0;
 }
