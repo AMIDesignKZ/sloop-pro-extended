@@ -188,3 +188,31 @@ The storage primitive test now instantiates the proposed SMK-37 extent tables fo
 The standalone test passed again with AddressSanitizer and UndefinedBehaviorSanitizer enabled. It is wired into tests/run_tests.sh. The complete repository test suite was not run because it requires the firmware build output and JieLi SDK/toolchain, which are not available in this working session.
 
 Next engineering task: define the format-7 structures alongside the read-only format-6 structure, then add host migration tests before changing project persistence or runtime track counts.
+
+
+## Progress checkpoint — System 37 Project Format 7 prototype (6 November 2026)
+
+The working project name is now **System 37**. The firmware remains an SMK-37-targeted SLOOP-derived project; this name is a project identity, not a claim that the runtime firmware has been renamed or integrated.
+
+Added an isolated format-7 schema and FUN6-to-FUN7 migration prototype:
+
+- `firmware/src/project_v7.h`: fixed wire definitions for read-only FUN6 and new FUN7 records.
+- `firmware/src/project_v7.c`: checksum validation, fill packing, track relocation, lock filtering/truncation and per-track loss reporting.
+- `tests/project_v7_test.c`: host test for layout and migration.
+- `tests/run_tests.sh`: compiles and runs the new test.
+
+The new structures have compile-time size assertions: FUN6 remains 3,816 bytes, a FUN6 track remains 934 bytes, a FUN7 track is 838 bytes and a six-track FUN7 project is 5,108 bytes. The FUN6 mirror fixes its legacy track and lock counts explicitly so future runtime changes to `NTRK` or `NLOCK` cannot silently change the old on-flash layout.
+
+Migration rules implemented in the isolated prototype:
+
+- Preserve global values, all common parameter arrays, engine/preset bytes and all 64 steps.
+- Pack the 2-bit fill condition for each step into 16 bytes and discard the old micro-timing bits.
+- Map legacy synth tracks 0–2 to System 37 synth tracks 0–2.
+- Initialise new synth tracks 3–4 as empty Analog tracks with the default-preset sentinel.
+- Move the legacy drum track from index 3 to System 37 track 5 (the sixth track).
+- Retain the 12 earliest-step valid locks across the old 24 slots, preserve original slot order for same-step ties, and reject invalid/non-lockable parameters.
+- Return a per-track bitmask identifying where valid locks were truncated, so the eventual UI can show a migration warning.
+
+The isolated test source is wired into the repository host suite. A local strict-warning host harness using the same wire types passed, including AddressSanitizer and UndefinedBehaviorSanitizer. The complete repository suite and target build have **not** been run in this session; the repository suite requires the existing build output and JieLi SDK/toolchain.
+
+This prototype is deliberately **not integrated** into `project.c`, `proj_import`, runtime track arrays, autosave, section storage or the multi-sector layer. Existing FUN1–FUN6 import behaviour and live project handling remain unchanged. Next step: add explicit conversion tests for every legacy input format through the existing FUN1–FUN6 importer, then integrate the FUN6-to-FUN7 hand-off without changing runtime constants prematurely.
