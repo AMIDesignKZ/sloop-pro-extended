@@ -2,10 +2,12 @@
 /* System 37 hardware UI: the fifth synth channel page and collision handling across
  * five synth parts plus the dedicated drum channel. */
 #define BOARD_SMK37 1
-#define UI_PANEL_SMK 1
 #define UI_PAGES_HARNESS_ONLY 1
 #define FM1_NBTN 18u
 #define FM1_NENC 8u
+#define SMK_ENC_MASTER 0u
+static uint8_t smk_master_enc;
+static int8_t smk_master_dir;
 #include "ui_pages_test.c"
 
 int main(void)
