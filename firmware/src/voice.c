@@ -21,12 +21,6 @@ static uint32_t vage;                                   /* voice ages: one clock
 static volatile int32_t perf_bend;
 static volatile int32_t perf_modw;
 #endif
-/* engines that play recorded material (a position, not a phase): no phases kept or spread */
-#if FELUCCA_SLICE
-static int eng_sampled(const engine_t *e) { return e == &ENG_SAMPLE || e == &ENG_SLICE; }
-#else
-static int eng_sampled(const engine_t *e) { return e == &ENG_SAMPLE; }
-#endif
 static int32_t lfo_wave(track_t *t, uint32_t ph)
 {
     switch (t->p[P_LWAVE]) {
@@ -77,7 +71,7 @@ static void track_lfo_tick(track_t *t)
 /* voices the engine may use (POLY and UNISON): its cap, else all of them */
 static uint32_t trk_nvoice(const track_t *t)
 {
-    uint32_t c = ENGINES[t->engine] == &ENG_PHYS ? phys_poly(t) : ENGINES[t->engine]->poly;   /* (PHYS: by MODEL) */
+    uint32_t c = ENGINES[t->engine]->poly;
     return c && c < NPOLY ? c : NPOLY;
 }
 
@@ -305,19 +299,7 @@ static void voice_start(track_t *t, voice_t *v, uint32_t note, uint32_t vel, int
     const engine_t *e = ENGINES[t->engine];
     int sounding = v->active && v->stage != 0;
     uint32_t ph0 = v->ph[0], ph1 = v->ph[1], ph2 = v->ph[2];
-    int32_t s0 = v->s[0], s1 = v->s[1], s4 = v->s[4], s5 = v->s[5], s6 = v->s[6], s7 = v->s[7];
-    if (sounding && eng_sampled(e)) {                   /* (2.8.3) fade it out first, then this note from silence */
-        v->note = (uint8_t)note;                        /* (the same note again finds it: voice_alloc) */
-        v->pend_note = (uint8_t)note;
-        v->pend_vel = (uint8_t)vel;
-        v->pend = (uint8_t)(VP_ON | (glide ? VP_GLIDE : 0u));
-        v->gate = 0;
-        if (v->stage != 4u)
-            v->kill = KILL_BLOCKS;
-        v->stage = 4;
-        v->age = ++vage;
-        return;
-    }
+    int32_t s0 = v->s[0], s1 = v->s[1];
     v->pend = 0;
     v->note = (uint8_t)note;
     v->vel = (uint8_t)vel;
@@ -327,41 +309,18 @@ static void voice_start(track_t *t, voice_t *v, uint32_t note, uint32_t vel, int
     v->age = ++vage;
     v->pitch16 = (int32_t)note * 16;
     glide_set(t, v, glide);
-    v->penv = 32767;                                    /* the pitch envelope starts over (not on legato) */
+    v->penv = 32767;
     if (!sounding) {
         v->env = 0;
         v->env_out = 0;
-    }                                                   /* sounding: the attack starts from the current level */
+    }
     e->note_on(t, v);
-    if (sounding && !eng_sampled(e)) {                 /* retrigger / steal: keep phases and filter states */
-        v->ph[0] = ph0;                                 /* (resetting them clicks) */
+    if (sounding && e == &ENG_ANALOG) {
+        v->ph[0] = ph0;
         v->ph[1] = ph1;
         v->ph[2] = ph2;
-        if (e == &ENG_ANALOG) {
-            v->s[0] = s0;
-            v->s[1] = s1;
-        } else if (e == &ENG_DIGITAL) {
-            v->s[5] = s5;
-            v->s[6] = s6;
-            v->s[7] = s7;                               /* op 4 phase; the modulator envelope restarts */
-        } else if (e == &ENG_LOFI) {
-            v->s[0] = s0;
-            v->s[4] = s4;
-        } else if (e == &ENG_TRIO) {
-            v->s[0] = s0;                               /* filter */
-            v->s[1] = s1;
-            v->s[4] = s4;                               /* the sample waiting for its step corrections */
-        } else if (e == &ENG_PHASE) {
-            v->s[0] = s0;                               /* the WAVE / WAVE2 toggles go with the phases kept */
-            v->s[1] = s1;
-        } else if (e == &ENG_NOISE) {
-            v->s[0] = s0;                               /* the filter and the colour poles (2.5) */
-            v->s[1] = s1;
-            v->s[4] = s4;
-            v->s[5] = s5;
-            v->s[6] = s6;
-            v->s[7] = s7;
-        }
+        v->s[0] = s0;
+        v->s[1] = s1;
     }
 }
 
@@ -370,28 +329,10 @@ static void voice_start(track_t *t, voice_t *v, uint32_t note, uint32_t vel, int
 static void unison_spread(track_t *t, voice_t *v, uint32_t r)
 {
     const engine_t *e = ENGINES[t->engine];
-    /* (after Clipper 1.2) each engine moves all its oscillators (and reseeds its noise): ph[0] alone left the others in
-     * phase (ANALOG's osc 2, TRIO's 2 and 3, DIGITAL's and FM6's operators, the subs, SAMPLE's start...) */
     if (e == &ENG_ANALOG)
         analog_spread(t, v, r);
-    else if (e == &ENG_DIGITAL)
-        digital_spread(t, v, r);
-    else if (e == &ENG_PHASE)
-        phase_spread(t, v, r);
-    else if (e == &ENG_LOFI)
-        lofi_spread(t, v, r);
-    else if (e == &ENG_TRIO)
-        trio_spread(t, v, r);
-    else if (e == &ENG_NOISE)
-        noise_spread(t, v, r);
     else if (e == &ENG_FM6)
         fm6_spread(t, v, r);
-    else if (e == &ENG_SAMPLE)
-        sample_spread(t, v, r);
-#if FELUCCA_SLICE
-    else if (e == &ENG_SLICE)
-        ;                                            /* (slices: as played) */
-#endif
     else
         v->ph[0] += r;
 }
@@ -678,6 +619,7 @@ static void engine_block(track_t *t)
             return;                                     /* (2.6) FM6: the new notes wait for the preset's patch
                                                          * (eng_fm6.c fm6_poll, main loop): not a note of the old */
         t->engine = t->eng_req % NENGINES;
+        (void)eng_arena_of(t, t->engine);
         t->xf_on = 0;
         t->pold = 0;
         t->nmono = 0;
