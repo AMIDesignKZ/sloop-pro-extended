@@ -51,7 +51,7 @@ int main(void)
         tr->lock[4] = (plock_t){1, P_E0, 17};
         tr->lock[5] = (plock_t){64, P_E1, 648}; /* malformed step: ignored */
         tr->lock[6] = (plock_t){5, 255, 55}; /* malformed parameter: ignored */
-        for (k = 7; k < NLOCK; ++k)
+        for (k = 7; k < PROJ_V6_LOCKS; ++k)
             tr->lock[k] = (plock_t){(uint8_t)(10u + k), (uint8_t)(P_E0 + (k % 8u)), (int16_t)k};
     }
     old.sum = proj_v7_hash(&old, sizeof old - 4u);
