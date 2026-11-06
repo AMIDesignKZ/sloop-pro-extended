@@ -156,9 +156,9 @@ UI_SMALL static void pt_set_mf(proj_trk_t *t, uint32_t i, int32_t micro, uint32_
 }
 
 #if BOARD_SMK37
-/* Eight FUN7 section caches are reloadable from the persistent catalogue at boot;
- * keep this 43 KiB working set in zeroed POOL RAM, not the tiny reset-retained NOINIT bank. */
-project_t proj_slot[8] __attribute__((section(".pool")));
+/* Eight FUN7 section caches are reloadable from the persistent catalogue at boot.
+ * Use zero-initialised RAM rather than NOINIT (too small) or POOL (reserved for audio/graphics buffers). */
+project_t proj_slot[8];
 #else
 project_t proj_slot[4] __attribute__((section(".noinit")));
 #endif
