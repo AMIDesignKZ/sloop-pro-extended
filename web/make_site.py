@@ -19,9 +19,9 @@
   web/make_site.py build/felucca-X.Y.fwsc X.Y OUT_DIR [--beta]
   (--beta: web/beta_banner.html at the top of the installer: the beta channel, docs/beta)
 
-  web/make_site.py --pro X.Y OUT_DIR build/sloop-pro.fwsc [build/sloop-pro-elite.fwsc build/sloop-pro-mke.fwsc]
+  web/make_site.py --pro X.Y OUT_DIR build/system37.fwsc [build/system37-elite.fwsc build/system37-mke.fwsc]
   SLOOP Pro (the SMK-37 build): webapp/installer/ from index_pro.html with one package per model (it installs the
-  one for the connected keyboard), firmware/sloop-pro[-elite|-mke]-X.Y.fwsc, the same editor (SLOOP Pro Editor).
+  one for the connected keyboard), firmware/system37[-elite|-mke]-X.Y.fwsc, the same editor (SLOOP Pro Editor).
 
 The package identity (FM-1_9xx) is read from the package; the device reports it
 after the install.
@@ -231,7 +231,7 @@ def main_pro(version, out, pkgs):
         if model not in raws:
             continue
         product, raw = raws[model]
-        name = f"sloop-pro{sfx}-{vtag}.fwsc"
+        name = f"system37{sfx}-{vtag}.fwsc"
         (fw / name).write_bytes(raw)
         names.append(name)
         entries.append({"product": product, "pkg": "../../firmware/" + name, "sha256": hashlib.sha256(raw).hexdigest()})
