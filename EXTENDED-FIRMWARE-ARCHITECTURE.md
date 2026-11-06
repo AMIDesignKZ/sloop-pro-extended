@@ -404,3 +404,12 @@ An unchanged SMK-37 target build has now succeeded using the exact local JieLi t
 The ELF symbol table identifies `trk` as 8,576 bytes (four × 2,144-byte `track_t`), `eng_arena` as 25,776 bytes (three × 8,592-byte arenas), and the legacy four-project `proj_slot` as 15,264 bytes in `.noinit`. Source defines `voice_t` as 84 bytes. FM6's per-part state is six 244-byte `fm6_note_t` records plus two 32-sample int32 buses: 1,720 bytes per part. Thus a five-part FM6-only arena would be 8,600 bytes, versus 42,960 bytes for five legacy multi-engine arenas. This is a source-derived design estimate, not a target measurement of the proposed allocation.
 
 The next implementation unit is the synth voice-ownership refactor and engine-state reduction, initially preserving the current three-synth runtime counts and audio behaviour. Only Analog and FM6 need to remain selectable; drum synthesis and sampled drums remain independent. Do not change `NPART`, `NTRK`, `TRK_DRUM`, live lock count, UI or flash layout in this isolated milestone. Target rebuild and host regression tests are required before moving on to the six-track runtime expansion.
+
+
+## Progress checkpoint — Analog/FM6-only engine implementation committed (6 November 2026)
+
+The engine scope has been implemented in source as a first isolated step. The active engine table is now Analog (0) and FM6 (1); the active engine aggregation includes only those two synth engines. Per-part engine state is reduced to the FM6 part structure, while Analog continues using voice_t state. Voice dispatch, keyboard mapping and FX scheduling no longer reference the removed synth engines.
+
+The dedicated drum synthesiser and sampled drum playback were not modified. The 808/909 kits remain in the generated kit set.
+
+This source change is not yet compiled or host-tested. The current live runtime counts remain unchanged (three synth parts, four sequenced tracks, drum index 3, 24 locks). The next separate RAM change is to move the synth voice slots out of track_t into a dedicated synth-only array.
