@@ -1260,25 +1260,47 @@ UI_SMALL static void autosave_resume(void)              /* power-on: restore the
 
 /* settings + learned panel table: one flash object. The flash copy wins at
  * boot (the .noinit copies are garbage after a power-off). */
+#if BOARD_SMK37
+typedef struct {
+    uint8_t count, loop, reserved[2];
+    arr_entry_t entry[16];
+} arr_config_v22_t;
+typedef struct {
+    uint32_t magic, palette, lowcut, zoom;
+    panel_t panel;
+    arr_config_v22_t arrangement;
+    uint32_t lights;
+} persist_v22_t;
+_Static_assert(sizeof(arr_config_v22_t) == 36u && __builtin_offsetof(persist_v22_t, lights) == 84u &&
+               sizeof(persist_v22_t) == 88u, "legacy PER3 settings layout");
+#endif
+
 typedef struct {
     uint32_t magic, palette, lowcut, zoom;
     panel_t panel;
 #if FELUCCA_ARRANGER
     arr_config_t arrangement;
 #endif
-    uint32_t lights;                               /* SLOOP 2.3: the backlight (panel.c lights_word); appended,
-                                                    * so 2.2 still reads its part (st_load cuts at its size) */
+    uint32_t lights;
 } persist_t;
 _Static_assert(sizeof(side_rec_t) == 80u && sizeof(side_rec_t) <= ST_SIDE_MAX, "the side record: theme, favourites");
 static side_rec_t side_out;
-#define PERSIST_SIZE_V22 __builtin_offsetof(persist_t, lights)   /* the settings as 2.2 wrote them (no lights) */
-_Static_assert(sizeof(persist_t) == PERSIST_SIZE_V22 + 4u, "lights: the last word, no padding before it");
+#define PERSIST_SIZE_V22 84u
 #if FELUCCA_ARRANGER
-_Static_assert(__builtin_offsetof(persist_t, arrangement) == 48u && sizeof(arr_config_t) == 36u,
-               "the web editor's Song page edits bytes 48..83 of the settings (web/editor.html ARR)");
+#if BOARD_SMK37
+_Static_assert(__builtin_offsetof(persist_t, arrangement) == 48u && sizeof(arr_config_t) == 68u &&
+               __builtin_offsetof(persist_t, lights) == 116u && sizeof(persist_t) == 120u,
+               "System 37 settings hold 32 arrangement positions");
+#else
+_Static_assert(__builtin_offsetof(persist_t, arrangement) == 48u && sizeof(arr_config_t) == 36u &&
+               sizeof(persist_t) == PERSIST_SIZE_V22 + 4u,
+               "the FM-1 Song page retains its original settings layout");
 #endif
-#if FELUCCA_ARRANGER
-#define PERSIST_MAGIC 0x50455233u                  /* "PER3": includes the song order */
+#endif
+#if BOARD_SMK37
+#define PERSIST_MAGIC 0x50455234u                  /* "PER4": eight sections, 32 arrangement positions */
+#elif FELUCCA_ARRANGER
+#define PERSIST_MAGIC 0x50455233u                  /* "PER3": the original four-scene song order */
 #else
 #define PERSIST_MAGIC 0x50455232u
 #endif
