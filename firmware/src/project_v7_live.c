@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* System 37: six-track FUN7 live-project adapter. */
-#include "libc.h"
 #include "project_v7_live.h"
 
 static int ops_capture_valid(const s37_project_v7_live_ops_t *ops)
