@@ -1671,6 +1671,8 @@ int main(int argc, char **argv)
         go_home(); frames(16);
 
         song.sel = 0; set_engine_of(&trk[0], 0); trk[0].engine = trk[0].eng_req; go_home(); frame();
+        /* Track 2 defaults to Analog in System 37; make it FM6 to exercise the no-Analog-FILTER path. */
+        set_engine_of(&trk[1], 1); apply_preset_to(&trk[1], 1); trk[1].engine = trk[1].eng_req;
         WALK(FAM_EDIT, "FILTER", flt_a);
         open_family(FAM_EDIT); frame();
         for (j = 0; j < 30u && strcmp(PAGES[ui.page].title, "FILTER"); j++) { encs[panel.enc[EN_SELECT]] = 1; frame(); }
