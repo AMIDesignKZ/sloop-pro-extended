@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* Compact 240 x 240 song-order editor. All changes and flash saves require
- * stopped transport. The four existing project slots are sections A..D. */
+ * stopped transport. The eight System 37 project sections are A..H. */
 static uint8_t song_cursor, song_store_armed, song_load_armed;
 static uint32_t song_store_t;   /* when REC or OCT+ asked for its confirmation (ms) */
 UI_SMALL static int on_song_page(void) { return !ui.home && cur_page()->scope == SC_SONG; }
@@ -15,7 +15,7 @@ UI_SMALL static void song_sane(void)                         /* a bad chain (bla
         song_cursor = (uint8_t)(arrangement.count - 1u);
 }
 
-/* SONG: the chain of sections (A..D in the track colours), bars of each, where the song is */
+/* SONG: the chain of sections (A..H in the track colours), bars of each, where the song is */
 UI_SMALL static void song_screen_draw(void)
 {
     song_sane();
@@ -48,7 +48,7 @@ UI_SMALL static void song_screen_draw(void)
         if (pos < arrangement.count) {
             const arr_entry_t *e = &arrangement.entry[pos];
             int selected = pos == song_cursor, used = project_used(e->scene);
-            uint16_t sc = SC[e->scene & 3u];
+            uint16_t sc = SC[e->scene % NTRK];
             int32_t w;
             fmt_int(b, (int32_t)pos + 1);
             cv_text(4, 5, &FONT_S, b, selected ? C_WHITE : TE_G3);
@@ -142,7 +142,7 @@ UI_SMALL static void song_screen_input(uint32_t pressed, uint32_t home)
             continue;
         }
         if (song.playing || transport_req) { ui_message("STOP FIRST"); continue; }
-        if (k == 1) arrangement.entry[song_cursor].scene = (uint8_t)clamp(arrangement.entry[song_cursor].scene + steps, 0, 3);
+        if (k == 1) arrangement.entry[song_cursor].scene = (uint8_t)clamp(arrangement.entry[song_cursor].scene + steps, 0, ARR_SCENES - 1);
         if (k == 2) arrangement.entry[song_cursor].bars = (uint8_t)clamp(arrangement.entry[song_cursor].bars + steps, 1, 64);
         if (k == 3) {
             arrangement.count = (uint8_t)clamp(arrangement.count + steps, 1, ARR_STEPS);
