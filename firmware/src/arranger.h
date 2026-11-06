@@ -5,8 +5,13 @@
 #ifndef FM1_ARRANGER_H
 #define FM1_ARRANGER_H
 #include <stdint.h>
+#if defined(BOARD_SMK37) && BOARD_SMK37
+#define ARR_STEPS 32u
+#define ARR_SCENES 8u
+#else
 #define ARR_STEPS 16u
 #define ARR_SCENES 4u
+#endif
 #define ARR_NONE (-1)
 #define ARR_DONE (-2)
 #define ARR_INVALID (-3)
