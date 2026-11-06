@@ -26,12 +26,12 @@ for m in pro elite mke; do
         cp "build/system37$sfx-$REL.fwsc" "build/release/system37$sfx.fwsc"
     else
         BOARD=smk37 MODEL=$m FELUCCA_SLICE=0 sh build.sh
-        cp "build/sloop-pro$sfx.fwsc" build/release/
+        cp "build/system37$sfx.fwsc" build/release/
     fi
 done
 (cd build/release && sha256sum system37.fwsc system37-elite.fwsc system37-mke.fwsc | tee SHA256SUMS.txt)
-python3 web/make_site.py --pro "$VER" build/system37-site build/release/sloop-pro.fwsc build/release/sloop-pro-elite.fwsc \
-    build/release/sloop-pro-mke.fwsc
+python3 web/make_site.py --pro "$VER" build/system37-site build/release/system37.fwsc build/release/system37-elite.fwsc \
+    build/release/system37-mke.fwsc
 if [ "$FM1" = 1 ]; then
     echo "== the FM-1 reference build (for tests/run_tests.sh)"
     FELUCCA_SLICE=0 sh build.sh
