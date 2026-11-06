@@ -104,7 +104,7 @@ int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length, uint8_t 
                 b->fill[s / 4u] |= (uint8_t)(fill << (2u * (s % 4u)));
             }
 
-            for (k = 0; k < NLOCK; ++k) {
+            for (k = 0; k < PROJ_V6_LOCKS; ++k) {
                 if (a->lock[k].step != LOCK_FREE && a->lock[k].step < NSTEP &&
                     a->lock[k].param < P_COUNT && proj_v7_lockable(a->lock[k].param))
                     ++valid_locks;
