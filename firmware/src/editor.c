@@ -403,7 +403,14 @@ UI_SMALL static const param_desc_t *ed_desc(uint32_t scope, uint32_t id, int16_t
  * PUT stages one object in RAM (begin: id, length, CRC-32; data; commit), checks it as a load would,
  * then writes it through the usual A/B commit: a cut-off restore never leaves half an object. */
 #if FELUCCA_FLASH
-#define ED_BK_RAW ((uint8_t *)&proj_tmp)                  /* the staging RAM (main loop, as the project loads) */
+#if BOARD_SMK37
+static uint8_t ed_bk_raw[sizeof(project_v7_t)] __attribute__((section(".pool")));
+#define ED_BK_RAW ed_bk_raw
+#define ED_BK_RAW_SIZE sizeof ed_bk_raw
+#else
+#define ED_BK_RAW ((uint8_t *)&proj_tmp)
+#define ED_BK_RAW_SIZE sizeof proj_tmp
+#endif
 _Static_assert(sizeof proj_tmp >= sizeof(project_t) && sizeof proj_tmp >= sizeof(up_bank_t) &&
                sizeof proj_tmp >= sizeof(persist_t), "backup staging");
 static persist_t ed_bk_set;                             /* LIST's snapshot of the settings */
@@ -432,6 +439,13 @@ UI_SMALL static const uint8_t *ed_bk_obj(uint32_t id, uint32_t *len)   /* 0 = no
             *len = sizeof proj_slot[0];
         return (const uint8_t *)&proj_slot[id - 2u];
     }
+#if BOARD_SMK37
+    if (id >= 12u && id <= 15u) {
+        if (project_used(id - 8u))
+            *len = sizeof proj_slot[0];
+        return (const uint8_t *)&proj_slot[id - 8u];
+    }
+#endif
     if (id == 6u || id == 7u) {                           /* a user preset bank, read where it is (upreset.c) */
         const up_bank_t *bk = up_bank_xip[id - 6u];
         if (bk)
@@ -474,7 +488,7 @@ UI_SMALL static const uint8_t *ed_bk_obj(uint32_t id, uint32_t *len)   /* 0 = no
     }
     return 0;
 }
-static const uint8_t ED_BK_IDS[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 32, 33, 34, 35};   /* 11: your theme (2.7) */   /* 35: USR4 (2.4), 9: SYN kits (2.5),
+static const uint8_t ED_BK_IDS[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 32, 33, 34, 35};   /* 11: your theme (2.7) */   /* 35: USR4 (2.4), 9: SYN kits (2.5),
                                                                                       * 10: MIDI LEARN (2.6) */
 
 /* a flash erase silences the audio for ~50 ms and stalls USB: only while stopped (as the panel) */
@@ -488,8 +502,15 @@ UI_SMALL static uint32_t ed_bk_commit(void)
         return 2;
     if (id == 1u)
         return settings_restore(raw, n);
+#if BOARD_SMK37
+    if (id <= 5u)
+        return project_restore(id == 0u ? 8u : id - 2u, raw, n);
+    if (id >= 12u && id <= 15u)
+        return project_restore(id - 8u, raw, n);
+#else
     if (id <= 5u)
         return project_restore(id == 0u ? 4u : id - 2u, raw, n);
+#endif
     if (id == 6u || id == 7u) {                           /* a user preset bank (n 0: empty) */
         const up_bank_t *b = (const up_bank_t *)raw;
         if (ed_flash_busy())
@@ -619,10 +640,10 @@ UI_SMALL static int ed_backup(uint32_t cmd, const uint8_t *a, uint32_t na)   /* 
         rc = 1;
         if (!flash_ok) {
             rc = 4;
-        } else if (op == 0u && na == 12u && (id <= 11u)) {  /* begin: id, length (5), CRC-32 (5) */
+        } else if (op == 0u && na == 12u && (id <= 11u || (BOARD_SMK37 && id >= 12u && id <= 15u))) {  /* begin: id, length (5), CRC-32 (5) */
             len = ed_bk_r32(a + 2);
             if (id >= 2u || len) {                        /* (the working project and the settings are never empty) */
-                if (len <= sizeof proj_tmp) {
+                if (len <= ED_BK_RAW_SIZE) {
                     ed_bk_put = 1;
                     ed_bk_valid = 0;                      /* (the staging RAM is the snapshot's) */
                     ed_bk_id = (uint8_t)id;
