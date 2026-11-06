@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* SLOOP soak test: 10 simulated minutes of random live use through the real audio path
+/* System 37 soak test: simulated minutes of random live use through the real audio path
  * (mix_block: sequencer, the 3 synth parts, the synthesised and sampled drum kits, the
  * punch-in FX, the record arm, free takes, MIDI in), then everything stopped and released.
  * Checks: the output stays bounded, every block renders in time on the host, voices never
