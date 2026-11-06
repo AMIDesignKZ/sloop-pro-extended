@@ -156,11 +156,19 @@ UI_SMALL static void pt_set_mf(proj_trk_t *t, uint32_t i, int32_t micro, uint32_
 }
 
 #if BOARD_SMK37
-/* Eight FUN7 section caches are reloadable from the persistent catalogue at boot.
- * Use zero-initialised RAM rather than NOINIT (too small) or POOL (reserved for audio/graphics buffers). */
-project_t proj_slot[8];
+/* Eight FUN7 caches are split across ordinary RAM and LOWRAM. The catalogue is
+ * persistent; both regions are zeroed at boot and repopulated from flash. */
+static project_t proj_slot_ram[4];
+static project_t proj_slot_low[4] __attribute__((section(".lowram")));
+static project_t *const proj_slot[8] = {
+    &proj_slot_ram[0], &proj_slot_ram[1], &proj_slot_ram[2], &proj_slot_ram[3],
+    &proj_slot_low[0], &proj_slot_low[1], &proj_slot_low[2], &proj_slot_low[3]
+};
 #else
-project_t proj_slot[4] __attribute__((section(".noinit")));
+static project_t proj_slot_fm1[4] __attribute__((section(".noinit")));
+static project_t *const proj_slot[4] = {
+    &proj_slot_fm1[0], &proj_slot_fm1[1], &proj_slot_fm1[2], &proj_slot_fm1[3]
+};
 #endif
 #if BOARD_SMK37
 static uint8_t s37_cat_ready, s37_migrate_pending, s37_cat_uncertain;
@@ -750,7 +758,7 @@ UI_SMALL static void *up_stage(void) { return &proj_tmp; }   /* upreset.c: a use
 UI_SMALL static void proj_fetch(uint32_t slot)
 {
 #if BOARD_SMK37
-    project_t *q = &proj_slot[slot & 7u];
+    project_t *q = proj_slot[slot & 7u];
     int n;
     uint8_t loss = 0;
     if (s37_cat_ready) {
@@ -763,7 +771,7 @@ UI_SMALL static void proj_fetch(uint32_t slot)
         !proj_v6_to_v7(q, &proj_import_stage, sizeof proj_import_stage, &loss, TP, ENGINES[ENGI_ANALOG]->edit))
         memset(q, 0, sizeof *q);
 #else
-    project_t *q = &proj_slot[slot & 3u];
+    project_t *q = proj_slot[slot & 3u];
     int n = st_load(OBJ_PROJECT0 + (slot & 3u), &proj_tmp, sizeof proj_tmp);
     if (!proj_import(q, &proj_tmp, n))
         q->magic = 0;
@@ -807,18 +815,18 @@ static void s37_catalog_boot(void)
                              &s37_cat_scratch, &s37_cat_header) == 0 &&
             s37_cat_header.working_sum != 0u) {
             for (i = 0; i < S37_CAT_SECTIONS; i++) {
-                uint32_t warm = proj_v7_valid(&proj_slot[i]);
+                uint32_t warm = proj_v7_valid(proj_slot[i]);
                 if (warm)
-                    memcpy(&autosave_buf, &proj_slot[i], sizeof autosave_buf);
+                    memcpy(&autosave_buf, proj_slot[i], sizeof autosave_buf);
                 if (s37_cat_header.present_mask & (uint8_t)(1u << i)) {
                     if (s37_cat_load_section(&s37_cat_io, &s37_cat_map, &s37_cat_state,
-                                             (uint8_t)i, &proj_slot[i], 0))
+                                             (uint8_t)i, proj_slot[i], 0))
                         break;
                 } else {
-                    memset(&proj_slot[i], 0, sizeof proj_slot[i]);
+                    memset(proj_slot[i], 0, sizeof *proj_slot[i]);
                 }
-                if (warm && memcmp(&autosave_buf, &proj_slot[i], sizeof autosave_buf)) {
-                    memcpy(&proj_slot[i], &autosave_buf, sizeof proj_slot[i]);
+                if (warm && memcmp(&autosave_buf, proj_slot[i], sizeof autosave_buf)) {
+                    memcpy(proj_slot[i], &autosave_buf, sizeof *proj_slot[i]);
                     sec_dirty |= (uint8_t)(1u << i);
                 }
             }
@@ -837,12 +845,12 @@ static void s37_catalog_boot(void)
         return;
     }
     for (i = 0; i < S37_CAT_SECTIONS; i++) {
-        uint32_t warm = proj_v7_valid(&proj_slot[i]);
+        uint32_t warm = proj_v7_valid(proj_slot[i]);
         if (warm)
-            memcpy(&autosave_buf, &proj_slot[i], sizeof autosave_buf);
+            memcpy(&autosave_buf, proj_slot[i], sizeof autosave_buf);
         proj_fetch(i); /* imports the four legacy project slots; E-H start empty */
-        if (warm && memcmp(&autosave_buf, &proj_slot[i], sizeof autosave_buf)) {
-            memcpy(&proj_slot[i], &autosave_buf, sizeof proj_slot[i]);
+        if (warm && memcmp(&autosave_buf, proj_slot[i], sizeof autosave_buf)) {
+            memcpy(proj_slot[i], &autosave_buf, sizeof *proj_slot[i]);
             sec_dirty |= (uint8_t)(1u << i);
         }
     }
@@ -859,9 +867,9 @@ static int s37_catalog_load_section(uint32_t slot, project_t *p);
 UI_SMALL static void project_save(uint32_t slot)
 {
 #if BOARD_SMK37
-    project_t *p = &proj_slot[slot & 7u];
+    project_t *p = proj_slot[slot & 7u];
 #else
-    project_t *p = &proj_slot[slot & 3u];
+    project_t *p = proj_slot[slot & 3u];
 #endif
 #if FELUCCA_ARRANGER
     if (song.playing || transport_req) { ui_message("STOP BEFORE SAVE"); return; }
@@ -908,7 +916,7 @@ UI_SMALL static void project_erase(uint32_t slot)
 #if FELUCCA_ARRANGER
     if (song.playing || transport_req) { ui_message("STOP BEFORE ERASE"); return; }
 #endif
-    if (!project_valid(&proj_slot[slot])) {
+    if (!project_valid(proj_slot[slot])) {
         ui_say("EMPTY SECTION ", SEC_NAME[slot]);
         return;
     }
@@ -920,7 +928,7 @@ UI_SMALL static void project_erase(uint32_t slot)
             return;
         }
 #else
-        if (st_save(OBJ_PROJECT0 + slot, &proj_slot[slot], 0)) {
+        if (st_save(OBJ_PROJECT0 + slot, proj_slot[slot], 0)) {
             ui_message("ERASE ERROR");
             return;
         }
@@ -928,7 +936,7 @@ UI_SMALL static void project_erase(uint32_t slot)
     }
 #endif
     fm1_irq_off();
-    memset(&proj_slot[slot], 0, sizeof proj_slot[slot]);
+    memset(proj_slot[slot], 0, sizeof *proj_slot[slot]);
     sec_dirty &= (uint8_t)~(1u << slot);
     if (live_sec == (int8_t)slot)
         live_sec = -1;
@@ -977,9 +985,9 @@ UI_SMALL static void project_apply(const project_t *p)
 UI_SMALL static void project_load(uint32_t slot)
 {
 #if BOARD_SMK37
-    project_t *p = &proj_slot[slot & 7u];
+    project_t *p = proj_slot[slot & 7u];
 #else
-    project_t *p = &proj_slot[slot & 3u];
+    project_t *p = proj_slot[slot & 3u];
 #endif
 #if FELUCCA_ARRANGER
     if (song.playing || transport_req) { ui_message("STOP BEFORE LOAD"); return; }
@@ -1057,8 +1065,8 @@ static int s37_catalog_write_full(void)
     if (s37_cat_uncertain)
         return -1;
     for (i = 0; i < S37_CAT_SECTIONS; i++) {
-        if (project_valid(&proj_slot[i])) {
-            sections[i] = &proj_slot[i];
+        if (project_valid(proj_slot[i])) {
+            sections[i] = proj_slot[i];
             bars[i] = (uint16_t)section_bars(i);
             if (!bars[i]) bars[i] = 1u;
             mask |= (uint8_t)(1u << i);
@@ -1109,10 +1117,10 @@ static int s37_catalog_erase_section(uint32_t slot)
     if (slot >= S37_CAT_SECTIONS || s37_cat_uncertain)
         return -1;
     if (!s37_cat_ready) {
-        memcpy(&s37_cat_scratch, &proj_slot[slot], sizeof s37_cat_scratch);
-        memset(&proj_slot[slot], 0, sizeof proj_slot[slot]);
+        memcpy(&s37_cat_scratch, proj_slot[slot], sizeof s37_cat_scratch);
+        memset(proj_slot[slot], 0, sizeof *proj_slot[slot]);
         if (s37_catalog_write_full()) {
-            memcpy(&proj_slot[slot], &s37_cat_scratch, sizeof proj_slot[slot]);
+            memcpy(proj_slot[slot], &s37_cat_scratch, sizeof *proj_slot[slot]);
             return -1;
         }
         return 0;
@@ -1561,11 +1569,11 @@ UI_SMALL static void persist_boot(void)                    /* before settings_in
     {   /* FM-1: original four FUN6 project slots */
         uint32_t i;
         for (i = 0; i < 4u; i++)
-            if (!proj_ok(&proj_slot[i])) {
+            if (!proj_ok(proj_slot[i])) {
                 proj_fetch(i);
             } else {
                 int n = st_load(OBJ_PROJECT0 + i, &proj_tmp, sizeof proj_tmp);
-                if (n != (int)sizeof proj_slot[i] || memcmp(&proj_tmp.v6, &proj_slot[i], sizeof proj_slot[i]))
+                if (n != (int)sizeof *proj_slot[i] || memcmp(&proj_tmp.v6, proj_slot[i], sizeof *proj_slot[i]))
                     sec_dirty |= (uint8_t)(1u << i);
             }
     }
@@ -1581,7 +1589,7 @@ UI_SMALL static void persist_boot(void)                    /* before settings_in
 #endif
 }
 
-UI_SMALL static int project_used(uint32_t slot) { return project_valid(&proj_slot[slot & (BOARD_SMK37 ? 7u : 3u)]); }
+UI_SMALL static int project_used(uint32_t slot) { return project_valid(proj_slot[slot & (BOARD_SMK37 ? 7u : 3u)]); }
 
 #if FELUCCA_FLASH
 /* SLOOP 2.5: the settings object holds the SYN kits after persist_t (drum_synth.c dsu): firmware before 2.5 reads
@@ -1824,7 +1832,7 @@ UI_SMALL static uint32_t project_restore(uint32_t slot, const void *raw, uint32_
     if (slot < 8u && !n) {
         if (!flash_ok || s37_catalog_erase_section(slot))
             return 4;
-        memset(&proj_slot[slot], 0, sizeof proj_slot[slot]);
+        memset(proj_slot[slot], 0, sizeof *proj_slot[slot]);
         sec_dirty &= (uint8_t)~(1u << slot);
         return 0;
     }
@@ -1852,10 +1860,10 @@ UI_SMALL static uint32_t project_restore(uint32_t slot, const void *raw, uint32_
     if (s37_cat_ready) {
         if (s37_catalog_store_section(slot, &autosave_buf))
             return 4;
-        memcpy(&proj_slot[slot], &autosave_buf, sizeof proj_slot[slot]);
+        memcpy(proj_slot[slot], &autosave_buf, sizeof *proj_slot[slot]);
         sec_dirty &= (uint8_t)~(1u << slot);
     } else {
-        memcpy(&proj_slot[slot], &autosave_buf, sizeof proj_slot[slot]);
+        memcpy(proj_slot[slot], &autosave_buf, sizeof *proj_slot[slot]);
         sec_dirty |= (uint8_t)(1u << slot);
         if (s37_catalog_write_full())
             return 4;
@@ -1866,7 +1874,7 @@ UI_SMALL static uint32_t project_restore(uint32_t slot, const void *raw, uint32_
     if (slot < 4u && !n) {
         if (!flash_ok || st_save(OBJ_PROJECT0 + slot, raw, 0))
             return 4;
-        memset(&proj_slot[slot], 0, sizeof proj_slot[slot]);
+        memset(proj_slot[slot], 0, sizeof *proj_slot[slot]);
         sec_dirty &= (uint8_t)~(1u << slot);
         return 0;
     }
@@ -1878,7 +1886,7 @@ UI_SMALL static uint32_t project_restore(uint32_t slot, const void *raw, uint32_
     }
     if (slot >= 4u || !flash_ok || st_save(OBJ_PROJECT0 + slot, &autosave_buf, sizeof autosave_buf))
         return 4;
-    memcpy(&proj_slot[slot], &autosave_buf, sizeof proj_slot[slot]);
+    memcpy(proj_slot[slot], &autosave_buf, sizeof *proj_slot[slot]);
     sec_dirty &= (uint8_t)~(1u << slot);
     return 0;
 #endif
@@ -1905,7 +1913,7 @@ UI_SMALL static void section_store(uint32_t s)
 {
     s &= (BOARD_SMK37 ? 7u : 3u);
     fm1_irq_off();                                      /* (the audio ISR may be applying a section) */
-    proj_capture(&proj_slot[s]);
+    proj_capture(proj_slot[s]);
     live_sec = (int8_t)s;
     fm1_irq_on();
     sec_dirty |= (uint8_t)(1u << s);
@@ -1913,7 +1921,7 @@ UI_SMALL static void section_store(uint32_t s)
 UI_SMALL static void section_load(uint32_t s)                    /* stopped: the section is the loop now */
 {
     s &= (BOARD_SMK37 ? 7u : 3u);
-    project_apply(&proj_slot[s]);
+    project_apply(proj_slot[s]);
     live_sec = (int8_t)s;
 }
 UI_SMALL static void sections_write(void)                        /* the dirty sections and song into flash */
@@ -1930,7 +1938,7 @@ UI_SMALL static void sections_write(void)                        /* the dirty se
     uint32_t i;
     if (flash_ok)
         for (i = 0; i < 4u; i++)
-            if (((sec_dirty >> i) & 1u) && st_save(OBJ_PROJECT0 + i, &proj_slot[i], sizeof proj_slot[i]) == 0)
+            if (((sec_dirty >> i) & 1u) && st_save(OBJ_PROJECT0 + i, proj_slot[i], sizeof *proj_slot[i]) == 0)
                 sec_dirty &= (uint8_t)~(1u << i);
     if (!flash_ok)
         sec_dirty = 0u;
