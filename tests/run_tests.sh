@@ -39,6 +39,9 @@ mkdir -p build/gen
 $CC -o "$OUT/storage_test" tests/storage_test.c
 run "flash storage (A/B, torn writes)" "$OUT/storage_test"
 
+$CC -Ifirmware/src -o "$OUT/storage_multi_test" tests/storage_multi_test.c firmware/src/storage_multi.c
+run "multi-sector flash storage (segmented A/B, streaming overlays, power-loss recovery)" "$OUT/storage_multi_test"
+
 $CC -o "$OUT/recovery_test" tests/recovery_test.c
 run "application USB recovery and boot-loop guard" "$OUT/recovery_test"
 
