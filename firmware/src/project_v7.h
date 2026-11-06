@@ -22,6 +22,8 @@
 #define PROJ_V7_TRACKS 6u
 #define PROJ_V7_PARTS 5u
 #define PROJ_V7_DRUM_TRACK 5u
+#define PROJ_V7_GLOBALS 32u
+#define PROJ_LIVE_DRUM_TRACK PROJ_V7_DRUM_TRACK
 #define PROJ_V7_FILL_BYTES (PROJ_V7_STEPS / 4u)
 
 #define PROJ_V6_NC ((uint32_t)P_ITYPE)
@@ -54,7 +56,7 @@ typedef struct {
     uint8_t micro[48]; /* 64 signed 6-bit values, bit-packed; preserves FUN6 microtiming */
     uint8_t fill[PROJ_V7_FILL_BYTES]; /* four 2-bit FC_* values per byte */
     plock_t lock[PROJ_V7_LOCKS];
-} proj_trk_v7_t;
+} __attribute__((packed)) proj_trk_v7_t;
 
 typedef struct {
     uint32_t magic, size;
@@ -62,7 +64,7 @@ typedef struct {
     uint8_t sel, drdly, rsv[2];
     proj_trk_v7_t t[PROJ_V7_TRACKS];
     uint32_t sum;
-} project_v7_t;
+} __attribute__((packed)) project_v7_t;
 
 _Static_assert(PROJ_V6_TRACKS == 4u && PROJ_V6_PARTS == 3u && PROJ_V6_DRUM_TRACK == 3u && PROJ_V6_STEPS == 64u && PROJ_V6_LOCKS == 24u, "format 6 counts are frozen");
 _Static_assert(NSTEP == PROJ_V6_STEPS && NSTEP == PROJ_V7_STEPS && PROJ_V6_NC == 53u && PROJ_V6_NX == 10u && G_DRDLY == PROJ_V6_GLOBALS, "format 6 field identities are frozen");
