@@ -18,7 +18,7 @@
   @font-face { font-family: "Fukiai"; src: url("fukiai.ttf") format("truetype"); font-display: block; unicode-range: U+EA00-EB09; }
   :root {
     --bg: #000; --s1: #0b0b0e; --s2: #1a1a1e; --s3: #36363c; --line: #232329; --dim: #76767e; --fg2: #c4c4cc; --fg: #f2f2f2;
-    --red: #ff2c34; --t1: #287cff; --t2: #1ecc70; --t3: #ffc618; --t4: #ff621a; --trk: var(--t1);
+    --red: #ff2c34; --t1: #287cff; --t2: #1ecc70; --t3: #ffc618; --t4: #b060e8; --t5: #00bcd4; --t6: #ff621a; --trk: var(--t1);
     --font: "SLOOP Terminus", ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
     color-scheme: dark;
   }
@@ -6414,16 +6414,16 @@ function buildUI() {
   $("sfgroup").hidden = !(dev.info.proto >= 6);       /* (2.7) a song as one file: the same commands */
 }
 
-/* the track selector (v3): T1..T3 synth parts, T4 the drum track; the editor shows the selected one */
+/* the track selector: FM-1 T1..T3 synth + T4 drums; System 37 T1..T5 synth + T6 drums */
 /* the device's track colours (ui_studio.c TE_COL): the selected one is the editor's accent (--trk) */
-const TCOL = ["var(--t1)", "var(--t2)", "var(--t3)", "var(--t4)"];
+const TCOL = ["var(--t1)", "var(--t2)", "var(--t3)", "var(--t4)", "var(--t5)", "var(--t6)"];
 function renderTrackbar() {
   renderPreviewKeys();
   const box = $("trackbtns");
   const ntrk = hasTracks() ? dev.info.ntrk : 0;
   if (box.children.length !== ntrk || box.dataset.lang !== lang) {
     box.dataset.lang = lang;
-    box.replaceChildren(...Array.from({ length: ntrk }, (_, i) => el("button", { type: "button", "data-i": i, style: `--c:${TCOL[i % 4]}`,
+    box.replaceChildren(...Array.from({ length: ntrk }, (_, i) => el("button", { type: "button", "data-i": i, style: `--c:${TCOL[i % TCOL.length]}`,
       onclick: () => selectTrack(i) }, el("span", { class: "no", text: String(i + 1) }), el("span", { class: "nm" }))));
   }
   for (const b of box.children) {
@@ -6434,7 +6434,7 @@ function renderTrackbar() {
     b.lastChild.replaceChildren(nm[0] + " ", el("span", { class: "dim", text: nm[1] }));
     b.title = `${t("track")} ${i + 1}`;
   }
-  document.documentElement.style.setProperty("--trk", TCOL[(dev.sel || 0) % 4]);
+  document.documentElement.style.setProperty("--trk", TCOL[(dev.sel || 0) % TCOL.length]);
   renderPreview();
 }
 function selectTrack(i) {
@@ -8275,7 +8275,7 @@ function renderSamples() {
       const play = el("button", { type: "button", title: t(f.loop ? "smpHoldPlay" : "kitPlay") }, "▶");
       if (f.loop) holdToPlay(play, () => { const [a, b] = LOOP.range(f); playLoop(withGain(f.s, f.gain), a, b); });
       else play.addEventListener("click", () => playInt16(withGain(f.s, f.gain)));
-      const row = el("div", { class: "frow", style: `--c:${TCOL[i % 4]}` },
+      const row = el("div", { class: "frow", style: `--c:${TCOL[i % TCOL.length]}` },
         play,
         el("span", { class: "fn", text: f.fname, title: f.fname }), root,
         el("span", { text: `${noteName(keys[i][0])}–${noteName(keys[i][1])}` }),
@@ -8303,7 +8303,7 @@ function renderSamples() {
       };
       requestAnimationFrame(() => drawLoopWave(cv, f));
       return el("div", { class: "floopbox" }, row,
-        el("div", { class: "floop", style: `--c:${TCOL[i % 4]}` }, cv, mk("smpLoopStart", 0), mk("smpLoopEnd", 1),
+        el("div", { class: "floop", style: `--c:${TCOL[i % TCOL.length]}` }, cv, mk("smpLoopStart", 0), mk("smpLoopEnd", 1),
           el("span", { class: "dim", text: t("smpLoopTail") })));
     }));
   if (d.files.length) requestAnimationFrame(() => drawKeymap(u.keymap, d.files, keys));
@@ -9199,7 +9199,7 @@ function buildStrip(i) {
     panOut: el("span", { class: "v" }),
     selb: el("button", { type: "button", class: "selb", onclick: () => selectTrack(i) }),
   };
-  c.strip = el("div", { class: "strip", role: "group", style: `--c:${TCOL[i % 4]}`, "aria-label": `${t("track")} ${i + 1}` },
+  c.strip = el("div", { class: "strip", role: "group", style: `--c:${TCOL[i % TCOL.length]}`, "aria-label": `${t("track")} ${i + 1}` },
     c.num, c.snd, c.rec, c.solo, fader, c.lvOut, c.mute, el("span", { class: "v dim", ic: "symbol_pan" }, t("pan")), pan, c.panOut, c.selb);
   mixCtl[i] = c;
   return c.strip;
@@ -10920,7 +10920,7 @@ function lvStrip(i) {
   s.knobs = drum
     ? [kn(t("lsFilt"), P.filt, true), kn(t("lsPan"), P.pan, true), kn(t("lsRev"), g.drRev, false, true), kn(t("lsDly"), g.drDly, false, true)]
     : [kn(t("lsFilt"), P.filt, true), kn(t("lsPan"), P.pan, true), kn(t("lsRev"), P.rev), kn(t("lsDly"), P.dly), kn(t("lsCho"), P.cho), kn(t("lsDrv"), P.dst)];
-  s.node = el("div", { class: "lstrip" + (drum ? " drum" : ""), style: `--c:${TCOL[i % 4]}`, role: "group", "aria-label": `${t("lvTrack")} ${i + 1}` },
+  s.node = el("div", { class: "lstrip" + (drum ? " drum" : ""), style: `--c:${TCOL[i % TCOL.length]}`, role: "group", "aria-label": `${t("lvTrack")} ${i + 1}` },
     el("div", { class: "lshead" }, el("span", { class: "lsnum", text: drum ? "D" : String(i + 1) }), s.name, drum ? "" : s.fav),
     el("div", { class: "lssnd" }, s.prev, s.sound, s.next), s.prog,
     el("div", { class: "lsbody" }, s.fader, el("div", { class: "lsknobs" }, ...s.knobs)),
@@ -11356,7 +11356,7 @@ function lvxBuildPerf() {
   const i = LV.target, drum = lvDrum(i), o = LV.tr[i] || { p: [] }, pd = (id) => dev.pdesc[id], gd = (id) => dev.gdesc[id];
   U.perfTabs.forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === LVS.tab)));
   U.perfTrk.textContent = drum ? "DRUMS" : `${t("lvTrack")} ${i + 1} · ${dev.info.engines[o.engine] || ""}`;
-  U.perf.style.setProperty("--c", TCOL[i % 4]);
+  U.perf.style.setProperty("--c", TCOL[i % TCOL.length]);
   const ctls = [];
   const row = (title, list) => { const xs = list.filter(Boolean); ctls.push(...xs); return xs.length ? el("div", { class: "lvxgrp" }, el("span", { class: "dim", text: t(title) }), el("div", { class: "lvknobs" }, ...xs)) : ""; };
   let body = [];
