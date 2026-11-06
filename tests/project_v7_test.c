@@ -60,8 +60,9 @@ int main(void)
     bad += check("valid FUN6 image migrates to valid FUN7", proj_v6_to_v7(&now, &old, sizeof old) && proj_v7_valid(&now));
     ok = now.sel == old.sel && now.drdly == old.drdly && !memcmp(now.g, old.g, sizeof old.g);
     for (t = 0; t < 4u; ++t) {
+        uint32_t dest = (t == 3u) ? 5u : t;
         const proj_trk_v6_t *a = &old.t[t];
-        const proj_trk_v7_t *b = &now.t[t];
+        const proj_trk_v7_t *b = &now.t[dest];
         ok &= !memcmp(a->p, b->p, sizeof a->p) && !memcmp(a->e, b->e, sizeof a->e) &&
               !memcmp(a->x, b->x, sizeof a->x) && a->engine == b->engine && a->preset == b->preset &&
               !memcmp(a->step, b->step, sizeof a->step);
@@ -83,8 +84,11 @@ int main(void)
                  now.t[0].lock[0].step == 1 && now.t[0].lock[1].step == 3 &&
                  now.t[0].lock[2].step == 3 && now.t[0].lock[3].step == 17 &&
                  now.t[0].lock[11].step == 24);
-    bad += check("tracks 5 and 6 start empty with all locks free",
-                 now.t[4].lock[0].step == LOCK_FREE && now.t[5].lock[11].step == LOCK_FREE);
+    bad += check("new synth tracks 4 and 5 are empty; legacy drum track is moved to track 6",
+                 now.t[3].engine == 0 && now.t[3].preset == 0xFFu && now.t[4].engine == 0 &&
+                 now.t[4].preset == 0xFFu && now.t[3].step[0].time == ST_REST &&
+                 now.t[4].step[63].time == ST_REST && now.t[3].lock[0].step == LOCK_FREE &&
+                 now.t[4].lock[11].step == LOCK_FREE && now.t[5].lock[11].step == LOCK_FREE);
     old.t[0].mf[0] ^= 1u;
     bad += check("damaged FUN6 checksum rejected", !proj_v6_to_v7(&now, &old, sizeof old));
     old.t[0].mf[0] ^= 1u;
