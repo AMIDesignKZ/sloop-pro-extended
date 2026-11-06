@@ -54,8 +54,12 @@ _Static_assert(PROJ_NC6 == PROJ_NP_V5 - 8u && PROJ_NX6 == 10u, "format 6: format
  * longer changes if the live runtime later moves to six tracks / 12 locks. */
 typedef proj_trk_v6_t proj_trk_t;
 typedef project_v6_t project_v6_legacy_t;
+#if BOARD_SMK37
 typedef project_v7_t project_t;
 _Static_assert(sizeof(project_t) == 5366u, "FUN7 live project image");
+#else
+typedef project_v6_legacy_t project_t;
+#endif
 _Static_assert(sizeof(project_v6_legacy_t) == 3816u && sizeof(project_v6_legacy_t) <= 3840u,
                "FUN6 remains a 3,816-byte legacy flash object");
 /* Historical FUN1-FUN5 wire layouts. These are read-only migration inputs:
