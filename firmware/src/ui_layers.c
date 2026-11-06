@@ -706,7 +706,7 @@ UI_SMALL static void layer_screen_draw(void)
     int32_t ratio[4] = {-1, -1, -1, -1};
     uint32_t i, layer = ui.layer, sel = song.sel;
     track_t *t = TSEL;
-    uint16_t col = TE_COL[sel & 3u];
+    uint16_t col = TE_COL[sel % NTRK];
     if (!layer_shown) {
         lcd_fill(0, 0, 240, 240, C_BLACK);
         ui.force = 1;
@@ -958,82 +958,76 @@ UI_SMALL static void layer_screen_draw(void)
         ratio[3] = (t->p[P_TRANS] + 24) * 1000 / 48;
         break;
     }
-    case LY_MIX: {                                      /* mute 1..4, solo 1..4, fill / fill bar, tap */
+    case LY_MIX: {
+        uint32_t first = NTRK > 4u && sel >= 4u ? NTRK - 4u : 0u;
+        static char track_lab[4][4];
         col = C_WHITE;
-        str_cpy(sub, "mute  solo  fill  tap", sizeof sub);
-        for (i = 0; i < 4u; i++) {
+        str_cpy(sub, "mute/solo  fill  tap", sizeof sub);
+        for (i = 0; i < NTRK; i++) {
             int m = trk[i].p[P_MUTE] != 0, so = (song.solo >> i) & 1u;
             str_cpy(tl[i].lab, "mute 1", 8);
             tl[i].lab[5] = (char)('1' + i);
             tl[i].bg = m ? TE_G2 : TE_COL[i];
             tl[i].fg = m ? TE_G3 : C_BLACK;
-            str_cpy(tl[4 + i].lab, "solo 1", 8);
-            tl[4 + i].lab[5] = (char)('1' + i);
-            tl[4 + i].bg = so ? C_WHITE : TE_G1;
-            tl[4 + i].fg = so ? C_BLACK : TE_G3;
-            tl[4 + i].top = TE_DIM[i];
+            str_cpy(tl[NTRK + i].lab, "solo 1", 8);
+            tl[NTRK + i].lab[5] = (char)('1' + i);
+            tl[NTRK + i].bg = so ? C_WHITE : TE_G1;
+            tl[NTRK + i].fg = so ? C_BLACK : TE_G3;
+            tl[NTRK + i].top = TE_DIM[i];
         }
-        str_cpy(tl[8].lab, "fill", 8);                  /* key 9: held = a fill; key 10: the next bar is one */
-        tl[8].bg = fill_now ? C_WHITE : TE_G1;
-        tl[8].fg = fill_now ? C_BLACK : TE_G4;
-        str_cpy(tl[9].lab, "bar", 8);
-        tl[9].bg = fill_bar_on ? C_WHITE : TE_G1;
-        tl[9].fg = fill_bar_on ? C_BLACK : TE_G4;
-        tl[9].top = fill_arm ? C_WHITE : 0;
+        str_cpy(tl[12].lab, "fill", 8);
+        tl[12].bg = fill_now ? C_WHITE : TE_G1;
+        tl[12].fg = fill_now ? C_BLACK : TE_G4;
+        str_cpy(tl[13].lab, "bar", 8);
+        tl[13].bg = fill_bar_on ? C_WHITE : TE_G1;
+        tl[13].fg = fill_bar_on ? C_BLACK : TE_G4;
+        tl[13].top = fill_arm ? C_WHITE : 0;
+        str_cpy(tl[14].lab, "tap>", 8);
+        tl[14].bg = C_BLACK;
         fmt_int(tl[15].lab, song.g[G_BPM]);
         tl[15].bg = song.playing && clk_pos < BEAT_U / 4u ? C_WHITE : TE_G2;
         tl[15].fg = tl[15].bg == C_WHITE ? C_BLACK : C_WHITE;
-        str_cpy(tl[14].lab, "tap>", 8);
-        tl[14].bg = C_BLACK;
         for (i = 0; i < 4u; i++) {
-            uint32_t lv = trk_level(i);
-            static const char *const L[4] = {"1", "2", "3", "4"};
-            lab[i] = L[i];
+            uint32_t track = first + i, lv = trk_level(track);
+            fmt_int(track_lab[i], (int32_t)track + 1);
+            lab[i] = track_lab[i];
             fmt_int(v[i], (int32_t)lv * 100 / 127);
             ratio[i] = (int32_t)lv * 1000 / 127;
         }
         break;
     }
-    case LY_SONG: {                                     /* A..D (playing lit, next one framed), store, modes */
+    case LY_SONG: {
         uint32_t ready = arrangement_ready();
-        static const char *const SL[4] = {"A", "B", "C", "D"};
+        static const char *const SL[8] = {"A", "B", "C", "D", "E", "F", "G", "H"};
         col = C_WHITE;
         if (srec == 2u) {
             char b[8];
             str_cpy(sub, "rec ", sizeof sub);
-            str_cpy(sub + 4, SL[srec_e[srec_n ? srec_n - 1u : 0u].scene & 3u], 2);
+            str_cpy(sub + 4, SL[srec_e[srec_n ? srec_n - 1u : 0u].scene & 7u], 2);
             str_cpy(sub + str_len(sub), " bar ", 6);
             fmt_int(b, srec_n ? srec_e[srec_n - 1u].bars + 1 : 1);
             str_cpy(sub + str_len(sub), b, 6);
         } else if (chain_taps >= 2u || chain_n) {
-            chain_sub(sub, sizeof sub);                 /* "chain A B B C" */
+            chain_sub(sub, sizeof sub);
         } else {
-            str_cpy(sub, arrangement_enabled ? "song mode" : srec ? "rec armed" : "play  store", sizeof sub);
+            str_cpy(sub, "A-H play  A-H store", sizeof sub);
         }
-        for (i = 0; i < 4u; i++) {                      /* (the chain's next entry framed as the one asked for) */
-            int used = (ready >> i) & 1u, playing = live_sec == (int8_t)i && !arrangement_clock.running;
+        for (i = 0; i < 8u; i++) {
+            uint32_t used = (ready >> i) & 1u;
+            uint32_t colour = i % NTRK;
+            int playing = live_sec == (int8_t)i && !arrangement_clock.running;
             int next = live_req == (int8_t)i ||
-                       (chain_n && live_req < 0 && (chain_sec[((chain_i + 1u) % chain_n) % CHAIN_MAX] & 3u) == i);
+                       (chain_n && live_req < 0 && (chain_sec[((chain_i + 1u) % chain_n) % CHAIN_MAX] & 7u) == i);
             str_cpy(tl[i].lab, SL[i], 8);
-            tl[i].bg = used ? (playing ? TE_COL[i] : TE_DIM[i]) : TE_G1;
+            tl[i].bg = used ? (playing ? TE_COL[colour] : TE_DIM[colour]) : TE_G1;
             tl[i].fg = used ? C_BLACK : TE_G3;
             tl[i].top = next ? C_WHITE : 0;
-            str_cpy(tl[4 + i].lab, "save A", 8);
-            tl[4 + i].lab[5] = (char)('A' + i);
-            tl[4 + i].bg = sec_armed == i + 1u ? TE_RED : TE_G1;
-            tl[4 + i].fg = sec_armed == i + 1u ? C_BLACK : TE_G4;
-            tl[4 + i].top = TE_DIM[i];
+            str_cpy(tl[8u + i].lab, "save A", 8);
+            tl[8u + i].lab[5] = (char)('A' + i);
+            tl[8u + i].bg = sec_armed == i + 1u ? TE_RED : TE_G1;
+            tl[8u + i].fg = sec_armed == i + 1u ? C_BLACK : TE_G4;
+            tl[8u + i].top = TE_DIM[colour];
         }
-        str_cpy(tl[12].lab, arrangement_enabled ? "song" : "loop", 8);
-        tl[12].bg = arrangement_enabled ? C_WHITE : TE_G2;
-        tl[12].fg = arrangement_enabled ? C_BLACK : C_WHITE;
-        str_cpy(tl[13].lab, "rec", 8);
-        tl[13].bg = srec == 2u ? TE_RED : TE_G1;
-        tl[13].fg = srec == 2u ? C_BLACK : TE_RED;
-        tl[13].top = srec == 1u ? TE_RED : 0;
-        str_cpy(tl[15].lab, "chain", 8);
-        tl[15].bg = TE_G1;
-        tl[15].fg = TE_G4;
         break;
     }
     default:
