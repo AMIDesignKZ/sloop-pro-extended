@@ -99,9 +99,11 @@ int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length, uint8_t 
             b->preset = 0xFFu;
             for (id = 0; id < P_E0; ++id) {
                 int16_t value = common_defaults[id].def;
-                if (id < PROJ_V6_NC)
-                    b->p[id] = value;
-                else
+                if (id < PROJ_V6_NC) {
+                    if (value < -128) value = -128;
+                    if (value > 127) value = 127;
+                    b->p[id] = (int8_t)value;
+                } else
                     b->x[id - PROJ_V6_NC] = (uint8_t)value;
             }
             for (id = 0; id < 8u; ++id)
