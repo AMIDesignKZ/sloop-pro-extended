@@ -1456,47 +1456,126 @@ UI_SMALL static void persist_boot(void)                    /* before settings_in
             smp_user_scan(k);
     }
     {
-        int n = st_load(OBJ_SETTINGS, &p, sizeof p);
-        if (n == (int)PERSIST_SIZE_V22 && p.magic == PERSIST_MAGIC)
-            p.lights = 0;                          /* from 2.2: backlight off */
-        if (((n == (int)sizeof p || n == (int)PERSIST_SIZE_V22) && p.magic == PERSIST_MAGIC)
-#if FELUCCA_ARRANGER
-            || (n == (int)(16u + sizeof(panel_t)) && p.magic == 0x50455232u)
-#endif
-            ) {
-            settings.magic = SETTINGS_MAGIC;
-            settings.palette = p.palette;
-            settings.lowcut = p.lowcut;
-            settings.zoom = p.zoom;
-            if (p.panel.magic == PANEL_MAGIC)
-                panel = p.panel;
-            if (p.magic == PERSIST_MAGIC)
+#if BOARD_SMK37
+        persist_v22_t oldp;
+        memset(&p, 0, sizeof p);
+        memset(&oldp, 0, sizeof oldp);
+        {
+            int n = st_load(OBJ_SETTINGS, &p, sizeof p);
+            if (n == (int)sizeof p && p.magic == PERSIST_MAGIC) {
+                settings.magic = SETTINGS_MAGIC;
+                settings.palette = p.palette;
+                settings.lowcut = p.lowcut;
+                settings.zoom = p.zoom;
+                if (p.panel.magic == PANEL_MAGIC)
+                    panel = p.panel;
                 lights_from_word(p.lights);
-            else
-                p.lights = 0;
-#if FELUCCA_ARRANGER
-            if (p.magic == PERSIST_MAGIC && arr_valid(&p.arrangement, 15u))
-                arrangement = p.arrangement;
-            else
-                p.arrangement = arrangement;
-#endif
-            persist_saved = p;
-            {   /* 2.7: the theme and the favourites, in the side record of the same copy (gfx.c, storage.c st_side) */
-                side_rec_t r;
-                if (st_side_load(OBJ_SETTINGS, &r, sizeof r) == 0)
-                    side_take(&r);
+                if (arr_valid(&p.arrangement, 255u))
+                    arrangement = p.arrangement;
+                else
+                    song_dirty = 1u;
+                persist_saved = p;
+                {
+                    side_rec_t r;
+                    if (st_side_load(OBJ_SETTINGS, &r, sizeof r) == 0)
+                        side_take(&r);
+                }
+            } else if (n == (int)sizeof oldp || n == (int)PERSIST_SIZE_V22) {
+                memcpy(&oldp, &p, (uint32_t)n < sizeof oldp ? (uint32_t)n : sizeof oldp);
+                if ((n == (int)sizeof oldp && oldp.magic == 0x50455233u) ||
+                    (n == (int)PERSIST_SIZE_V22 && oldp.magic == 0x50455232u)) {
+                    p.magic = PERSIST_MAGIC;
+                    p.palette = oldp.palette;
+                    p.lowcut = oldp.lowcut;
+                    p.zoom = oldp.zoom;
+                    p.panel = oldp.panel;
+                    arr_defaults(&p.arrangement);
+                    if (n == (int)sizeof oldp) {
+                        p.arrangement.count = oldp.arrangement.count > 16u ? 16u : oldp.arrangement.count;
+                        p.arrangement.loop = oldp.arrangement.loop;
+                        memcpy(p.arrangement.reserved, oldp.arrangement.reserved, sizeof p.arrangement.reserved);
+                        memcpy(p.arrangement.entry, oldp.arrangement.entry, sizeof oldp.arrangement.entry);
+                        p.lights = oldp.lights;
+                    } else {
+                        p.lights = 0u;
+                    }
+                    settings.magic = SETTINGS_MAGIC;
+                    settings.palette = p.palette;
+                    settings.lowcut = p.lowcut;
+                    settings.zoom = p.zoom;
+                    if (p.panel.magic == PANEL_MAGIC)
+                        panel = p.panel;
+                    lights_from_word(p.lights);
+                    if (arr_valid(&p.arrangement, 15u))
+                        arrangement = p.arrangement;
+                    else
+                        arr_defaults(&arrangement);
+                    persist_saved = p;
+                    song_dirty = 1u; /* write PER4 on the next quiet settings flush */
+                    {
+                        side_rec_t r;
+                        if (st_side_load(OBJ_SETTINGS, &r, sizeof r) == 0)
+                            side_take(&r);
+                    }
+                }
+            } else if (n == (int)(8u + sizeof(panel_t)) && p.magic == 0x50455231u) {
+                const uint32_t *w = (const uint32_t *)&p;
+                panel_t old_panel;
+                memcpy(&old_panel, w + 2, sizeof old_panel);
+                settings.magic = SETTINGS_MAGIC;
+                settings.palette = w[1];
+                settings.lowcut = 0;
+                settings.zoom = 0;
+                if (old_panel.magic == PANEL_MAGIC)
+                    panel = old_panel;
+                song_dirty = 1u;
             }
-        } else if (n == (int)(8u + sizeof(panel_t)) && p.magic == 0x50455231u) {   /* "PER1": palette, panel */
-            const uint32_t *w = (const uint32_t *)&p;
-            panel_t old;
-            memcpy(&old, w + 2, sizeof old);
-            settings.magic = SETTINGS_MAGIC;
-            settings.palette = w[1];
-            settings.lowcut = 0;
-            settings.zoom = 0;
-            if (old.magic == PANEL_MAGIC)
-                panel = old;
         }
+#else
+        {
+            int n = st_load(OBJ_SETTINGS, &p, sizeof p);
+            if (n == (int)PERSIST_SIZE_V22 && p.magic == PERSIST_MAGIC)
+                p.lights = 0;
+            if (((n == (int)sizeof p || n == (int)PERSIST_SIZE_V22) && p.magic == PERSIST_MAGIC)
+#if FELUCCA_ARRANGER
+                || (n == (int)(16u + sizeof(panel_t)) && p.magic == 0x50455232u)
+#endif
+                ) {
+                settings.magic = SETTINGS_MAGIC;
+                settings.palette = p.palette;
+                settings.lowcut = p.lowcut;
+                settings.zoom = p.zoom;
+                if (p.panel.magic == PANEL_MAGIC)
+                    panel = p.panel;
+                if (p.magic == PERSIST_MAGIC)
+                    lights_from_word(p.lights);
+                else
+                    p.lights = 0;
+#if FELUCCA_ARRANGER
+                if (p.magic == PERSIST_MAGIC && arr_valid(&p.arrangement, 15u))
+                    arrangement = p.arrangement;
+                else
+                    p.arrangement = arrangement;
+#endif
+                persist_saved = p;
+                {
+                    side_rec_t r;
+                    if (st_side_load(OBJ_SETTINGS, &r, sizeof r) == 0)
+                        side_take(&r);
+                }
+            } else if (n == (int)(8u + sizeof(panel_t)) && p.magic == 0x50455231u) {
+                const uint32_t *w = (const uint32_t *)&p;
+                panel_t old_panel;
+                memcpy(&old_panel, w + 2, sizeof old_panel);
+                settings.magic = SETTINGS_MAGIC;
+                settings.palette = w[1];
+                settings.lowcut = 0;
+                settings.zoom = 0;
+                if (old_panel.magic == PANEL_MAGIC)
+                    panel = old_panel;
+            }
+        }
+#endif
     }
 #if BOARD_SMK37
     s37_catalog_boot();                            /* eight FUN7 sections plus the working autosave */
