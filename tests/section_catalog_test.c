@@ -109,6 +109,17 @@ int main(void)
                  !memcmp(&loaded, &expected[0], sizeof loaded));
     bad += check("absent section cannot be loaded",
                  s37_cat_load_section(&io, &map, &state, 1u, &loaded, NULL) != 0);
+    {
+        s37_cat_header_t invalid = header;
+        invalid.present_mask ^= 0x02u;
+        bad += check("directory present-mask mismatch rejected", !s37_cat_header_valid(&invalid));
+        invalid = header;
+        invalid.reserved[0] = 1u;
+        bad += check("unknown directory reserved bits rejected", !s37_cat_header_valid(&invalid));
+        invalid = header;
+        invalid.section[0].reserved = 1u;
+        bad += check("unknown section-entry reserved bits rejected", !s37_cat_header_valid(&invalid));
+    }
 
     for (i = 1; i < S37_CAT_SECTIONS; ++i) {
         make_project(&replacement, i + 1u);
