@@ -242,3 +242,18 @@ The proposed eleven-sector A/B extents provide 44,800 bytes per copy, leaving 3,
 The new host test exercises first creation, adding all eight sections, reading all eight back, replacing section D while preserving the other seven byte-for-byte, metadata/default-section updates, invalid section/default rejection and invalid project checksum rejection. The test is wired into `tests/run_tests.sh`, but it has **not yet been compiled or executed** in this session. The complete repository runner and JieLi target build remain unrun.
 
 This is still an isolated persistence prototype. It does not alter the live project runtime, arranger, autosave, flash map, flash allow-list or boot/recovery behaviour. Before integration, the next gate is to run the new catalogue test and existing storage/format tests in the repository's host build environment, then review the actual linker/RAM map and board flash guard before assigning any physical sectors.
+
+
+## Progress checkpoint — arranger and section-runtime audit (6 November 2026)
+
+The existing arranger has been inspected before changing its scene count or runtime storage:
+
+- `arr_config_t` already supports 16 arrangement entries. Each entry stores an 8-bit scene index and a 1–64 bar duration. The current limitation is `ARR_SCENES=4`, not the chain length.
+- Scene readiness, default chain generation, validation, scene deletion, bar calculation, the song UI and section selection all assume A–D / four slots. These call sites need to be changed as one coordinated step; changing only `ARR_SCENES` is unsafe.
+- The audio path calls `arr_next()` and then applies the next section at an audio-block boundary. The current section projects are already resident in RAM. The audio callback must remain free of flash reads, catalogue validation, allocation and long copies.
+- The current live project array is four format-6 projects in `.noinit`. The song-mode snapshot and autosave are separate full-project buffers in `.pool`. The existing `.noinit` allocation is already close to its documented 0x3D50-byte allowance, so eight in-RAM project snapshots are not a viable design.
+- The catalogue must therefore remain flash-resident, with a bounded RAM staging strategy. The likely direction is to preload the next section outside the audio callback, then apply the prepared project at the boundary. The exact buffer count, placement and handshake are not frozen until the linker map, pool/stack headroom and main-loop scheduling have been checked.
+- Existing live-section jumps and quick-chain playback in `seq.c` are a second path in addition to the 16-entry song arranger. Both must use the same eight-section lookup/preload mechanism; otherwise A–H would work in one mode but not the other.
+- Song-mode backup/restore currently captures the working project at start and restores it at stop. Its buffer and timing must be included in the six-track RAM budget.
+
+No runtime constants, project arrays, audio callbacks, arranger UI, flash access or linker sections have been changed by this audit. Next gate: obtain the exact target linker map and pool/stack usage, then specify and host-test a small section-preload state machine before wiring it into the audio path.
