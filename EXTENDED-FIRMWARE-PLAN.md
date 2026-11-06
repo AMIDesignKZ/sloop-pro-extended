@@ -293,3 +293,16 @@ The isolated FUN6-to-FUN7 converter now migrates only legacy synth tracks 0–2.
 The migration test now expects lock-loss bits only for the three migrated synth tracks (mask 0x07), checks the three legacy synth tracks, and checks that all three new tracks are empty with default parameters and free locks. The old FUN6 source record is still validated as a complete 3,816-byte image before conversion; no legacy persistence or recovery path is changed.
 
 The source and test changes are committed and wired into the repository host runner. **The updated test has not yet been compiled or executed in this session.** The full host suite and SMK-37 target build remain unrun. This completes the migration-policy change only; it does not integrate FUN7 into live project persistence or the sequencer.
+
+## Runtime conversion gate — six-track live model
+
+The FUN7 migration policy is now reflected in both the isolated converter test and the legacy project regression helper. Before changing runtime constants, the live-project conversion needs a separate implementation plan because the existing project.c project_t is still the persisted FUN6 layout and its track count/lock count are tied to the current NTRK=4 and NLOCK=24 definitions.
+
+The runtime transition must freeze the FUN6 wire layout independently of future runtime constants, then make FUN7 the live project representation. That entails:
+- Keep the FUN1–FUN6 readers byte-for-byte compatible, with explicit legacy constants (four tracks, three synth parts, 24 locks).
+- Convert every imported/loaded legacy project into FUN7 before it becomes the live section or working project.
+- Replace proj_capture() and proj_apply() as a matched pair for six live tracks, five synth parts, the dedicated drum track at index 5, packed fill conditions and 12 locks.
+- Audit every NTRK, NPART, NLOCK and TRK_DRUM dependent array, loop, MIDI route, recorder, UI, voice allocator and test before changing core.h.
+- Preserve the old storage readers and recovery route; do not write FUN7 to legacy project sectors as if it were FUN6.
+
+The current branch has not yet made any runtime-constant or live-project changes. No full host suite or target build has been run for the migration change. The next implementation unit is a host-testable FUN7 live-project adapter and its regression tests, followed by a coordinated runtime model change only when all legacy wire-format dependencies are isolated.
