@@ -19,6 +19,18 @@ Target hardware: M-VAVE SMK-37.
 - Flash object mapping allocates four project objects. The SMK-37 flash layout also contains user presets, autosave, FM bank, settings, owner metadata, and reserved/stock regions. These must be mapped explicitly before allocating additional project storage.
 - The browser editor contains independent assumptions for four tracks and four sections. Firmware and editor formats must remain aligned.
 
+
+## Accepted design preferences (6 November 2026)
+
+- Retain **two** user sample slots rather than four. The SMK-37 implementation currently allocates four 40 KiB slots in the separate USRFLASH range; reducing this to two is an accepted trade-off, subject to confirming which slots are retained and remapping the released sectors safely.
+- Do not assume the released sample flash automatically solves project storage. It is a separate flash window; any reassignment must update the flash allow-list, storage map, upload/editor protocol, and recovery/stock-firmware safeguards together.
+- First engine candidate to make optional/remove if measured RAM pressure requires it: **PHYS** (physical modelling), because its per-part engine arena can be substantial. Do not remove it pre-emptively; measure the compiled RAM/CPU impact of five synth parts first.
+- DRAWBAR is a secondary candidate only if firmware code/flash size becomes a constraint and the user accepts losing tonewheel organ sounds. Preserve engine indices as reserved values if any engine is disabled or removed; never renumber stored engine IDs.
+- Retain ANALOG, DIGITAL, PHASE, LOFI, SAMPLE, FORMANT, TRIO, GRAIN, FM6, and NOISE by default.
+- Sequencer direction: 12 parameter locks per track; remove per-step micro-timing/nudge; retain fill conditions; keep 64-step patterns and the existing 16-entry arrangement chain. Eight sections A–H remain the target.
+
+These are design decisions and constraints, not implemented firmware changes.
+
 ## Implementation phases
 
 1. **Complete dependency and storage audit.** Trace every use of `NPART`, `NTRK`, drum indices, section masks, project slot counts, project format versions, backup/restore paths, MIDI channel settings, mixer/fader routing, and editor serialization.
