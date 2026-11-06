@@ -11,6 +11,7 @@
 
 #define PROJ_V6_MAGIC 0x46554E36u /* FUN6 */
 #define PROJ_V7_MAGIC 0x46554E37u /* FUN7 */
+#define PROJ_V6_LOCKS 24u
 #define PROJ_V7_LOCKS 12u
 #define PROJ_V7_TRACKS 6u
 #define PROJ_V7_FILL_BYTES (NSTEP / 4u)
@@ -25,7 +26,7 @@ typedef struct {
     uint8_t engine, preset;
     union { step_t step[NSTEP]; dstep_t dstep[NSTEP]; };
     uint8_t mf[NSTEP]; /* low 6 bits: microtiming; high 2 bits: fill condition */
-    plock_t lock[NLOCK];
+    plock_t lock[PROJ_V6_LOCKS];
 } proj_trk_v6_t;
 
 typedef struct {
