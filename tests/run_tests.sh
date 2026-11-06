@@ -45,7 +45,7 @@ run "multi-sector flash storage (segmented A/B, streaming overlays, power-loss r
 $CC -Ifirmware/src -o "$OUT/project_v7_test" tests/project_v7_test.c firmware/src/project_v7.c
 run "System 37 project format 7: FUN6 migration, packed fill, 12 ordered locks, six-track layout" "$OUT/project_v7_test"
 
-$CC -Ifirmware/src -o "$OUT/section_catalog_test" tests/section_catalog_test.c firmware/src/section_catalog.c firmware/src/project_v7.c firmware/src/storage_multi.c
+$CC -Ifirmware/src -o "$OUT/section_catalog_test" tests/section_catalog_test.c firmware/src/section_catalog.c firmware/src/project_v7.c firmware/src/storage_multi.c firmware/src/section_prefetch.c firmware/src/section_prefetch_io.c
 run "System 37 A-H catalogue: eight project records, directory, streaming section overlays, validation" "$OUT/section_catalog_test"
 
 $CC -Ifirmware/src -o "$OUT/section_prefetch_test" tests/section_prefetch_test.c firmware/src/section_prefetch.c
