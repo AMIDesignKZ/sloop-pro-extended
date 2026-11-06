@@ -85,7 +85,7 @@ The following details have now been checked against the current source, rather t
 - The standard 32-voice SysEx bank parser is not the limiting factor. The current persistent bank is limited to **27 user patches** because `FM6_BANK_N=27`, and its A/B storage object is 3,472 bytes.
 - One complete 32-patch bank requires 4,096 bytes of patch records alone, before metadata. It cannot fit in the current 3,840-byte storage-object payload.
 - The current editor labels patch slots B1–B27. The bank format, editor protocol, storage object allocation and backup/restore object numbering must all change together for multi-bank storage.
-- The requested number of complete banks is not yet fixed. Eight banks (256 patches) remains a possible target, not a confirmed flash allocation.
+- The user has approved four complete 32-patch banks (128 user patches total). This is the target capacity, not an implemented or hardware-verified capability.
 
 ### Track, project and memory constraints
 
@@ -122,66 +122,22 @@ On 6 November 2026 the user confirmed **two user sample slots of 40 KiB each**.
 - Keep the existing 40 KiB per-slot capacity and sample encoding. Do not silently convert either slot to 80 KiB.
 - The current flash-map comments incorrectly describe two 80 KiB slots, while the implementation has four 40 KiB slots. Update those comments only as part of the coordinated flash-map change, not as an isolated documentation-only claim.
 
-### Storage capacity model (6 November 2026)
+### Corrected storage capacity model
 
-This is a source-derived capacity model for the accepted six-track / eight-section design. It is a planning calculation, not a flash-layout implementation.
+The original calculation below this heading has been superseded by the corrected design in EXTENDED-FIRMWARE-ARCHITECTURE.md. Two details materially change the estimate: fill conditions remain after micro-timing is removed, and autosave is also a full project that must grow.
 
-#### Six-track project payload
+- Current format-6 project: 3,816 bytes, four tracks, 934 bytes per track.
+- Format-7 track: 934 − 64 bytes (old micro/fill field) + 16 bytes (fill-only field) − 48 bytes (12 fewer locks) = 838 bytes.
+- Format-7 project: 76-byte header + six 838-byte tracks + 4-byte checksum = **5,108 bytes**. Confirm with compiler sizeof assertions.
+- Eight projects in one catalogue: 8 × 5,108 bytes plus a small directory, about 40,944 bytes. Eleven sectors per A/B copy provide 44,800 payload bytes after the first-sector header, so the catalogue uses 22 sectors total.
+- Four FM6 banks: 4 × 32 × 128 = 16,384 patch bytes, approximately 16.4 KiB including metadata. Five sectors per copy, ten total.
+- Autosave: 5,108 bytes; two sectors per copy, four total.
 
-The current format-6 project is 3,816 bytes with four tracks. Its stored track structure contains:
+The catalogue, FM6 and autosave therefore require 36 sectors versus 12 sectors in their current project/FM6/autosave allocations: **24 additional sectors**.
 
-- 64 steps × 10 bytes = 640 bytes.
-- 64 bytes of per-step micro-timing/fill flags.
-- 24 parameter locks × 4 bytes = 96 bytes.
-- Existing parameter and engine fields.
+The source map identifies 34 candidate sectors: 20 sectors from retiring USR3/USR4 (0xD6000–0xE9FFF), four existing spare sectors (0xB7000–0xBAFFF), nine unlisted sectors (0xEB000–0xF3FFF) and one unlisted sector (0xFE000). The proposed allocation uses the first 24 (the 20 retired sample sectors and four spare sectors) and leaves the 10 unlisted sectors unused as reserve.
 
-The project has 76 bytes before its track array and a 4-byte checksum after it. The current per-track record is therefore 934 bytes (3,816 − 80, divided by four).
-
-The accepted changes remove the 64-byte micro-timing/fill field and reduce locks from 24 to 12 (48 bytes). Retaining the existing step and parameter representation gives a modelled track record of 822 bytes. Six tracks therefore produce:
-
-- 76-byte project header + (6 × 822-byte track records) + 4-byte checksum
-- **5,012 bytes per section**, before any future fields or compiler/layout changes.
-
-This is a direct structure-size model; it must be confirmed with a target/host compiler sizeof assertion before implementation. It is already larger than the current 3,840-byte one-sector payload.
-
-A two-sector copy provides 8,192 − 256 = 7,936 payload bytes, so a 5,012-byte project can fit in two sectors per copy. With A/B safety, each section would occupy four sectors. Eight sections would occupy 32 sectors (128 KiB), versus the current four one-sector A/B projects occupying eight sectors (32 KiB): **24 additional sectors / 96 KiB**.
-
-#### FM6 bank storage
-
-A standard DX7 bank contains 32 × 128-byte patch records = 4,096 bytes. Eight complete banks require 32,768 bytes before directory, version, checksums or metadata.
-
-The current FM6 object is 3,472 bytes and uses one sector per A/B copy. A versioned eight-bank object would need nine sectors per copy (36,864 bytes of sector space, 36,608 bytes available after the first-sector header offset). That is 18 sectors total, or **16 additional sectors / 64 KiB** over the current two-sector A/B allocation.
-
-The eight-section project expansion plus eight FM6 banks therefore needs an estimated **40 additional sectors / 160 KiB**, before extra metadata or future growth.
-
-#### Candidate free/released SMK-37 sectors
-
-The current source map identifies these candidate areas, all of which still require coordinated allow-list, erase-guard, recovery and stock-firmware review:
-
-- Retiring USR3 and USR4: 0xD6000–0xE9FFF = 20 sectors / 80 KiB.
-- Existing SLOOP spare area: 0xB7000–0xBAFFF = 4 sectors / 16 KiB.
-- Unlisted free area: 0xEB000–0xF3FFF = 9 sectors / 36 KiB.
-- Unlisted free sector: 0xFE000–0xFEFFF = 1 sector / 4 KiB.
-
-Total candidate capacity: **34 sectors / 136 KiB**. This is six sectors / 24 KiB short of the 40-sector estimate for eight sections plus eight FM6 banks. The 0xEA000 stock-marker sector and all protected stock/resource, OTA, BTIF, calibration, key_mac and recovery regions remain excluded.
-
-The 34 candidate sectors leave 10 additional sectors for FM6 after the estimated 24-sector project expansion. The existing FM6 A/B pair already occupies two sectors, so five complete banks (20,480 bytes of patch records) would require six sectors per copy: 12 sectors total, or 10 additional sectors. Five banks are therefore the theoretical maximum under this allocation, with no spare sectors for growth. Four banks would leave two candidate sectors; six banks would exceed the allocation by four sectors. These are capacity ceilings before metadata and safety margin. The eight-bank target cannot currently be promised alongside eight sections using only the identified sectors. Do not weaken A/B power-loss protection to force a fit.
-
-#### RAM consequence
-
-The current four-project array occupies almost all of the 0x3D50-byte .noinit region. Eight 5,012-byte project objects would require about 40 KiB and cannot simply be placed in .noinit. The linker provides a separate 0x54000-byte .pool, but its actual remaining headroom has not yet been measured. The storage design must therefore include a RAM placement/cache strategy and a target linker-map check; simply changing proj_slot[4] to [8] is unsafe.
-
-#### Next design gate
-
-Before any source or flash-map change:
-
-1. Add host compile-time size assertions for the proposed compact six-track project format and the multi-sector A/B object.
-2. Measure .pool, .bss, .data, XIP and RAMTEXT headroom from an actual SMK-37 build/map.
-3. Decide how many complete FM6 banks fit after the project allocation and required metadata.
-4. Specify multi-sector A/B write/verify/rollback semantics and migration from current one-sector objects.
-5. Reconcile the sample-slot count with the stock-mapping detector, sample upload, drum sample references, backup/restore, browser editor and flash guards.
-
-No source code, flash address, sample slot or storage allocation has been changed by this capacity model.
+The architecture document defines the proposed A/B extents, migration order, flash allow-list changes and two-buffer section cache. The map is still a proposal: compiler sizes, target linker headroom, guard behaviour, ownership clearing, stock-marker release and power-loss recovery must be tested before any source or flash-map change. This is capacity-feasible on paper, not yet target-build or hardware verified.
 
 ### Two-slot sample dependency audit (6 November 2026)
 
