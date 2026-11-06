@@ -203,3 +203,10 @@ Committed source changes now implement the first part of the revised memory mile
 The drum code was deliberately left alone: drum_synth.c, drums.c, generated 32-kit source and sampled-drum paths are unchanged. The 808 and 909 kits therefore remain in scope.
 
 This is a source change only. No host test or target build has yet verified it. The synth voice slots are still in track_t; their separation is the next memory optimisation. All runtime counts remain NPART=3, NTRK=4, TRK_DRUM=3 and NLOCK=24. Flash, linker, UI and editor protocol are unchanged.
+
+
+### Host regression scope after engine reduction
+
+The test harness now targets the two supported synth engines. Legacy synth-engine-only tests for SAMPLE/GRAIN, NOISE and PHYS were removed from the active runner; drum-kit, user-drum-kit, sampled drum, Analog, FM6, sequencer, storage and project-prototype tests remain. The regression generator now builds CPU mixes from Analog/FM6 parts and the target instruction-budget list contains only Analog, FM6, drums, slicer and the audio IRQ.
+
+The existing golden render file, host CPU baseline and target instruction budget still describe the old engine set. Regenerate them with the intended-change flags after a successful target build, inspect the resulting diffs, and only then treat the updated host suite as a valid regression baseline. No such test run has yet occurred.
