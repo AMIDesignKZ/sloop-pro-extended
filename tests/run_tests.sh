@@ -194,11 +194,15 @@ run "second core, host double: inline, deferred to the wait (CORES=1)" env CORES
 run "second core, host double: a thread (CORES=2)" env CORES=2 "$OUT/cpu1_test"
 run "second core, host double: a thread with random delays (CORES=2 CHAOS=7)" env CORES=2 CHAOS=7 "$OUT/cpu1_test"
 run "second core, host double: a lost job, the hold and the fallback (CPU1_TIMEOUT_AT=777)" env CORES=2 CPU1_TIMEOUT_AT=777 "$OUT/cpu1_test"
-TSAN="${CC_UB:-cc} -O1 -g -w -fsanitize=thread -Ifirmware/src"
-if $TSAN -o "$OUT/cpu1_tsan" tests/cpu1_test.c 2>/dev/null; then
-    run "second core, host double under ThreadSanitizer (CORES=2 CHAOS=3)" env CORES=2 CHAOS=3 "$OUT/cpu1_tsan"
+if [ -z "$SKIP_TSAN" ]; then
+    TSAN="${CC_UB:-cc} -O1 -g -w -fsanitize=thread -Ifirmware/src"
+    if $TSAN -o "$OUT/cpu1_tsan" tests/cpu1_test.c 2>/dev/null; then
+        run "second core, host double under ThreadSanitizer (CORES=2 CHAOS=3)" env CORES=2 CHAOS=3 "$OUT/cpu1_tsan"
+    else
+        echo "(cpu1 under TSan: this compiler has no ThreadSanitizer, skipped)"
+    fi
 else
-    echo "(cpu1 under TSan: this compiler has no ThreadSanitizer, skipped)"
+    echo "(cpu1 under TSan: SKIP_TSAN=1, skipped)"
 fi
 
 $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/soak_test" tests/soak_test.c -lm
@@ -207,11 +211,15 @@ $CC -O2 -w -Ibuild/gen -Ifirmware/src -Ifirmware/hal -o "$OUT/stress_test" tests
 run "stress (2.4): FONT_L = FONT_S at 2x, hard random use of every 2.4 addition, clean stop" "$OUT/stress_test" "${STRESS_FRAMES:-40000}"
 # the same under AddressSanitizer + UBSan: any read or write out of bounds stops it (left shifts of negative values
 # and the FM6 phase's wrap-around are left out: the DSP's two's complement idioms, as every compiler builds them)
-ASAN="${CC_UB:-cc} -O1 -g -w -fsanitize=address,undefined -fno-sanitize=shift-base,signed-integer-overflow -fno-sanitize-recover=all -Ibuild/gen -Ifirmware/src -Ifirmware/hal"
-if $ASAN -o "$OUT/stress_asan" tests/stress_test.c -lm 2>/dev/null; then
-    run "stress under ASan + UBSan (no access out of bounds)" "$OUT/stress_asan" "${STRESS_ASAN_FRAMES:-15000}" 7
+if [ -z "$SKIP_ASAN" ]; then
+    ASAN="${CC_UB:-cc} -O1 -g -w -fsanitize=address,undefined -fno-sanitize=shift-base,signed-integer-overflow -fno-sanitize-recover=all -Ibuild/gen -Ifirmware/src -Ifirmware/hal"
+    if $ASAN -o "$OUT/stress_asan" tests/stress_test.c -lm 2>/dev/null; then
+        run "stress under ASan + UBSan (no access out of bounds)" "$OUT/stress_asan" "${STRESS_ASAN_FRAMES:-15000}" 7
+    else
+        echo "(stress under ASan: this compiler has no AddressSanitizer, skipped)"
+    fi
 else
-    echo "(stress under ASan: this compiler has no AddressSanitizer, skipped)"
+    echo "(stress under ASan + UBSan: SKIP_ASAN=1, skipped)"
 fi
 
 $CC -o "$OUT/upreset_test" tests/upreset_test.c
