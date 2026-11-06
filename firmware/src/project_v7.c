@@ -23,20 +23,25 @@ int proj_v7_valid(const project_v7_t *p)
  * locks in their original source-slot order. */
 static void keep_lock(proj_trk_v7_t *dst, const plock_t *src, uint32_t *count)
 {
-    uint32_t at, i;
-    if (src->step == LOCK_FREE || src->step >= NSTEP || src->param >= P_COUNT ||
-        *count >= PROJ_V7_LOCKS)
+    uint32_t at, limit = *count;
+    if (src->step == LOCK_FREE || src->step >= NSTEP || src->param >= P_COUNT)
         return;
-    at = *count;
+    if (limit == PROJ_V7_LOCKS) {
+        /* The list is sorted: a later/equal step cannot displace an earlier
+         * lock. Equal-step arrivals are later source slots, so ties stay stable. */
+        if (src->step >= dst->lock[limit - 1u].step)
+            return;
+        limit--;
+    }
+    at = limit;
     while (at && dst->lock[at - 1u].step > src->step) {
-        dst->lock[at] = dst->lock[at - 1u];
+        if (at < PROJ_V7_LOCKS)
+            dst->lock[at] = dst->lock[at - 1u];
         --at;
     }
     dst->lock[at] = *src;
-    for (i = 0; i < PROJ_V7_LOCKS; ++i)
-        if (dst->lock[i].step == LOCK_FREE)
-            break;
-    ++*count;
+    if (*count < PROJ_V7_LOCKS)
+        ++*count;
 }
 
 int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length)
