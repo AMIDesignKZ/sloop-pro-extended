@@ -209,7 +209,7 @@ Migration rules implemented in the isolated prototype:
 - Pack the 2-bit fill condition for each step into 16 bytes and discard the old micro-timing bits.
 - Map legacy synth tracks 0–2 to System 37 synth tracks 0–2.
 - Initialise new synth tracks 3–4 as empty Analog tracks, loading their common and Analog-specific parameter defaults from the supplied parameter descriptors, with the default-preset sentinel.
-- Move the legacy drum track from index 3 to System 37 track 5 (the sixth track).
+- Move the legacy drum track from index 3 to System 37 track 5 (the sixth track), and remap a saved selection of the old drum track from index 3 to index 5.
 - Retain the 12 earliest-step valid locks across the old 24 slots, preserve original slot order for same-step ties, and reject invalid/non-lockable parameters.
 - Return a per-track bitmask identifying where valid locks were truncated, so the eventual UI can show a migration warning.
 
