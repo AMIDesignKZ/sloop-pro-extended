@@ -16,6 +16,7 @@ int main(void)
     static project_v6_t old;
     static project_v7_t now;
     uint32_t t, s, k;
+    uint8_t lock_loss = 0;
     int bad = 0, ok = 1;
 
     old.magic = PROJ_V6_MAGIC;
@@ -57,7 +58,8 @@ int main(void)
 
     bad += check("wire layouts: FUN6 3816 bytes; FUN7 5108 bytes; 6 tracks x 838", 
                  sizeof old == 3816u && sizeof now == 5108u && sizeof(proj_trk_v7_t) == 838u);
-    bad += check("valid FUN6 image migrates to valid FUN7", proj_v6_to_v7(&now, &old, sizeof old) && proj_v7_valid(&now));
+    bad += check("valid FUN6 image migrates to valid FUN7", proj_v6_to_v7(&now, &old, sizeof old, &lock_loss) && proj_v7_valid(&now));
+    bad += check("lock truncation warning identifies all four migrated tracks (including drums)", lock_loss == 0x27u);
     ok = now.sel == old.sel && now.drdly == old.drdly && !memcmp(now.g, old.g, sizeof old.g);
     for (t = 0; t < 4u; ++t) {
         uint32_t dest = (t == 3u) ? 5u : t;
@@ -90,10 +92,10 @@ int main(void)
                  now.t[4].step[63].time == ST_REST && now.t[3].lock[0].step == LOCK_FREE &&
                  now.t[4].lock[11].step == LOCK_FREE && now.t[5].lock[11].step != LOCK_FREE);
     old.t[0].mf[0] ^= 1u;
-    bad += check("damaged FUN6 checksum rejected", !proj_v6_to_v7(&now, &old, sizeof old));
+    bad += check("damaged FUN6 checksum rejected", !proj_v6_to_v7(&now, &old, sizeof old, NULL));
     old.t[0].mf[0] ^= 1u;
-    bad += check("wrong input length rejected", !proj_v6_to_v7(&now, &old, sizeof old - 1u));
-    bad += check("null arguments rejected", !proj_v6_to_v7(NULL, &old, sizeof old) &&
-                 !proj_v6_to_v7(&now, NULL, sizeof old));
+    bad += check("wrong input length rejected", !proj_v6_to_v7(&now, &old, sizeof old - 1u, NULL));
+    bad += check("null arguments rejected", !proj_v6_to_v7(NULL, &old, sizeof old, NULL) &&
+                 !proj_v6_to_v7(&now, NULL, sizeof old, NULL));
     return bad ? 1 : 0;
 }
