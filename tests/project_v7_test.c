@@ -91,6 +91,24 @@ int main(void)
                  now.t[4].preset == 0xFFu && now.t[3].step[0].time == ST_REST &&
                  now.t[4].step[63].time == ST_REST && now.t[3].lock[0].step == LOCK_FREE &&
                  now.t[4].lock[11].step == LOCK_FREE && now.t[5].lock[11].step != LOCK_FREE);
+    /* Boundary cases: exactly 12 locks needs no warning; a 13th later
+     * lock is dropped and must raise the track's migration-warning bit. */
+    for (k = 0; k < PROJ_V6_LOCKS; ++k)
+        old.t[0].lock[k] = (plock_t){LOCK_FREE, 0, 0};
+    for (k = 0; k < PROJ_V7_LOCKS; ++k)
+        old.t[0].lock[k] = (plock_t){(uint8_t)(11u - k), (uint8_t)(P_E0 + (k % 8u)), (int16_t)k};
+    old.sum = proj_v7_hash(&old, sizeof old - 4u);
+    lock_loss = 0xFFu;
+    ok = proj_v6_to_v7(&now, &old, sizeof old, &lock_loss) && lock_loss == 0 &&
+         now.t[0].lock[0].step == 0 && now.t[0].lock[11].step == 11;
+    bad += check("exactly 12 valid locks migrate without a loss warning", ok);
+    old.t[0].lock[12] = (plock_t){12, P_E0, 12};
+    old.sum = proj_v7_hash(&old, sizeof old - 4u);
+    lock_loss = 0;
+    ok = proj_v6_to_v7(&now, &old, sizeof old, &lock_loss) &&
+         (lock_loss & 1u) && now.t[0].lock[11].step == 11;
+    bad += check("13th later lock is dropped and raises a per-track warning", ok);
+
     old.t[0].mf[0] ^= 1u;
     bad += check("damaged FUN6 checksum rejected", !proj_v6_to_v7(&now, &old, sizeof old, NULL));
     old.t[0].mf[0] ^= 1u;
