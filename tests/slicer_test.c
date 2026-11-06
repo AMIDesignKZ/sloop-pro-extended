@@ -185,7 +185,7 @@ static void song_setup(void)
     song.g[G_BPM] = 120;
     host_preset(t1, 0, 4);
     host_preset(t2, 1, 5);
-    host_preset(t3, 3, 0);
+    host_preset(t3, ENGI_ANALOG, 17);
     for (i = 0; i < 16u; i++) {
         uint8_t n = ACID[i];
         put_step(t1, i, n ? 1u : 0u, &n, n ? ST_NOTE : ST_REST, ACIDF[i]);
