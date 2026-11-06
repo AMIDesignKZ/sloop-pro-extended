@@ -161,3 +161,21 @@ Important correction to the earlier capacity model: fill conditions are retained
 The corrected model is 22 sectors for the section catalogue, 10 for four FM6 banks, and 4 for autosave: 36 sectors total versus 12 current, an increment of 24. The proposed allocation uses the 20 sectors retired from USR3/USR4 and the four existing spare sectors at 0xB7000–0xBAFFF, leaving 10 unlisted sectors unused. The architecture document specifies proposed extents, segmented multi-sector A/B semantics, migration order and flash guard changes.
 
 This is a capacity-feasible paper design, not an implementation or target-build result. The compiler sizes, linker headroom, flash extent map, guards, migration and power-loss behaviour must be validated before firmware source changes or device installation.
+
+
+## Progress checkpoint — multi-sector storage prototype (6 November 2026)
+
+Added an isolated host-testable storage primitive:
+
+- firmware/src/storage_multi.h
+- firmware/src/storage_multi.c
+- tests/storage_multi_test.c
+- tests/run_tests.sh now compiles and runs the new test.
+
+The prototype supports non-contiguous A/B sector extents, first-sector header reservation, logical reads across sector boundaries, page-bounded streaming writes, CRC/readback verification, header-last commit, sequence wrap comparison, and safe refusal to save when flash reads leave the current A/B state uncertain. The stream callback permits copying a catalogue and overlaying one changed section without a full catalogue RAM buffer.
+
+The standalone host test passed with -std=c11 -Wall -Wextra -Werror -O2 and also under AddressSanitizer/UndefinedBehaviorSanitizer. It injects failures at each erase, payload-page and commit-header operation, including partial program failures, and checks that the previous committed copy remains readable.
+
+This module is **not yet included by felucca.c**, does not replace storage.c, and has not been tested with the JieLi target compiler or physical SMK-37 flash. The board callbacks and fixed extent tables still need to be implemented and validated against fm1_flash_map.h before integration.
+
+Next: extend the host tests to the exact 11-sector catalogue and 5-sector FM6 extent shapes, then implement format-7 project structures and migration tests. Only after these are stable should the generic storage module be integrated into the firmware's single compilation unit.
