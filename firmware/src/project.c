@@ -1945,8 +1945,10 @@ UI_SMALL static void sections_write(void)                        /* the dirty se
 #if FELUCCA_FLASH
 #if BOARD_SMK37
     if (flash_ok && (sec_dirty || s37_migrate_pending) && !s37_cat_uncertain) {
-        if (s37_catalog_write_full() == 0)
+        if (s37_catalog_write_full() == 0) {
             sec_dirty = 0u;
+            autosave_hash = autosave_buf.sum;
+        }
     }
 #else
     uint32_t i;
