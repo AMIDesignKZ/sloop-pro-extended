@@ -257,13 +257,13 @@ An isolated FUN6-to-FUN7 schema and conversion module has been added:
 
 The FUN6 mirror fixes its historical four-track and 24-lock counts explicitly. It must not depend on future runtime `NTRK` or `NLOCK` values, or a later expansion could corrupt the legacy reader's layout.
 
-The converter preserves globals, parameters, engine/preset bytes and all 64 steps. It packs each old step's two-bit fill condition into a 16-byte array and discards the six-bit micro-timing value. The old synth tracks 0–2 remain at 0–2; the two new synth tracks occupy 3–4; the old dedicated drum track moves from 3 to 5. A saved selection of the old drum track is remapped from index 3 to index 5 as well. New synth records start empty, with Analog selected, common and Analog-specific parameters populated from the supplied descriptors, and the default-preset sentinel.
+The converter preserves globals, parameters, engine/preset bytes and all 64 steps. It packs each old step's two-bit fill condition into a 16-byte array and discards the six-bit micro-timing value. The old synth tracks 0–2 remain at 0–2. The two new synth tracks occupy 3–4, and the new dedicated drum track occupies 5. The legacy drum track at index 3 is deliberately not migrated; tracks 3–5 start from defaults. A saved selection of old track 3 selects the new default drum track at index 5. New synth records start empty, with Analog selected, common and Analog-specific parameters populated from the supplied descriptors, and the default-preset sentinel. The new drum track uses drum-kit default 0.
 
 Lock migration uses the same lockable-parameter rules as the current sequencer. It retains the globally earliest 12 valid locks, sorts them by step, and preserves original source-slot order for equal-step ties. A per-track warning mask is returned when more than 12 valid locks existed; the eventual UI must present that warning to the user.
 
 The module is deliberately isolated. It is not included by `felucca.c`, does not alter `project.c` or `proj_import`, and does not change runtime track constants, section RAM, autosave or flash storage. The existing FUN1–FUN6 import path therefore remains untouched. A local strict-warning host harness and its ASan/UBSan run passed. The complete repository host suite and the JieLi target build have not yet been run in this working session.
 
-The existing project host test now invokes the FUN6-to-FUN7 converter after importing FUN1, FUN2, FUN3, FUN4, FUN5 and a current FUN6 image. It checks the new checksum, synth-track preservation, old-drum relocation and empty new synth tracks. The isolated format-7 test separately covers lock-loss reporting, stable tie ordering, 12/13/24-lock boundaries, empty lock arrays and malformed input. These test sources are wired into the repository runner, but the complete runner has not yet been executed in this session. The next gate is to compile and run those tests in the repository build environment before connecting the converter to project persistence or changing runtime track counts.
+The existing project host test now invokes the FUN6-to-FUN7 converter after importing FUN1, FUN2, FUN3, FUN4, FUN5 and a current FUN6 image. It checks the new checksum, preservation of the three legacy synth tracks, deliberate omission of old drum data, and defaulted new synth/drum tracks. The isolated format-7 test separately covers lock-loss reporting, stable tie ordering, 12/13/24-lock boundaries, empty lock arrays and malformed input. These test sources are wired into the repository runner, but the complete runner has not yet been executed in this session. The next gate is to compile and run those tests in the repository build environment before connecting the converter to project persistence or changing runtime track counts.
 
 
 ## 5C. System 37 A–H catalogue prototype
@@ -322,3 +322,16 @@ The isolated FUN6-to-FUN7 converter now migrates only legacy synth tracks 0–2.
 The migration test now expects lock-loss bits only for the three migrated synth tracks (mask 0x07), checks the three legacy synth tracks, and checks that all three new tracks are empty with default parameters and free locks. The old FUN6 source record is still validated as a complete 3,816-byte image before conversion; no legacy persistence or recovery path is changed.
 
 The source and test changes are committed and wired into the repository host runner. **The updated test has not yet been compiled or executed in this session.** The full host suite and SMK-37 target build remain unrun. This completes the migration-policy change only; it does not integrate FUN7 into live project persistence or the sequencer.
+
+## Runtime conversion gate — six-track live model
+
+The FUN7 migration policy is now reflected in both the isolated converter test and the legacy project regression helper. Before changing runtime constants, the live-project conversion needs a separate implementation plan because the existing project.c project_t is still the persisted FUN6 layout and its track count/lock count are tied to the current NTRK=4 and NLOCK=24 definitions.
+
+The runtime transition must freeze the FUN6 wire layout independently of future runtime constants, then make FUN7 the live project representation. That entails:
+- Keep the FUN1–FUN6 readers byte-for-byte compatible, with explicit legacy constants (four tracks, three synth parts, 24 locks).
+- Convert every imported/loaded legacy project into FUN7 before it becomes the live section or working project.
+- Replace proj_capture() and proj_apply() as a matched pair for six live tracks, five synth parts, the dedicated drum track at index 5, packed fill conditions and 12 locks.
+- Audit every NTRK, NPART, NLOCK and TRK_DRUM dependent array, loop, MIDI route, recorder, UI, voice allocator and test before changing core.h.
+- Preserve the old storage readers and recovery route; do not write FUN7 to legacy project sectors as if it were FUN6.
+
+The current branch has not yet made any runtime-constant or live-project changes. No full host suite or target build has been run for the migration change. The next implementation unit is a host-testable FUN7 live-project adapter and its regression tests, followed by a coordinated runtime model change only when all legacy wire-format dependencies are isolated.
