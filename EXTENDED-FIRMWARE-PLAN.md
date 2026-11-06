@@ -372,3 +372,12 @@ The unchanged SMK-37 baseline build succeeded on the user's Mac with the JieLi t
 ### Next isolated implementation milestone
 
 Refactor synth voice ownership out of `track_t` and reduce the selectable engine/state model to Analog and FM6 while preserving the current three-synth/four-track runtime counts. Keep drum voices, drum synthesis and sampled drum playback separate. Do not yet change track counts, lock count, microtiming, UI, editor protocol, flash map or project runtime integration. Run the host regression suite and rebuild the SMK-37 target after the source change; compare the linker report against this baseline before beginning six-track expansion.
+
+
+## Progress checkpoint — first engine-scope reduction committed (6 November 2026)
+
+The selectable synth engine table now contains only Analog (System 37 ID 0) and FM6 (ID 1). The engine source aggregation no longer includes DIGITAL, PHASE, LOFI, SAMPLE, FORMANT, TRIO, DRAWBAR, GRAIN, PHYS, NOISE or optional SLICE. The per-part engine arena now contains only FM6 state; Analog uses the state already held in voice_t. FM6's old factory-preset trim row is explicitly selected from the retained legacy trim table.
+
+The voice lifecycle, sequencer keyboard mapping and FX core-splitting logic have been narrowed to the two-engine set. Drum synthesis and sampled drum playback remain in their separate drum subsystem; the 808/909 kit generator and drum-kit table were not changed. The frozen FUN6 reader remains in the source temporarily but is not a System 37 compatibility requirement.
+
+**Not yet verified:** the modified source has not been run through the host test suite or the SMK-37 target build. The synth voice array is still embedded in track_t at this checkpoint; moving it into a synth-only pool is the next isolated RAM-layout change. No runtime track-count, lock-count, UI, editor protocol, flash-map or linker-script changes have been made.
