@@ -13,6 +13,7 @@
 #include "hostsim.c"
 #undef main
 #define PROJ_HOST 1
+#include "../firmware/src/project_v7.h"
 static uint32_t trk_def_engine(uint32_t i)       /* ui.c TRK_DEF: ANALOG, DIGITAL, LOFI */
 {
     static const uint8_t E[PROJ_V6_PARTS] = {0, 1, 3};
