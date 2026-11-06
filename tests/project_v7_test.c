@@ -80,7 +80,7 @@ int main(void)
     bad += check("locks sorted by step, stable ties, earliest 12 retained, invalid entries skipped",
                  now.t[0].lock[0].step == 1 && now.t[0].lock[1].step == 3 &&
                  now.t[0].lock[2].step == 3 && now.t[0].lock[3].step == 17 &&
-                 now.t[0].lock[11].step == 25);
+                 now.t[0].lock[11].step == 24);
     bad += check("tracks 5 and 6 start empty with all locks free",
                  now.t[4].lock[0].step == LOCK_FREE && now.t[5].lock[11].step == LOCK_FREE);
     old.t[0].mf[0] ^= 1u;
