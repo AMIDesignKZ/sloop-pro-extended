@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
-/* Engine table: order = PRESETS browsing order (and the engine numbers of the editor protocol). */
+/* System 37 engine table: Analog and FM6 only. */
 #include "dsp.c"
 /* SLOOP 2.5: the big per-part state of GRAIN, FM6 and PHYS shares one arena per synth part (a part plays one
  * engine at a time: on a switch the old engine fades out, its voices end, then the new one starts, voice.c
