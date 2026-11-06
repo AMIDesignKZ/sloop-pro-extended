@@ -1,7 +1,7 @@
 # System 37 2.8.4 — les essais sur le SMK-37
 
 Tout ce qu'il faut, dans l'ordre. Le guide rapide (commandes, menu) : [DEMARRAGE-RAPIDE-PRO-FR.md](DEMARRAGE-RAPIDE-PRO-FR.md) ;
-la référence complète : [SLOOP-PRO.md](SLOOP-PRO.md).
+la référence complète : [SYSTEM37.md](SYSTEM37.md).
 
 ## 0. Ce qu'il faut
 
