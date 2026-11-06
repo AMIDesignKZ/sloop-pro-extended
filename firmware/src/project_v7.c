@@ -107,6 +107,8 @@ int proj_v6_to_v7(project_v7_t *out, const void *data, uint32_t length, uint8_t 
             }
             for (id = 0; id < 8u; ++id)
                 b->e[id] = analog_defaults[id].def;
+            if (t == 5u)
+                b->e[0] = 0; /* DRUM_KIT_DESC default: kit 0, not Analog E0 */
             for (s = 0; s < NSTEP; ++s)
                 b->step[s].time = ST_REST;
             for (k = 0; k < PROJ_V7_LOCKS; ++k)
