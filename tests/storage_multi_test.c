@@ -95,46 +95,39 @@ static int overlay_read(void *ctx, uint32_t off, uint8_t *dst, uint32_t n)
 
 static int target_layout_check(void)
 {
-    static const sm_map_t objects[3] = {
-        { .object_id=0x2001u, .max_length=40944u,
-          .sectors={{0xD6000u,0xD7000u,0xD8000u,0xD9000u,0xDA000u,0xDB000u,0xDC000u,0xDD000u,0xDE000u,0xDF000u,0xE0000u},
-                    {0x9D000u,0x9E000u,0x9F000u,0xA0000u,0xA1000u,0xA2000u,0xA3000u,0xA4000u,0xB7000u,0xB8000u,0xB9000u}},
-          .sector_count={11u,11u} },
-        { .object_id=0x2002u, .max_length=16400u,
-          .sectors={{0xE1000u,0xE2000u,0xE3000u,0xE4000u,0xE5000u},
-                    {0xAB000u,0xAC000u,0xE6000u,0xE7000u,0xBA000u}},
-          .sector_count={5u,5u} },
-        { .object_id=0x2003u, .max_length=5108u,
-          .sectors={{0xE8000u,0xE9000u},{0xA9000u,0xAA000u}},
-          .sector_count={2u,2u} }
+    static const sm_map_t catalog = {
+        .object_id=0x3738u, .max_length=48648u,
+        .sectors={
+            {0xEB000u,0xEC000u,0xED000u,0xEE000u,0xEF000u,0xF0000u,
+             0xF1000u,0xF2000u,0xF3000u,0xFE000u,0xB7000u,0xB8000u},
+            {0x9D000u,0x9E000u,0x9F000u,0xA0000u,0xA1000u,0xA2000u,
+             0xA3000u,0xA4000u,0xA9000u,0xAA000u,0xB9000u,0xBA000u}
+        },
+        .sector_count={12u,12u}
     };
-    uint32_t i, c, j, d, total = 0u, reused = 0u;
-    for (i = 0; i < 3u; i++) {
-        if (!sm_map_valid(&objects[i])) return 0;
-        for (c = 0; c < 2u; c++) {
-            for (j = 0; j < objects[i].sector_count[c]; j++) {
-                uint32_t a = objects[i].sectors[c][j];
-                total++;
-                if ((a >= 0x9D000u && a <= 0xA4000u) ||
-                    (a >= 0xA9000u && a <= 0xAA000u) ||
-                    (a >= 0xAB000u && a <= 0xAC000u)) reused++;
-                if (!((a >= 0x9D000u && a <= 0xA4000u) ||
-                      (a >= 0xA9000u && a <= 0xAA000u) ||
-                      (a >= 0xAB000u && a <= 0xAC000u) ||
-                      (a >= 0xB7000u && a <= 0xBA000u) ||
-                      (a >= 0xD6000u && a <= 0xE9000u))) return 0;
-                for (d = 0; d <= i; d++) {
-                    uint32_t cc, jj;
-                    for (cc = 0; cc < 2u; cc++) {
-                        uint32_t limit = d == i && cc == c ? j : objects[d].sector_count[cc];
-                        for (jj = 0; jj < limit; jj++)
-                            if (objects[d].sectors[cc][jj] == a) return 0;
-                    }
-                }
-            }
+    uint32_t c, i, j, total=0u;
+    if (!sm_map_valid(&catalog) || sm_capacity(&catalog,0u)!=48896u ||
+        sm_capacity(&catalog,1u)!=48896u ||
+        sm_capacity(&catalog,0u)-catalog.max_length!=248u)
+        return 0;
+    for(c=0;c<2u;c++) for(i=0;i<catalog.sector_count[c];i++) {
+        uint32_t x=catalog.sectors[c][i];
+        int allowed=(x>=0x9D000u && x<=0xA4000u) ||
+                    (x>=0xA9000u && x<=0xAA000u) ||
+                    (x>=0xB7000u && x<=0xBA000u) ||
+                    (x>=0xEB000u && x<=0xF3000u) || x==0xFE000u;
+        if(!allowed || (x>=0xC2000u && x<0xEA000u) ||
+           (x>=0xBB000u && x<0xC0000u) || (x>=0xF4000u && x<0xFE000u) ||
+           (x>=0xFF000u))
+            return 0;
+        for(j=0;j<total;j++) {
+            uint32_t d=j<catalog.sector_count[0] ? catalog.sectors[0][j] :
+                catalog.sectors[1][j-catalog.sector_count[0]];
+            if(d==x) return 0;
         }
+        total++;
     }
-    return total == 36u && reused == 12u;
+    return total==24u;
 }
 
 int main(void)
@@ -157,7 +150,7 @@ int main(void)
     for (i = 0; i < sizeof patch; i++) patch[i] = (uint8_t)(255u - i);
     memset(nor, 0xFF, sizeof nor);
     bad += check("layout: three non-contiguous sectors per A/B copy", sm_map_valid(&map) && sm_capacity(&map,0)==12032u);
-    bad += check("SMK-37 proposal: all 36 catalogue/FM6/autosave sectors are unique and within candidate regions",
+    bad += check("System 37 catalogue: 24 A/B sectors are unique and avoid user samples/protected flash",
                  target_layout_check());
     {
         sm_map_t overlap = map;
