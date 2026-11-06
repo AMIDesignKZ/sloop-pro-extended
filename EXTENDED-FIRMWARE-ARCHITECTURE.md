@@ -151,7 +151,7 @@ The primitive accepts per-copy, possibly non-contiguous sector lists and a flash
 - A degraded-read state: a valid copy may still be read if its peer cannot be inspected, but saves are refused while either copy is uncertain. This prevents a transient read error from being mistaken for an empty store and causing an erase of a potentially valid copy.
 - Map validation for sector alignment, duplicate extents and payload capacity. The board flash callbacks must still enforce the independent hardware allow-list and protected-region guard.
 
-The host test uses a simulated NOR device that enforces erase-to-FF, 1-to-0 programming and 256-byte page boundaries. It checks non-contiguous reads/writes, streamed overlays, all erase/page/header failure points, partial page/header programming, read uncertainty, CRC corruption and fallback to the older committed copy.
+The host test uses a simulated NOR device that enforces erase-to-FF, 1-to-0 programming and 256-byte page boundaries. It also instantiates the proposed SMK-37 catalogue/FM6/autosave extent tables and checks all 36 sectors are unique, 24 are newly allocated and all addresses fall within the candidate ranges. It checks non-contiguous reads/writes, streamed overlays, all erase/page/header failure points, partial page/header programming, read uncertainty, CRC corruption and fallback to the older committed copy.
 
 The standalone test was compiled with the host C compiler using -std=c11 -Wall -Wextra -Werror -O2 and passed. The same test is added to tests/run_tests.sh. This is host evidence for the generic primitive only; it is not a target build, not a hardware flash test, and not yet proof of the proposed SMK-37 extent map.
 
