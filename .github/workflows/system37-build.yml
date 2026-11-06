@@ -52,7 +52,6 @@ jobs:
 
       - name: Run complete host, sanitizer, target-budget and web test suite
         env:
-          SKIP_CPU_VALGRIND: "0"
           EDFZ_N: "2000"
         run: sh tests/run_tests.sh
 
