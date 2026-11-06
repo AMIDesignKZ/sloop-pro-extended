@@ -740,6 +740,22 @@ UI_SMALL static void proj_fetch(uint32_t slot)
         q->magic = 0;
 #endif
 }
+#if BOARD_SMK37
+static int proj_import_v7(project_t *out, const void *raw, uint32_t length)
+{
+    uint8_t lock_loss = 0;
+    if (!out || !raw || !length)
+        return 0;
+    if (length == sizeof(project_v7_t) && proj_v7_valid((const project_v7_t *)raw)) {
+        memcpy(out, raw, sizeof *out);
+        return 1;
+    }
+    if (!proj_import(&proj_tmp.v6, raw, (int)length))
+        return 0;
+    return proj_v6_to_v7(out, &proj_tmp.v6, sizeof proj_tmp.v6, &lock_loss,
+                         TP, ENGINES[ENGI_ANALOG]->edit);
+}
+#endif
 #include "fm6_bank.c"                           /* the FM6 patch bank (eng_fm6.c PTCH B1..B27): staged in proj_tmp */
 #endif
 
@@ -1644,7 +1660,11 @@ UI_SMALL static void settings_save(void)
 }
 
 #if FELUCCA_FLASH
-_Static_assert(sizeof(project_t) <= ST_PAYLOAD_MAX, "project does not fit one flash sector");
+#if BOARD_SMK37
+_Static_assert(sizeof(project_v6_legacy_t) <= ST_PAYLOAD_MAX, "legacy FUN6 object fits its original sector");
+#else
+_Static_assert(sizeof(project_t) <= ST_PAYLOAD_MAX, "FM-1 FUN6 project fits one flash sector");
+#endif
 
 /* ---- backup restore (editor.c BK_PUT): each object checked as a load checks it, then written through the
  * same A/B commit as a save. rc: 0 ok, 2 not a valid object, 3 stop the song first, 4 flash */
@@ -1701,11 +1721,46 @@ UI_SMALL static uint32_t settings_restore(const void *raw, uint32_t n)
     return 0;
 }
 
-/* slot 0..3 (n 0: empty), or 4: the working project (loaded now) */
+/* System 37: sections 0..7; slot 8 is the working project. FM-1 retains 0..3 / working slot 4. */
 UI_SMALL static uint32_t project_restore(uint32_t slot, const void *raw, uint32_t n)
 {
     if (song.playing || transport_req)
         return 3;
+#if BOARD_SMK37
+    if (slot < 8u && !n) {
+        if (!flash_ok || s37_catalog_erase_section(slot))
+            return 4;
+        memset(&proj_slot[slot], 0, sizeof proj_slot[slot]);
+        sec_dirty &= (uint8_t)~(1u << slot);
+        return 0;
+    }
+    if (slot == 8u) {
+        if (!proj_import_v7(&autosave_buf, raw, n))
+            return 2;
+        if (!flash_ok || s37_catalog_store_working(&autosave_buf))
+            return 4;
+        project_apply(&autosave_buf);
+        autosave_hash = autosave_buf.sum;
+        return 0;
+    }
+    if (slot >= 8u || !proj_import_v7(&autosave_buf, raw, n))
+        return 2;
+    if (!flash_ok)
+        return 4;
+    if (s37_cat_ready) {
+        if (s37_catalog_store_section(slot, &autosave_buf))
+            return 4;
+        memcpy(&proj_slot[slot], &autosave_buf, sizeof proj_slot[slot]);
+        sec_dirty &= (uint8_t)~(1u << slot);
+    } else {
+        memcpy(&proj_slot[slot], &autosave_buf, sizeof proj_slot[slot]);
+        sec_dirty |= (uint8_t)(1u << slot);
+        if (s37_catalog_write_full())
+            return 4;
+        sec_dirty = 0u;
+    }
+    return 0;
+#else
     if (slot < 4u && !n) {
         if (!flash_ok || st_save(OBJ_PROJECT0 + slot, raw, 0))
             return 4;
@@ -1719,11 +1774,12 @@ UI_SMALL static uint32_t project_restore(uint32_t slot, const void *raw, uint32_
         project_apply(&autosave_buf);
         return 0;
     }
-    if (!flash_ok || st_save(OBJ_PROJECT0 + slot, &autosave_buf, sizeof autosave_buf))
+    if (slot >= 4u || !flash_ok || st_save(OBJ_PROJECT0 + slot, &autosave_buf, sizeof autosave_buf))
         return 4;
     memcpy(&proj_slot[slot], &autosave_buf, sizeof proj_slot[slot]);
     sec_dirty &= (uint8_t)~(1u << slot);
     return 0;
+#endif
 }
 #endif
 #if FELUCCA_ARRANGER
