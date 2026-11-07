@@ -38,6 +38,8 @@ mkdir -p build/gen
 [ build/gen/felucca_tables.h -nt tools/gen_tables.py ] || python3 tools/gen_tables.py build/gen/felucca_tables.h
 [ build/gen/felucca_fm6.h -nt tools/gen_fm6_patches.py ] || python3 tools/gen_fm6_patches.py build/gen/felucca_fm6.h
 
+run "DX7 ROM imports: 64 verified voices, SysEx checksums and packed patch records" python3 tests/dx7_rom_test.py
+
 $CC -o "$OUT/storage_test" tests/storage_test.c
 run "flash storage (A/B, torn writes)" "$OUT/storage_test"
 
