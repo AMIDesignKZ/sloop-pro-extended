@@ -27,13 +27,13 @@ SECTIONS
     .c1_text : { _c1_start = .; KEEP(*(.c1_text*)) . = ALIGN(4); _c1_end = .; } > RAMTEXT AT > XIP
     _c1_load = LOADADDR(.c1_text);
     _rt_end = _c1_end;                  /* the guard's RAM code window covers both (fm1_cpu1.h) */
-    /* the SRAM left below the RAM region: section(".lowram") buffers and the second core's stacks (fm1_cpu1.S
-     * .bss.c1stack), outside the guard's RAM code window; zeroed at boot as .pool is (main.c lowram_test) */
+    /* the SRAM left below the RAM region: section(".lowram") buffers, outside the
+     * guard's RAM code window; zeroed at boot as .pool is (main.c lowram_test) */
     .lowram (NOLOAD) : { . = ALIGN(8); _lr_start = .; *(.lowram*) . = ALIGN(4); _lr_end = .; } > RAMTEXT
     .data : { . = ALIGN(4); _data_start = .; *(.data*) *(.sdata*) . = ALIGN(4); _data_end = .; } > RAM AT > XIP
     _data_load = LOADADDR(.data);
     .bss (NOLOAD) : { _bss_start = .; *(.bss*) *(.sbss*) *(COMMON) . = ALIGN(4); _bss_end = .; } > RAM
-    .pool (NOLOAD) : { _pool_start = .; *(.pool*) *(.bss.c1stack) . = ALIGN(4); _pool_end = .; } > POOL
+    .pool (NOLOAD) : { _pool_start = .; *(.pool*) . = ALIGN(4); _pool_end = .; } > POOL
     /* (SLOOP 2.8.3) .noinit.c1bar (fm1_cpu1.h, one core until power-off) after the others: none of them moves */
     .noinit (NOLOAD) : { *(.noinit) *(.noinit.*) } > NOINIT
     _guard0 = 0x01C74000; _ustack_lo = 0x01C74100; _ustack_top = 0x01C7A000;
