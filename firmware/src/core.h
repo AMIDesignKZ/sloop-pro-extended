@@ -416,12 +416,8 @@ static inline int ms_pending(uint32_t *t)
 }
 /* Two early failed boots -> USB recovery; recovery reset -> mask-ROM UBOOT. */
 #include "bootguard.h"
-/* Mach-O (macOS host tests) requires a segment,section pair; the target linker
- * uses the dedicated .noinit region, while host tests need only ordinary storage. */
-#if defined(__APPLE__)
-bootguard_t bootguard;
-#else
-bootguard_t bootguard __attribute__((section(".noinit")));
-#endif
+/* Defined once by bootguard.c; keeping only a declaration here also allows
+ * the host regression suite to link multiple translation units. */
+extern bootguard_t bootguard;
 
 #endif /* SLOOP_CORE_H */
