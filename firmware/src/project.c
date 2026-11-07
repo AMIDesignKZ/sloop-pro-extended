@@ -160,11 +160,12 @@ UI_SMALL static void pt_set_mf(proj_trk_t *t, uint32_t i, int32_t micro, uint32_
  * leaves room for one cache below RAMTEXT (alongside the second-core stack);
  * the other seven live in the 96 KiB application RAM region. The catalogue
  * is persistent, so both regions are repopulated from flash at boot. */
-static project_t proj_slot_ram[7];
-static project_t proj_slot_low[1] __attribute__((section(".lowram")));
+static project_t proj_slot_ram[5];
+static project_t proj_slot_low[2] __attribute__((section(".lowram")));
+static project_t proj_slot_pool[1] __attribute__((section(".pool")));
 static project_t *const proj_slot[8] = {
     &proj_slot_ram[0], &proj_slot_ram[1], &proj_slot_ram[2], &proj_slot_ram[3],
-    &proj_slot_ram[4], &proj_slot_ram[5], &proj_slot_ram[6], &proj_slot_low[0]
+    &proj_slot_ram[4], &proj_slot_low[0], &proj_slot_low[1], &proj_slot_pool[0]
 };
 #else
 static project_t proj_slot_fm1[4] __attribute__((section(".noinit")));
@@ -179,7 +180,19 @@ static uint8_t s37_cat_ready, s37_migrate_pending, s37_cat_uncertain;
 static const sm_map_t s37_cat_map;
 static sm_state_t s37_cat_state;
 static s37_cat_header_t s37_cat_header;
-static project_v7_t s37_cat_scratch __attribute__((section(".noinit")));
+/* The migration/import buffer and catalogue scratch share one 5,366-byte
+ * no-init region. They are never live at the same time. */
+static union {
+    project_v7_t v7;
+    project_v6_legacy_t v6;
+    project_v5_t v5;
+    project_v4_t v4;
+    project_v3_t v3;
+    project_v2_t v2;
+    project_v1_t v1;
+} s37_scratch __attribute__((section(".noinit")));
+#define s37_cat_scratch s37_scratch.v7
+#define proj_tmp s37_scratch
 static s37_cat_overlay_t s37_cat_overlay;
 static s37_cat_image_t s37_cat_image;
 static const sm_io_t s37_cat_io;
@@ -742,6 +755,7 @@ static void proj_apply(const project_t *p, int all)
 static uint8_t sec_dirty, song_dirty;           /* live sections / the song: in RAM, not yet in flash */
 #if FELUCCA_FLASH
 /* Legacy one-sector objects remain readable until the first verified FUN7 catalogue commit. */
+#if !BOARD_SMK37
 static union {
     project_v6_legacy_t v6;
     project_v5_t v5;
@@ -750,11 +764,6 @@ static union {
     project_v2_t v2;
     project_v1_t v1;
 } proj_tmp;
-#if BOARD_SMK37
-/* Keep the raw legacy bytes in proj_tmp while converting into a separate FUN6 image.
- * FUN1-FUN5 converters clear their destination before reading the source, so aliasing
- * the input union with the output project corrupts those older formats. */
-static project_v6_legacy_t proj_import_stage;
 #endif
 UI_SMALL static void *up_stage(void) { return &proj_tmp; }   /* upreset.c: a user preset bank staged for a write */
 UI_SMALL static void proj_fetch(uint32_t slot)
@@ -769,8 +778,11 @@ UI_SMALL static void proj_fetch(uint32_t slot)
         return;
     }
     n = slot < 4u ? st_load(OBJ_PROJECT0 + slot, &proj_tmp, sizeof proj_tmp) : 0;
-    if (n <= 0 || !proj_import(&proj_import_stage, &proj_tmp, n) ||
-        !proj_v6_to_v7(q, &proj_import_stage, sizeof proj_import_stage, &loss, TP, ENGINES[ENGI_ANALOG]->edit))
+    /* Slot H is the temporary FUN6 conversion image while the four legacy
+     * objects are imported. It is empty on this pre-catalogue migration path. */
+    project_v6_legacy_t *stage = (project_v6_legacy_t *)proj_slot[7];
+    if (slot >= 4u || n <= 0 || !proj_import(stage, &proj_tmp, n) ||
+        !proj_v6_to_v7(q, stage, sizeof *stage, &loss, TP, ENGINES[ENGI_ANALOG]->edit))
         memset(q, 0, sizeof *q);
 #else
     project_t *q = proj_slot[slot & 3u];
@@ -789,9 +801,9 @@ static int proj_import_v7(project_t *out, const void *raw, uint32_t length)
         memcpy(out, raw, sizeof *out);
         return 1;
     }
-    if (!proj_import(&proj_import_stage, raw, (int)length))
+    if (!proj_import(&s37_scratch.v6, raw, (int)length))
         return 0;
-    return proj_v6_to_v7(out, &proj_import_stage, sizeof proj_import_stage, &lock_loss,
+    return proj_v6_to_v7(out, &s37_scratch.v6, sizeof s37_scratch.v6, &lock_loss,
                          TP, ENGINES[ENGI_ANALOG]->edit);
 }
 #endif
@@ -1214,8 +1226,9 @@ UI_SMALL static void autosave_resume(void)              /* power-on: restore the
         if (s37_cat_uncertain)
             return;
         n = st_load(OBJ_AUTOSAVE, &proj_tmp, sizeof proj_tmp);
-        if (n <= 0 || !proj_import(&proj_import_stage, &proj_tmp, n) ||
-            !proj_v6_to_v7(q, &proj_import_stage, sizeof proj_import_stage, 0, TP, ENGINES[ENGI_ANALOG]->edit))
+        project_v6_legacy_t *stage = (project_v6_legacy_t *)proj_slot[7];
+        if (n <= 0 || !proj_import(stage, &proj_tmp, n) ||
+            !proj_v6_to_v7(q, stage, sizeof *stage, 0, TP, ENGINES[ENGI_ANALOG]->edit))
             return;
         s37_migrate_pending = 1u;
     } else if (!project_valid(q)) {
