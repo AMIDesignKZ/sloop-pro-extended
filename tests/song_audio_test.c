@@ -59,8 +59,11 @@ int main(int argc, char **argv)
     arrangement.entry[0] = (arr_entry_t){0, 2};
     arrangement.entry[1] = (arr_entry_t){1, 2};
     arrangement_enabled = 1;
-    fprintf(stderr, "song_audio pre: valid=%d/%d/%d magic=%08x/%08x size=%u sum=%08x/%08x bars=%u/%u\\n",
+    fprintf(stderr, "song_audio pre: valid=%d/%d/%d ready=%u count=%u loop=%u entries=%u/%u,%u/%u magic=%08x/%08x size=%u sum=%08x/%08x bars=%u/%u\\n",
             project_valid(proj_slot[0]), project_valid(proj_slot[1]), project_valid(proj_slot[2]),
+            arrangement_ready(), arrangement.count, arrangement.loop,
+            arrangement.entry[0].scene, arrangement.entry[0].bars,
+            arrangement.entry[1].scene, arrangement.entry[1].bars,
             proj_slot[0]->magic, proj_slot[1]->magic, proj_slot[0]->size,
             proj_slot[0]->sum, proj_sum(proj_slot[0]), section_bars(0), section_bars(1));
     transport_req = 1;
