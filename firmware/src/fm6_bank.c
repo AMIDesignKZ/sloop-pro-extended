@@ -71,7 +71,7 @@ static void fm6_bank_changed(void)
 {
     uint32_t t;
     for (t = 0; t < NPART; t++)
-        if (fm6_slot[t] >= FM6_NFACTORY && fm6_slot[t] != 0xFFu)
+        if (fm6_slot[t] >= FM6_NATIVE_N && fm6_slot[t] < FM6_ROM_BASE && fm6_slot[t] != 0xFFu)
             fm6_slot[t] = 0xFFu;
 }
 
