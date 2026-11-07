@@ -2890,6 +2890,10 @@ static void song_restore(void);
 
 static void seq_start(void)
 {
+#if BOARD_SMK37
+    if (project_backup_stage_active())
+        return;
+#endif
 #if FELUCCA_ARRANGER
     if (arrangement_enabled && !song.playing) {
         rec_wait = 0;                              /* song mode plays, it does not record */
