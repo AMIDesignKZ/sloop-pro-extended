@@ -417,7 +417,7 @@ static inline int ms_pending(uint32_t *t)
 #if BOARD_SMK37
 /* Backup transfers borrow the working autosave image; keep autosave and song
  * snapshot users away from it until the transfer completes or times out. */
-project_t *project_backup_stage(void);
+void *project_backup_stage(void);
 void project_backup_stage_lock(void);
 void project_backup_stage_touch(void);
 void project_backup_stage_unlock(void);
