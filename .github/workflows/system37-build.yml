@@ -37,18 +37,17 @@ jobs:
       - name: Install JieLi toolchain
         run: sh tools/get_toolchain.sh "$HOME/.jieli"
 
-      - name: Fetch only the three pinned JieLi SDK package inputs
+      - name: Fetch and verify the three pinned JieLi SDK package inputs
         run: |
-          SDK="$HOME/fw-AC79_AIoT_SDK"
-          git clone --filter=blob:none --no-checkout --depth 1 \
-            --branch AC79NN_SDK_V1.2.1_2023-12-13 \
-            https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git "$SDK"
-          git -C "$SDK" sparse-checkout init --no-cone
-          git -C "$SDK" sparse-checkout set --no-cone \
-            /cpu/wl82/tools/uboot.boot \
-            /cpu/wl82/tools/cfg_tool.bin \
-            /cpu/wl82/tools/cfg/eq_cfg_hw.bin
-          git -C "$SDK" checkout
+          SDK="$HOME/fw-AC79_AIoT_SDK/cpu/wl82/tools"
+          mkdir -p "$SDK/cfg"
+          BASE="https://raw.githubusercontent.com/amitv87/fw-AC79_AIoT_SDK/release/AC79NN_SDK_V1.2.0/cpu/wl82/tools"
+          curl -fL --retry 2 --connect-timeout 10 --max-time 60 "$BASE/uboot.boot" -o "$SDK/uboot.boot"
+          curl -fL --retry 2 --connect-timeout 10 --max-time 60 "$BASE/cfg_tool.bin" -o "$SDK/cfg_tool.bin"
+          curl -fL --retry 2 --connect-timeout 10 --max-time 60 "$BASE/cfg/eq_cfg_hw.bin" -o "$SDK/cfg/eq_cfg_hw.bin"
+          echo "4e3b4c220dc96641cb5a723f41e68ce41d5261ae9434bb33fbd7f2c59976ded4  $SDK/uboot.boot" | sha256sum -c -
+          echo "276579954f076886a6a7694f65dc71c034a63a2c204b76749065c0ac7b010d1b  $SDK/cfg_tool.bin" | sha256sum -c -
+          echo "41167491bffed4651750719c973d2758adeb9021a5670d02d6a53c85ed80ea7d  $SDK/cfg/eq_cfg_hw.bin" | sha256sum -c -
 
       - name: Build System 37 SMK-37 Pro only
         run: |
