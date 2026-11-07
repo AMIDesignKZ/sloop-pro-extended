@@ -37,14 +37,18 @@ jobs:
       - name: Install JieLi toolchain
         run: sh tools/get_toolchain.sh "$HOME/.jieli"
 
-      - name: Fetch the three pinned JieLi SDK package inputs
+      - name: Fetch only the three pinned JieLi SDK package inputs
         run: |
-          SDK="$HOME/fw-AC79_AIoT_SDK/cpu/wl82/tools"
-          mkdir -p "$SDK/cfg"
-          BASE="https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK/raw/d179b4484759423312073f5fbb232501aa491047/cpu/wl82/tools"
-          curl -fL --retry 3 "$BASE/uboot.boot" -o "$SDK/uboot.boot"
-          curl -fL --retry 3 "$BASE/cfg_tool.bin" -o "$SDK/cfg_tool.bin"
-          curl -fL --retry 3 "$BASE/cfg/eq_cfg_hw.bin" -o "$SDK/cfg/eq_cfg_hw.bin"
+          SDK="$HOME/fw-AC79_AIoT_SDK"
+          git clone --filter=blob:none --no-checkout --depth 1 \
+            --branch AC79NN_SDK_V1.2.1_2023-12-13 \
+            https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git "$SDK"
+          git -C "$SDK" sparse-checkout init --no-cone
+          git -C "$SDK" sparse-checkout set --no-cone \
+            /cpu/wl82/tools/uboot.boot \
+            /cpu/wl82/tools/cfg_tool.bin \
+            /cpu/wl82/tools/cfg/eq_cfg_hw.bin
+          git -C "$SDK" checkout
 
       - name: Build System 37 SMK-37 Pro only
         run: |
