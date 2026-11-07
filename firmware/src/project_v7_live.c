@@ -9,7 +9,7 @@
 # if __has_include(<string.h>)
 #  include <string.h>
 # else
-extern void *memset(void *dst, int value, size_t length);
+extern void *memset(void *dst, int value, unsigned length);
 # endif
 #else
 extern void *memset(void *dst, int value, size_t length);
