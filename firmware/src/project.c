@@ -156,13 +156,15 @@ UI_SMALL static void pt_set_mf(proj_trk_t *t, uint32_t i, int32_t micro, uint32_
 }
 
 #if BOARD_SMK37
-/* Eight FUN7 caches are split across ordinary RAM and LOWRAM. The catalogue is
- * persistent; both regions are zeroed at boot and repopulated from flash. */
-static project_t proj_slot_ram[4];
-static project_t proj_slot_low[4] __attribute__((section(".lowram")));
+/* Eight FUN7 caches are split across ordinary RAM and LOWRAM. The linker
+ * leaves room for one cache below RAMTEXT (alongside the second-core stack);
+ * the other seven live in the 96 KiB application RAM region. The catalogue
+ * is persistent, so both regions are repopulated from flash at boot. */
+static project_t proj_slot_ram[7];
+static project_t proj_slot_low[1] __attribute__((section(".lowram")));
 static project_t *const proj_slot[8] = {
     &proj_slot_ram[0], &proj_slot_ram[1], &proj_slot_ram[2], &proj_slot_ram[3],
-    &proj_slot_low[0], &proj_slot_low[1], &proj_slot_low[2], &proj_slot_low[3]
+    &proj_slot_ram[4], &proj_slot_ram[5], &proj_slot_ram[6], &proj_slot_low[0]
 };
 #else
 static project_t proj_slot_fm1[4] __attribute__((section(".noinit")));
