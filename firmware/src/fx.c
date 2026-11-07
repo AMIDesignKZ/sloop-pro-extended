@@ -14,7 +14,7 @@ static const uint16_t REV_LINE[4] = {1559, 1931, 2389, 2791};   /* 35..63 ms, co
 static const uint16_t REV_AP[2] = {556, 441};
 static int16_t rev_line[1559 + 1931 + 2389 + 2791 + REV_MOD + 2] __attribute__((section(".lowram")));   /* (the pool is
                                                                       * full; .lowram: the SRAM below the RAM region, app.ld) */
-static int16_t rev_ap[556 + 441] __attribute__((section(".pool")));
+static int16_t rev_ap[556 + 441];
 static struct {
     uint32_t dly_w, cho_w, cho_ph, rev_ph;
     int32_t dly_lp;
@@ -676,7 +676,7 @@ static void mix_part_run(track_t *t, uint32_t n, mixacc_t *mx, int32_t *b);
  * The sound set aside per core, as part_buf is (a part may fade on each core at once) */
 static void mix_part(track_t *t, uint32_t n, mixacc_t *mx, int32_t *b)   /* into the set mx, through the scratch b */
 {
-    static int16_t pnew[2][P_COUNT];
+    static int16_t pnew[2][P_COUNT] __attribute__((section(".lowram")));
     int16_t *pn = pnew[mx != &acc[0]];
     if (!(t->pold && t->xf_on && t->xf)) {
         mix_part_run(t, n, mx, b);
