@@ -65,8 +65,8 @@ static void fm6_bank_scan(void)
 
 static void fm6_bank_boot(void) { fm6_bank_scan(); }   /* persist_boot */
 
-/* the parts on a bank slot hear the bank as it is now (fm6_poll reloads them); a factory patch, or the
- * track's own, stays */
+/* Only legacy PTCH values 8..34 address the writable bank. Native factory
+ * values 0..7 and DX7 ROM values 35..98 remain stable across bank edits. */
 static void fm6_bank_changed(void)
 {
     uint32_t t;
