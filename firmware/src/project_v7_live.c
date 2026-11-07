@@ -12,7 +12,7 @@
 extern void *memset(void *dst, int value, unsigned length);
 # endif
 #else
-extern void *memset(void *dst, int value, size_t length);
+extern void *memset(void *dst, int value, unsigned length);
 #endif
 
 static int ops_capture_valid(const s37_project_v7_live_ops_t *ops)
