@@ -4,6 +4,18 @@
 #include <stddef.h>
 #include "project_v7.h"
 
+#if defined(__has_include)
+# if __has_include(<string.h>)
+#  include <string.h>
+# else
+extern void *memcpy(void *dst, const void *src, unsigned length);
+extern void *memset(void *dst, int value, unsigned length);
+# endif
+#else
+extern void *memcpy(void *dst, const void *src, unsigned length);
+extern void *memset(void *dst, int value, unsigned length);
+#endif
+
 uint32_t proj_v7_hash(const void *data, uint32_t length)
 {
     const uint8_t *p = (const uint8_t *)data;
