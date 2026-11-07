@@ -74,7 +74,7 @@ static void song_restore(void)                 /* (audio ISR: seq_stop) */
         trk[i].arp_ch[0] = trk[i].arp_ch[1] = trk[i].arp_ch[2] = 0;
     }
     proj_apply(song_keep_ptr, 1);
-    song.sel = (uint8_t)(song_keep_ptr->sel < NTRK ? song_keep.sel : 0u);
+    song.sel = (uint8_t)(song_keep_ptr->sel < NTRK ? song_keep_ptr->sel : 0u);
     sync_reload = 1;
     ui.force = 1;
 }
