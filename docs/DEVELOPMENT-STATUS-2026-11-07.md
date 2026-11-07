@@ -138,3 +138,34 @@ No current post-audit build or test run has yet been observed. The previous succ
 4. Validate the generated site/emulator, then test section A–H store/load, 32-position arrangements, MIDI CH4/CH5 and backup/restore on the SMK-37 hardware.
 
 The CI workflow has been added on this development branch. It must produce a successful run before claiming the expanded firmware is build-verified. Do not flash the keyboard before those checks.
+
+
+## 8. Pro-only build and DX7 ROM integration — 7 November 2026
+
+The build workflow is intentionally scoped to **SMK-37 Pro only** while the first System 37 firmware is brought to a verified state. Elite, MKE and FM-1 reference builds are deferred until the Pro firmware is stable.
+
+### Build evidence
+
+- The Pro target build and package-generation step completed successfully in Actions run `42348468647` (commit `bade3bea`). This is a real post-expansion target build, not the older pre-expansion baseline.
+- The generated Pro image was 572,180 bytes; the `.fwsc` package was 651,224 bytes.
+- Package validation passed for the `SMK-37 Pro_900` identity, CRCs, stock flash-region layout and loader-compatible package structure.
+- Linker budget checks passed: application RAM 98,188 / 98,304 bytes; LOWRAM 28,384 / 29,240 bytes; POOL 335,340 / 344,064 bytes.
+- The host/sanitizer/target-budget/web suite did not pass on that run. The immediate compile failure was missing freestanding/host declarations for `memset` and `memcpy` in `section_catalog.c`. Conditional declarations matching the existing `storage_multi.c` approach were added in commit `db178128`; the next run is in progress.
+- A follow-up memory-layout review put the eighth section cache in NOINIT and restored a separate catalogue scratch union shared only with legacy-import staging. This is safer than borrowing a live section cache for validation. The change is in commit `3dfa7971`; its build and budget check must be observed before calling the revised layout verified.
+
+### DX7 factory ROM banks
+
+- Added the two user-supplied Yamaha DX7 32-voice SysEx banks as gzip-compressed source assets: `assets/dx7/rom1a.syx.gz` and `assets/dx7/rom1b.syx.gz`.
+- The build generator validates the 4,104-byte bulk-dump framing, seven-bit payload and Yamaha checksum before packing all 64 voices into the FM6-compatible 128-byte voice format.
+- FM6 now has 72 read-only factory voices: eight original System 37 sounds plus 32 voices from each DX7 ROM.
+- The existing 27 writable user-bank slots remain intact. Persistent PTCH values deliberately retain their legacy mapping: F1–F8 = 0–7, B1–B27 = 8–34, DX7 ROM voices = 35–98. The editor library displays factory sounds first and the writable bank after them.
+- `tests/dx7_rom_test.py` verifies both ROM dumps and the generated factory table. The ROMs are source inputs; the generated packed voice table is compiled into the firmware.
+- Supplied System 37 vector icon and wordmark are in `assets/system37/`. The PNG variants and splash image from the upload have been inspected but are not yet committed; only the SVG icon and logo are currently in the repository.
+
+### Immediate next steps
+
+1. Confirm the current Pro build succeeds with the revised NOINIT scratch allocation.
+2. Confirm the full host, sanitizer, target-budget and web suite passes; fix each real regression rather than weakening tests or changing budget baselines.
+3. Inspect the generated Pro artifact and factory patch labels, then test FM6 patch selection and both DX7 banks in the emulator.
+4. Only after those checks, prepare a controlled hardware test on the SMK-37 Pro. Do not flash while the complete suite is red.
+5. Update this document with exact run IDs, commit SHA, artifact name, and any remaining hardware-only checks. Keep Elite/MKE/FМ-1 outside the build matrix until Pro is signed off.
