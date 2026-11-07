@@ -18,7 +18,7 @@
  *   MEG   the modulators' envelope times: + slower (rates down to 40 steps), - faster
  *   VMOD  added to the modulators' velocity sensitivity (0..7)
  *   DTUN  spreads the carriers apart in pitch (up to about +-36 cents between the outer ones)
- *   PTCH  loads a patch: F1..F8 the factory patches, B1..B27 the patch bank (fm6_bank.c, flash)
+ *   PTCH  loads a patch: F1..F8, B1..B27 (legacy user-bank indices), R1-01..R2-32 (DX7 ROMs)
  * The operator envelopes are the voice's amplitude and end it (engine_t.ownenv / done): the track's ADSR and
  * ENV DEST do nothing here. The track's FLT moves MLVL (LFO -> FLT), SHP the feedback, PIT the pitch (glide,
  * tune: the voice's pitch and fine factor). Six voices per part at most (engine_t.poly).
@@ -36,8 +36,10 @@ typedef struct {                 /* a part's FM6 state: its engine arena (engine
     fm6_note_t note[FM6_POLY];
     int32_t bus[2][FM6_N];       /* fm6_core_render's modulator buses: the part's own, so parts render on both cores */
 } fm6_part_t;
-#define FM6_BANK_N 27u           /* patch bank slots (fm6_bank.c) */
-#define FM6_NSLOT (FM6_NFACTORY + FM6_BANK_N)   /* PTCH: 8 native + 64 DX7 factory voices, B1..B27 */
+#define FM6_NATIVE_N 8u          /* original System 37 factory patches */
+#define FM6_BANK_N 27u            /* legacy user-bank PTCH values 8..34 */
+#define FM6_ROM_BASE (FM6_NATIVE_N + FM6_BANK_N) /* PTCH values 35..98 */
+#define FM6_NSLOT (FM6_NFACTORY + FM6_BANK_N)    /* 72 factory + 27 writable bank slots */
 #define FM6_PACKED 128u
 
 static uint8_t fm6_patch[NPART][FP_SIZE + 1u];  /* the parts' patches (main loop writes, then fm6_pgen) */
@@ -160,13 +162,20 @@ static void fm6_set_patch(uint32_t tr, const uint8_t *v)
     fm6_pgen[tr]++;
 }
 
-/* PTCH value s -> its packed record (F1..F8; the bank, an empty slot: the init voice) */
+/* PTCH order is deliberately stable for old projects: F1..F8, B1..B27,
+ * then the two read-only DX7 ROMs. The FM6 editor library lists factory first. */
 static void fm6_slot_get(uint32_t s, uint8_t *pk)
 {
-    if (s < FM6_NFACTORY)
+    if (s < FM6_NATIVE_N) {
         memcpy(pk, FM6_FACTORY[s], FM6_PACKED);
-    else if (s >= FM6_NSLOT || !fm6_bank_read || fm6_bank_read(s - FM6_NFACTORY, pk))
+    } else if (s < FM6_ROM_BASE) {
+        if (!fm6_bank_read || fm6_bank_read(s - FM6_NATIVE_N, pk))
+            memcpy(pk, FM6_INIT, FM6_PACKED);
+    } else if (s < FM6_NSLOT) {
+        memcpy(pk, FM6_FACTORY[FM6_NATIVE_N + s - FM6_ROM_BASE], FM6_PACKED);
+    } else {
         memcpy(pk, FM6_INIT, FM6_PACKED);
+    }
 }
 
 static void fm6_load_slot(uint32_t tr, uint32_t s)
@@ -355,13 +364,19 @@ static void fm6_render(track_t *t, voice_t *v, int32_t *out, uint32_t len, const
 static const char *const N_FM6_ALG[] = {"PAT", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13",
                                         "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25",
                                         "26", "27", "28", "29", "30", "31", "32", 0};
-/* Factory labels are generated with the 8 native patches and two DX7 ROM banks.
- * The user-writable bank remains B1..B27 after the factory range. */
+/* PTCH labels follow the persistent project-value mapping, not FM6_LIST order. */
 static const char *const N_FM6_PATCH[] = {
-    FM6_FACTORY_NAMES
+    FM6_NATIVE_NAMES
     "B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9",
     "B10", "B11", "B12", "B13", "B14", "B15", "B16", "B17", "B18",
-    "B19", "B20", "B21", "B22", "B23", "B24", "B25", "B26", "B27", 0
+    "B19", "B20", "B21", "B22", "B23", "B24", "B25", "B26", "B27",
+    FM6_DX7_NAMES
+    0
+};
+static const char *const N_FM6_FACTORY[] = {
+    FM6_NATIVE_NAMES
+    FM6_DX7_NAMES
+    0
 };
 _Static_assert(NELEM(N_FM6_PATCH) == FM6_NSLOT + 1u, "a PTCH name per slot");
 
