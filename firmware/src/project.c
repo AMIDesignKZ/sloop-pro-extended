@@ -156,17 +156,17 @@ UI_SMALL static void pt_set_mf(proj_trk_t *t, uint32_t i, int32_t micro, uint32_
 }
 
 #if BOARD_SMK37
-/* Eight FUN7 caches are split across ordinary RAM, LOWRAM and POOL: five,
- * two and one respectively. The core-1 stack is also in POOL; the song-return
+/* Eight FUN7 caches are split across ordinary RAM, LOWRAM and NOINIT: five,
+ * two and one respectively. The core-1 stack is in POOL; the song-return
  * snapshot shares autosave_buf, and import scratch shares the no-init
  * catalogue scratch. The catalogue is persistent, so caches are repopulated
  * from flash at boot. */
 static project_t proj_slot_ram[5];
 static project_t proj_slot_low[2] __attribute__((section(".lowram")));
-static project_t proj_slot_pool[1] __attribute__((section(".pool")));
+static project_t proj_slot_noinit[1] __attribute__((section(".noinit")));
 static project_t *const proj_slot[8] = {
     &proj_slot_ram[0], &proj_slot_ram[1], &proj_slot_ram[2], &proj_slot_ram[3],
-    &proj_slot_ram[4], &proj_slot_low[0], &proj_slot_low[1], &proj_slot_pool[0]
+    &proj_slot_ram[4], &proj_slot_low[0], &proj_slot_low[1], &proj_slot_noinit[0]
 };
 #else
 static project_t proj_slot_fm1[4] __attribute__((section(".noinit")));
