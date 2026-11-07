@@ -87,6 +87,10 @@ int main(int argc, char **argv)
     if (f) fclose(f);
     fprintf(stderr, "song_audio post: playing=%u error=%u index=%u req=%u\\n",
             song.playing, arrangement_clock.error, arrangement_clock.index, transport_req);
+    fprintf(stderr, "song_audio start: enabled=%u ready=%u scene=%d count=%u entries=%u/%u,%u/%u\\n",
+            arrangement_debug_enabled, arrangement_debug_ready, arrangement_debug_scene,
+            arrangement.count, arrangement.entry[0].scene, arrangement.entry[0].bars,
+            arrangement.entry[1].scene, arrangement.entry[1].bars);
     fprintf(stderr, "song_audio metrics: active=0x%X simultaneous=%u energy=%llu\n",
             active_tracks, simultaneous, (unsigned long long)energy);
     assert(active_tracks == 15u && simultaneous > 100u && energy > 1000000u);
