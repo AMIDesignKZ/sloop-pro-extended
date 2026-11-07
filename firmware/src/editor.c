@@ -404,9 +404,8 @@ UI_SMALL static const param_desc_t *ed_desc(uint32_t scope, uint32_t id, int16_t
  * then writes it through the usual A/B commit: a cut-off restore never leaves half an object. */
 #if FELUCCA_FLASH
 #if BOARD_SMK37
-static uint8_t ed_bk_raw[sizeof(project_v7_t)] __attribute__((section(".noinit")));
-#define ED_BK_RAW ed_bk_raw
-#define ED_BK_RAW_SIZE sizeof ed_bk_raw
+#define ED_BK_RAW ((uint8_t *)project_backup_stage())
+#define ED_BK_RAW_SIZE sizeof(project_t)
 #else
 #define ED_BK_RAW ((uint8_t *)&proj_tmp)
 #define ED_BK_RAW_SIZE sizeof proj_tmp
@@ -604,9 +603,21 @@ UI_SMALL static int ed_backup(uint32_t cmd, const uint8_t *a, uint32_t na)   /* 
     uint32_t i, len, rc;
     const uint8_t *p;
     if (cmd == ED_BK_LIST) {
+#if BOARD_SMK37
+        project_backup_stage_unlock();
+#endif
         rc = !flash_ok ? 4u : 0u;
+#if BOARD_SMK37
+        if (!rc && ed_flash_busy())
+            rc = 3u;
+#endif
         if (!rc) {
-            proj_capture((project_t *)ED_BK_RAW);           /* the working project, as it is now */
+#if BOARD_SMK37
+            project_backup_stage_lock();
+            proj_capture(project_backup_stage());           /* snapshot in the shared working buffer */
+#else
+            proj_capture((project_t *)ED_BK_RAW);
+#endif
             persist_fill(&ed_bk_set);
             midi_part_fill(ed_bk_ml);
             ed_bk_valid = 1;
@@ -631,6 +642,14 @@ UI_SMALL static int ed_backup(uint32_t cmd, const uint8_t *a, uint32_t na)   /* 
         p = na >= 1u ? ed_bk_obj(a[0], &len) : 0;
         rc = na != 8u || !p || !count || count > 256u || off > len || count > len - off ? 1u
              : !ed_bk_valid || (a[0] == 0u && ed_bk_put) ? 5u : 0u;   /* 5: LIST first (the snapshot is gone) */
+#if BOARD_SMK37
+        if (!rc && a[0] == 0u) {
+            if (!project_backup_stage_active())
+                rc = 5u;
+            else
+                project_backup_stage_touch();
+        }
+#endif
         ed_b(na ? a[0] : 127u);
         ed_b(rc);
         ed_bk_u32(off);
@@ -638,6 +657,10 @@ UI_SMALL static int ed_backup(uint32_t cmd, const uint8_t *a, uint32_t na)   /* 
         ed_b(rc ? 0u : count >> 7);
         if (!rc)
             ed_pack7(p + off, count);
+#if BOARD_SMK37
+        if (!rc && a[0] == 0u && off + count == len)
+            project_backup_stage_unlock();
+#endif
         return 1;
     }
     if (cmd == ED_BK_PUT) {                               /* op, id, ... -> op, id, rc */
@@ -648,7 +671,10 @@ UI_SMALL static int ed_backup(uint32_t cmd, const uint8_t *a, uint32_t na)   /* 
         } else if (op == 0u && na == 12u && (id <= 11u || (BOARD_SMK37 && id >= 12u && id <= 15u))) {  /* begin: id, length (5), CRC-32 (5) */
             len = ed_bk_r32(a + 2);
             if (id >= 2u || len) {                        /* (the working project and the settings are never empty) */
-                if (len <= ED_BK_RAW_SIZE) {
+                if (len <= ED_BK_RAW_SIZE && !ed_flash_busy()) {
+#if BOARD_SMK37
+                    project_backup_stage_lock();
+#endif
                     ed_bk_put = 1;
                     ed_bk_valid = 0;                      /* (the staging RAM is the snapshot's) */
                     ed_bk_id = (uint8_t)id;
@@ -660,6 +686,12 @@ UI_SMALL static int ed_backup(uint32_t cmd, const uint8_t *a, uint32_t na)   /* 
                 }
             }
         } else if (!ed_bk_put || ed_bk_id != id || fm1_ms - ed_bk_ms > 15000u) {
+            if (ed_bk_put && fm1_ms - ed_bk_ms > 15000u) {
+                ed_bk_put = 0;
+#if BOARD_SMK37
+                project_backup_stage_unlock();
+#endif
+            }
             rc = 5;                                       /* no begin for this object (or too long ago) */
         } else if (op == 1u && na >= 9u && ed_bk_r32(a + 2) == ed_bk_pos) {   /* data: off (5), pack7 */
             uint32_t k = ed_unpack7(a + 7, na - 7u, ed_smp_buf, 256u);
@@ -667,17 +699,26 @@ UI_SMALL static int ed_backup(uint32_t cmd, const uint8_t *a, uint32_t na)   /* 
                 memcpy(ED_BK_RAW + ed_bk_pos, ed_smp_buf, k);
                 ed_bk_pos += k;
                 ed_bk_ms = fm1_ms;
+#if BOARD_SMK37
+                project_backup_stage_touch();
+#endif
                 rc = 0;
             }
         } else if (op == 2u && na == 2u) {                /* commit */
             rc = ed_bk_commit();
             ed_bk_put = 0;
+#if BOARD_SMK37
+            project_backup_stage_unlock();
+#endif
             if (!rc) {
                 sync_reload = 1;
                 ui.force = 1;
             }
         } else if (op == 3u && na == 2u) {                /* abort */
             ed_bk_put = 0;
+#if BOARD_SMK37
+            project_backup_stage_unlock();
+#endif
             rc = 0;
         }
         ed_b(op & 127u);
