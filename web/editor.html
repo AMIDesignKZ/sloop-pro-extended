@@ -9858,6 +9858,7 @@ const fm6PtchName = (i) => {
   const n = i - 35;
   return (n < 32 ? "R1-" : "R2-") + String((n % 32) + 1).padStart(2, "0");
 };
+const fm6LibraryIndexFromPtch = (i) => i < 8 ? i : i < 35 ? 72 + i - 8 : 8 + i - 35;
 const FM6_WAVES = ["TRI", "SAW-", "SAW+", "SQR", "SIN", "S&H"];
 const FM6_CURVES = ["-LIN", "-EXP", "+EXP", "+LIN"];
 /* the names the device shows for ALG (PAT, 1..32) and PTCH (F1..F8, B1..B27, R1-01..R2-32): DESC sends none for F_INT */
@@ -10000,7 +10001,9 @@ function renderFm6Slots() {
     const x = dev.fm6.slots[i];
     return el("option", { value: i, text: `${fm6SlotName(i)} ${x && x.used ? x.name : t("empty")}` });
   }));
-  ss.value = keep !== "" && +keep < n ? keep : String(dev.dump ? Math.min(n - 1, dev.dump.p[dev.info.pe0 + 7] | 0) : 0);
+  const ptch = dev.dump ? (dev.dump.p[dev.info.pe0 + 7] | 0) : 0;
+  const current = Math.min(n - 1, fm6LibraryIndexFromPtch(ptch));
+  ss.value = keep !== "" && +keep < n ? keep : String(current);
 }
 function renderFm6() { renderFm6Voice(); renderFm6Ops(); renderFm6Imported(); }
 async function fm6Refresh(d = dev) {
