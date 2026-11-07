@@ -6,6 +6,11 @@
 #include <stddef.h>
 #include "storage_multi.h"
 
+/* The JieLi target libc does not ship string.h in its freestanding headers;
+ * these standard-library entry points are provided by the linked runtime. */
+extern void *memset(void *dst, int value, size_t length);
+extern int memcmp(const void *lhs, const void *rhs, size_t length);
+
 static uint32_t sm_crc_update(uint32_t crc, const uint8_t *p, uint32_t n)
 {
     uint32_t i;
