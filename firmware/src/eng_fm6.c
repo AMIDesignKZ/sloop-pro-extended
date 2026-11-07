@@ -36,10 +36,10 @@ typedef struct {                 /* a part's FM6 state: its engine arena (engine
     fm6_note_t note[FM6_POLY];
     int32_t bus[2][FM6_N];       /* fm6_core_render's modulator buses: the part's own, so parts render on both cores */
 } fm6_part_t;
-#define FM6_NATIVE_N 8u          /* original System 37 factory patches */
-#define FM6_BANK_N 27u            /* legacy user-bank PTCH values 8..34 */
+#define FM6_NATIVE_N 8u           /* original System 37 factory patches */
+#define FM6_BANK_N 27u             /* legacy user-bank PTCH values 8..34 */
 #define FM6_ROM_BASE (FM6_NATIVE_N + FM6_BANK_N) /* PTCH values 35..98 */
-#define FM6_NSLOT (FM6_NFACTORY + FM6_BANK_N)    /* 72 factory + 27 writable bank slots */
+#define FM6_NSLOT (FM6_NFACTORY + FM6_BANK_N)    /* 72 library factory + 27 bank slots */
 #define FM6_PACKED 128u
 
 static uint8_t fm6_patch[NPART][FP_SIZE + 1u];  /* the parts' patches (main loop writes, then fm6_pgen) */
@@ -370,6 +370,11 @@ static const char *const N_FM6_PATCH[] = {
     "B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9",
     "B10", "B11", "B12", "B13", "B14", "B15", "B16", "B17", "B18",
     "B19", "B20", "B21", "B22", "B23", "B24", "B25", "B26", "B27",
+    FM6_DX7_NAMES
+    0
+};
+static const char *const N_FM6_FACTORY[] = {
+    FM6_NATIVE_NAMES
     FM6_DX7_NAMES
     0
 };
