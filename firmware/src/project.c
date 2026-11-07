@@ -201,7 +201,7 @@ static project_t autosave_buf __attribute__((section(".pool")));
 #if BOARD_SMK37
 static uint8_t backup_stage_locked;
 static uint32_t backup_stage_ms;
-project_t *project_backup_stage(void) { return &autosave_buf; }
+void *project_backup_stage(void) { return &autosave_buf; }
 void project_backup_stage_lock(void) { backup_stage_locked = 1u; backup_stage_ms = fm1_ms; }
 void project_backup_stage_touch(void) { if (backup_stage_locked) backup_stage_ms = fm1_ms; }
 void project_backup_stage_unlock(void) { backup_stage_locked = 0u; }
