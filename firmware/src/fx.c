@@ -336,7 +336,7 @@ typedef struct { int32_t l[CTL], r[CTL], sc[CTL], sd[CTL], sr[CTL]; } mixacc_t; 
 static mixacc_t acc[2] __attribute__((section(".lowram")));          /* core 0's, core 1's (.lowram: app.ld, main.c) */
 static int32_t wet_l[CTL], wet_r[CTL];
 static int32_t part_buf[2][CTL];   /* a part's scratch, one per core (ordinary RAM) */
-static int32_t drum_buf[4][CTL] __attribute__((section(".lowram")));   /* the drums through the drum track's FILTER: L, R,
+static int32_t drum_buf[4][CTL];   /* ordinary-RAM scratch for the drum track's FILTER: L, R,
                                                                         * reverb, delay */
 
 /* ---- mute / solo: a track that goes silent fades out over ~6 ms (and back in) */
