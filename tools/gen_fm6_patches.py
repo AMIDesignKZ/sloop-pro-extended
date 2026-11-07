@@ -172,7 +172,7 @@ def main(path):
          "#define FM6_FACTORY_NAMES \\"]
     for i, (name, _) in enumerate(voices):
         suffix = " \\" if i + 1 < len(voices) else ""
-        L.append("    " + c_string(name) + ("," if i + 1 < len(voices) else "") + suffix)
+        L.append("    " + c_string(name) + "," + suffix)
     L += ["static const uint8_t FM6_INIT[128] = {", c_rows(pack(INIT)), "};",
           f"static const uint8_t FM6_FACTORY[{len(voices)}][128] = {{"]
     for name, record in voices:
