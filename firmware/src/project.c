@@ -25,9 +25,11 @@
 #define UI_SMALL
 #endif
 #include "project_v7.h"                 /* frozen FUN6 wire layout and isolated FUN7 format */
+#if BOARD_SMK37
 #include "project_v7_live.h"
 #include "section_catalog.h"
 #include "storage_multi.h"
+#endif
 
 #define PROJ_MAGIC PROJ_V6_MAGIC                 /* "FUN6": frozen legacy project image */
 #define PROJ_MAGIC_V5 0x46554E35u              /* "FUN5": format 4 + per-step nudge, parameter locks, fill conditions (SLOOP 2.4) */
