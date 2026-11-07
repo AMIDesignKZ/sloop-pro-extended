@@ -37,7 +37,7 @@ typedef struct {                 /* a part's FM6 state: its engine arena (engine
     int32_t bus[2][FM6_N];       /* fm6_core_render's modulator buses: the part's own, so parts render on both cores */
 } fm6_part_t;
 #define FM6_BANK_N 27u           /* patch bank slots (fm6_bank.c) */
-#define FM6_NSLOT (FM6_NFACTORY + FM6_BANK_N)   /* PTCH: F1..F8, B1..B27 */
+#define FM6_NSLOT (FM6_NFACTORY + FM6_BANK_N)   /* PTCH: 8 native + 64 DX7 factory voices, B1..B27 */
 #define FM6_PACKED 128u
 
 static uint8_t fm6_patch[NPART][FP_SIZE + 1u];  /* the parts' patches (main loop writes, then fm6_pgen) */
@@ -355,10 +355,14 @@ static void fm6_render(track_t *t, voice_t *v, int32_t *out, uint32_t len, const
 static const char *const N_FM6_ALG[] = {"PAT", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13",
                                         "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25",
                                         "26", "27", "28", "29", "30", "31", "32", 0};
-static const char *const N_FM6_PATCH[] = {"F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "B1", "B2", "B3", "B4",
-                                          "B5", "B6", "B7", "B8", "B9", "B10", "B11", "B12", "B13", "B14", "B15",
-                                          "B16", "B17", "B18", "B19", "B20", "B21", "B22", "B23", "B24", "B25",
-                                          "B26", "B27", 0};
+/* Factory labels are generated with the 8 native patches and two DX7 ROM banks.
+ * The user-writable bank remains B1..B27 after the factory range. */
+static const char *const N_FM6_PATCH[] = {
+    FM6_FACTORY_NAMES
+    "B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9",
+    "B10", "B11", "B12", "B13", "B14", "B15", "B16", "B17", "B18",
+    "B19", "B20", "B21", "B22", "B23", "B24", "B25", "B26", "B27", 0
+};
 _Static_assert(NELEM(N_FM6_PATCH) == FM6_NSLOT + 1u, "a PTCH name per slot");
 
 /* {ALG, FB, MLVL, MRAT, MEG, VMOD, DTUN, PTCH}: the factory patch F1..F8 as it is, DTUN on the pad. The ADSR
