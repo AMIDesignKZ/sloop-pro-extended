@@ -395,6 +395,12 @@ Felucca 1.0's numbers (68–71) so the two editors stay close; firmware `editor_
 - A device that does not know these commands (v8 and older) sends no reply: use `INFO`'s version byte (the editor hides
   its FM6 panel).
 
+### System 37 FM6 factory extension
+
+On System 37, command 70 reports **72 factory voices** (the eight native System 37 sounds followed by 32 voices from DX7 ROM 1A and 32 from ROM 1B) and **27 writable bank slots**. The factory-first library order is F1..F8, R1-01..R1-32, R2-01..R2-32, then B1..B27.
+
+The project's persisted PTCH values deliberately keep their legacy order: 0..7 are F1..F8, 8..34 are the existing writable B1..B27 slots, and 35..98 are the two read-only DX7 ROM banks. This keeps existing project references to B1..B27 intact. FM6_GET target 2 addresses the factory-first library index (0..71); target 1 still addresses a writable bank index (0..26).
+
 ## v10: the SYN drum kits (SLOOP 2.5)
 
 `INFO` ends with 10. The drum track's kits end with **SYN1..SYN4** (drums.c `DRUM_SYN`): synthesised kits of the user's,
