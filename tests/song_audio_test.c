@@ -78,6 +78,8 @@ int main(int argc, char **argv)
         }
     }
     if (f) fclose(f);
+    fprintf(stderr, "song_audio metrics: active=0x%X simultaneous=%u energy=%llu\n",
+            active_tracks, simultaneous, (unsigned long long)energy);
     assert(active_tracks == 15u && simultaneous > 100u && energy > 1000000u);
     assert(at_change >= FS*4u && at_change < FS*4u + CTL);
     assert(at_stop >= FS*8u && at_stop < FS*8u + CTL);
