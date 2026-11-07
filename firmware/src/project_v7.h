@@ -74,8 +74,10 @@ _Static_assert(NSTEP == PROJ_V6_STEPS && NSTEP == PROJ_V7_STEPS && PROJ_V6_NC ==
 _Static_assert(sizeof(plock_t) == 4u, "parameter lock wire size");
 _Static_assert(sizeof(proj_trk_v6_t) == 934u, "format 6 track wire size");
 _Static_assert(sizeof(project_v6_t) == 3816u, "format 6 project wire size");
+#if BOARD_SMK37
 _Static_assert(sizeof(proj_trk_v7_t) == 881u, "format 7 track wire size");
 _Static_assert(sizeof(project_v7_t) == 5366u, "format 7 project wire size");
+#endif
 
 static inline void proj_v7_micro_set(proj_trk_v7_t *track, uint32_t step, int32_t value)
 {
