@@ -69,9 +69,7 @@ jobs:
           name: system37-build-${{ github.sha }}
           if-no-files-found: warn
           path: |
-            build/release/system37.fwsc
-            build/release/system37-elite.fwsc
-            build/release/system37-mke.fwsc
-            build/release/SHA256SUMS.txt
-            build/system37-site/
+            build/system37.fwsc
             build/felucca.fwsc
+            build/gen/felucca_fm6.h
+            build/system37-site/
