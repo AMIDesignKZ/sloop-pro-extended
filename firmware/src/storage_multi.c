@@ -6,10 +6,19 @@
 #include <stddef.h>
 #include "storage_multi.h"
 
-/* The JieLi target libc does not ship string.h in its freestanding headers;
- * these standard-library entry points are provided by the linked runtime. */
-extern void *memset(void *dst, int value, size_t length);
-extern int memcmp(const void *lhs, const void *rhs, size_t length);
+/* The target's freestanding headers omit string.h; libc.c supplies these
+ * routines there. Host regression builds use the system declarations. */
+#if defined(__has_include)
+# if __has_include(<string.h>)
+#  include <string.h>
+# else
+extern void *memset(void *dst, int value, unsigned length);
+extern int memcmp(const void *lhs, const void *rhs, unsigned length);
+# endif
+#else
+extern void *memset(void *dst, int value, unsigned length);
+extern int memcmp(const void *lhs, const void *rhs, unsigned length);
+#endif
 
 static uint32_t sm_crc_update(uint32_t crc, const uint8_t *p, uint32_t n)
 {
