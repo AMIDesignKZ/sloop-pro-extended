@@ -378,11 +378,6 @@ static const char *const N_FM6_FACTORY[] = {
     FM6_DX7_NAMES
     0
 };
-static const char *const N_FM6_FACTORY[] = {
-    FM6_NATIVE_NAMES
-    FM6_DX7_NAMES
-    0
-};
 _Static_assert(NELEM(N_FM6_PATCH) == FM6_NSLOT + 1u, "a PTCH name per slot");
 
 /* {ALG, FB, MLVL, MRAT, MEG, VMOD, DTUN, PTCH}: the factory patch F1..F8 as it is, DTUN on the pad. The ADSR
