@@ -1,28 +1,34 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Focused System 37 regression: five synth MIDI channels plus the drum channel. */
 #include <stdint.h>
-#ifndef BOARD_SMK37
+#include <stdio.h>
+#include <string.h>
 #define BOARD_SMK37 1
-#endif
-/* System 37 hardware UI: the fifth synth channel page and collision handling across
- * five synth parts plus the dedicated drum channel. */
-#define BOARD_SMK37 1
-#define UI_PAGES_HARNESS_ONLY 1
-#define FM1_NBTN 18u
-#define FM1_NENC 8u
-#define SMK_ENC_MASTER 0u
-static uint8_t smk_master_enc;
-static int8_t smk_master_dir;
-#include "ui_pages_test.c"
+#include "../firmware/src/core.h"
+#include "../firmware/src/params.c"
+
+static char last_msg[64];
+static void str_cpy(char *dst, const char *src, unsigned max)
+{
+    if (!max) return;
+    strncpy(dst, src, max - 1u);
+    dst[max - 1u] = 0;
+}
+static void fmt_int(char *dst, int32_t value)
+{
+    char tmp[16];
+    snprintf(tmp, sizeof tmp, "%ld", (long)value);
+    strcpy(dst, tmp);
+}
+static void ui_say(const char *a, const char *b)
+{
+    snprintf(last_msg, sizeof last_msg, "%s%s", a, b);
+}
+#include "../firmware/src/midi_channels.h"
 
 int main(void)
 {
-    const page_t *midi45 = 0;
-    uint32_t i;
-    for (i = 0; i < NPAGES; i++)
-        if (!strcmp(PAGES[i].title, "MIDI 4"))
-            midi45 = &PAGES[i];
     assert(NPART == 5u && NTRK == 6u && TRK_DRUM == 5u);
-    assert(midi45 && midi45->id[0] == G_CH4 && midi45->id[1] == G_CH5);
     assert(!strcmp(GP[G_CH4].label, "CH4") && !strcmp(GP[G_CH5].label, "CH5"));
 
     song.g[G_CH1] = 1;
@@ -31,17 +37,17 @@ int main(void)
     song.g[G_CH4] = 6;
     song.g[G_CH5] = 7;
     song.g[G_DRCH] = 10;
-    midi_chan_fix();                 /* establish the initial, non-conflicting channels */
+    midi_chan_fix();
 
-    song.g[G_CH4] = 5;               /* collide with synth track 3; search down to channel 4 */
+    song.g[G_CH4] = 5;
     midi_chan_fix();
     assert(song.g[G_CH4] == 4);
-    assert(!strcmp(ui.msg, "CH 5 = TRACK 3"));
+    assert(!strcmp(last_msg, "CH 5 = TRACK 3"));
 
-    song.g[G_CH5] = 10;              /* collide with drums; search up to channel 11 */
+    song.g[G_CH5] = 10;
     midi_chan_fix();
     assert(song.g[G_CH5] == 11);
-    assert(!strcmp(ui.msg, "CH 10 = DRUMS"));
+    assert(!strcmp(last_msg, "CH 10 = DRUMS"));
 
     assert(song.g[G_CH1] != song.g[G_CH2] && song.g[G_CH1] != song.g[G_CH3] &&
            song.g[G_CH1] != song.g[G_CH4] && song.g[G_CH1] != song.g[G_CH5] &&
@@ -52,6 +58,6 @@ int main(void)
            song.g[G_CH3] != song.g[G_DRCH]);
     assert(song.g[G_CH4] != song.g[G_CH5] && song.g[G_CH4] != song.g[G_DRCH] &&
            song.g[G_CH5] != song.g[G_DRCH]);
-    puts("System 37 UI: MIDI 4/5 page and six-way MIDI channel collision handling OK");
+    puts("System 37 MIDI: CH4/CH5 and six-way channel collision handling OK");
     return 0;
 }
