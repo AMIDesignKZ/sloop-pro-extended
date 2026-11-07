@@ -198,6 +198,24 @@ static s37_cat_overlay_t s37_cat_overlay;
 static s37_cat_image_t s37_cat_image;
 static const sm_io_t s37_cat_io;
 static project_t autosave_buf __attribute__((section(".pool")));
+#if BOARD_SMK37
+static uint8_t backup_stage_locked;
+static uint32_t backup_stage_ms;
+project_t *project_backup_stage(void) { return &autosave_buf; }
+void project_backup_stage_lock(void) { backup_stage_locked = 1u; backup_stage_ms = fm1_ms; }
+void project_backup_stage_touch(void) { if (backup_stage_locked) backup_stage_ms = fm1_ms; }
+void project_backup_stage_unlock(void) { backup_stage_locked = 0u; }
+int project_backup_stage_active(void)
+{
+    if (!backup_stage_locked)
+        return 0;
+    if ((uint32_t)(fm1_ms - backup_stage_ms) > 120000u) {
+        backup_stage_locked = 0u;
+        return 0;
+    }
+    return 1;
+}
+#endif
 static void s37_catalog_boot(void);
 static int s37_catalog_load_section(uint32_t slot, project_t *p);
 #endif
@@ -1188,6 +1206,10 @@ UI_SMALL static int audio_quiet(void)
 UI_SMALL static void autosave_tick(void)                /* main loop */
 {
 #if FELUCCA_FLASH
+#if BOARD_SMK37
+    if (project_backup_stage_active())
+        return;
+#endif
     uint32_t h, now = fm1_ms;
     if (!flash_ok || song.playing || transport_req || rec_wait || ft_on || ui.menu ||
         now - ui_input_ms < AUTOSAVE_IDLE || now - autosave_ms < AUTOSAVE_GAP || now - autosave_checked < 1000u)
