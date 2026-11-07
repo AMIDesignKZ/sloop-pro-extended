@@ -156,10 +156,11 @@ UI_SMALL static void pt_set_mf(proj_trk_t *t, uint32_t i, int32_t micro, uint32_
 }
 
 #if BOARD_SMK37
-/* Eight FUN7 caches are split across ordinary RAM and LOWRAM. The linker
- * leaves room for one cache below RAMTEXT (alongside the second-core stack);
- * the other seven live in the 96 KiB application RAM region. The catalogue
- * is persistent, so both regions are repopulated from flash at boot. */
+/* Eight FUN7 caches are split across ordinary RAM, LOWRAM and POOL: five,
+ * two and one respectively. The core-1 stack is also in POOL; the song-return
+ * snapshot shares autosave_buf, and import scratch shares the no-init
+ * catalogue scratch. The catalogue is persistent, so caches are repopulated
+ * from flash at boot. */
 static project_t proj_slot_ram[5];
 static project_t proj_slot_low[2] __attribute__((section(".lowram")));
 static project_t proj_slot_pool[1] __attribute__((section(".pool")));
