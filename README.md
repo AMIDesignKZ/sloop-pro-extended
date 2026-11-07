@@ -1,4 +1,4 @@
-<p align="center"><img src="assets/logo/sloop-logo.png" alt="SLOOP" width="420"></p>
+<p align="center"><img src="assets/logo/system37-logo.png" alt="SYSTEM#&" width="420"></p>
 
 <p align="center"><b>System 37 — the SLOOP groovebox on the M-VAVE SMK-37.</b><br>
 Free and open source (GPL-3.0). SLOOP by isod89, based on <a href="https://github.com/hugelton/Felucca">Felucca</a> by
@@ -17,8 +17,8 @@ Everyone who made it possible: <a href="CREDITS.md">CREDITS.md</a>.</p>
 
 ---
 
-SLOOP turns the keyboard into a four-track groovebox you play live: **three synths and a drum machine**, twelve
-synthesis engines, 153 sounds, 37 drum kits, your own samples, a song mode you play with your hands, 27 punch-in
+System37 turns the keyboard into a SIX-track groovebox you play live: **FIVE synths and a drum machine**, TWO
+synthesis engines; FM6 and Analog, Room for 128 DX six patches (you upload in the web app), 37 drum kits, your own samples, a song mode you play with your hands 6 tracks and 8 patterns, 27 punch-in
 effects, a piano-roll note editor, parameter locks, micro timing and fills. **System 37** is that firmware on the
 M-VAVE SMK-37 — with what the bigger keyboard brings:
 
