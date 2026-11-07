@@ -1,6 +1,19 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* System 37: six-track FUN7 live-project adapter. */
 #include "project_v7_live.h"
+#include <stddef.h>
+
+/* The JieLi target libc headers omit string.h; host builds use the system
+ * declaration, while the target resolves this to its freestanding libc. */
+#if defined(__has_include)
+# if __has_include(<string.h>)
+#  include <string.h>
+# else
+extern void *memset(void *dst, int value, size_t length);
+# endif
+#else
+extern void *memset(void *dst, int value, size_t length);
+#endif
 
 static int ops_capture_valid(const s37_project_v7_live_ops_t *ops)
 {
