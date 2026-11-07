@@ -2,6 +2,7 @@
 /* Focused System 37 regression: five synth MIDI channels plus the drum channel. */
 #include <stdint.h>
 #include <stdio.h>
+#include <assert.h>
 #include <string.h>
 #define BOARD_SMK37 1
 #include "../firmware/src/core.h"
