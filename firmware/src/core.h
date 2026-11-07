@@ -414,6 +414,16 @@ static inline int ms_pending(uint32_t *t)
         *t = 0;
     return *t != 0u;
 }
+#if BOARD_SMK37
+/* Backup transfers borrow the working autosave image; keep autosave and song
+ * snapshot users away from it until the transfer completes or times out. */
+project_t *project_backup_stage(void);
+void project_backup_stage_lock(void);
+void project_backup_stage_touch(void);
+void project_backup_stage_unlock(void);
+int project_backup_stage_active(void);
+#endif
+
 /* Two early failed boots -> USB recovery; recovery reset -> mask-ROM UBOOT. */
 #include "bootguard.h"
 /* Defined once by bootguard.c; keeping only a declaration here also allows
