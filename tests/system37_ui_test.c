@@ -1,4 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+#include <stdint.h>
+#ifndef BOARD_SMK37
+#define BOARD_SMK37 1
+#endif
 /* System 37 hardware UI: the fifth synth channel page and collision handling across
  * five synth parts plus the dedicated drum channel. */
 #define BOARD_SMK37 1
