@@ -333,7 +333,7 @@ static void fx_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_t
  * (tests/regress.c gives the golden hashes under every mode of the host double: tests/cpu1_modes.sh). */
 static void events_block(uint32_t n);                    /* seq.c */
 typedef struct { int32_t l[CTL], r[CTL], sc[CTL], sd[CTL], sr[CTL]; } mixacc_t;   /* dry L, R; chorus, delay, reverb sends */
-static mixacc_t acc[2] __attribute__((section(".lowram")));          /* core 0's, core 1's (.lowram: app.ld, main.c) */
+static mixacc_t acc[2];          /* core 0's, core 1's (.lowram: app.ld, main.c) */
 static int32_t wet_l[CTL], wet_r[CTL];
 static int32_t part_buf[2][CTL];   /* a part's scratch, one per core (ordinary RAM) */
 static int32_t drum_buf[4][CTL];   /* ordinary-RAM scratch for the drum track's FILTER: L, R,
