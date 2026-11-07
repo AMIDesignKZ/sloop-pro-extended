@@ -9844,15 +9844,28 @@ const fm6Eng = () => (dev && dev.info ? dev.info.engines.indexOf("FM6") : -1);
 const fm6Ok = () => !!dev && !!dev.info && dev.info.proto >= 9 && !!dev.fm6 && fm6Eng() >= 0;
 const fm6On = () => fm6Ok() && !!dev.dump && dev.dump.engine === fm6Eng();   /* the selected track plays FM6 */
 const fm6Track = () => (dev && dev.sel != null ? dev.sel : 0);
-const fm6SlotName = (i) => (i < dev.fm6.factory ? "F" : "B") + (i < dev.fm6.factory ? i + 1 : i - dev.fm6.factory + 1);
+/* FM6_LIST is factory-first (native, ROM 1A, ROM 1B), then the writable bank. */
+const fm6SlotName = (i) => {
+  if (i < 8) return "F" + (i + 1);
+  if (i < 40) return "R1-" + String(i - 7).padStart(2, "0");
+  if (i < 72) return "R2-" + String(i - 39).padStart(2, "0");
+  return "B" + (i - 71);
+};
+/* PTCH project values retain the original order: native, writable bank, ROM banks. */
+const fm6PtchName = (i) => {
+  if (i < 8) return "F" + (i + 1);
+  if (i < 35) return "B" + (i - 7);
+  const n = i - 35;
+  return (n < 32 ? "R1-" : "R2-") + String((n % 32) + 1).padStart(2, "0");
+};
 const FM6_WAVES = ["TRI", "SAW-", "SAW+", "SQR", "SIN", "S&H"];
 const FM6_CURVES = ["-LIN", "-EXP", "+EXP", "+LIN"];
-/* the names the device shows for ALG (PAT, 1..32) and PTCH (F1..F8, B1..B27): DESC sends none for F_INT */
+/* the names the device shows for ALG (PAT, 1..32) and PTCH (F1..F8, B1..B27, R1-01..R2-32): DESC sends none for F_INT */
 function fm6Names(d = dev) {
   if (!d || !d.pdesc || !d.info || !d.dump || d.dump.engine !== (d.info.engines || []).indexOf("FM6") || !d.fm6) return;
   const pe0 = d.info.pe0, alg = d.pdesc[pe0], ptch = d.pdesc[pe0 + 7];
   if (alg && alg.label === "ALG" && alg.fmt === F.INT) alg.names = ["PAT", ...Array.from({ length: 32 }, (_, k) => String(k + 1))];
-  if (ptch && ptch.label === "PTCH" && ptch.fmt === F.INT) ptch.names = Array.from({ length: d.fm6.factory + d.fm6.bank }, (_, i) => fm6SlotName(i));
+  if (ptch && ptch.label === "PTCH" && ptch.fmt === F.INT) ptch.names = Array.from({ length: d.fm6.factory + d.fm6.bank }, (_, i) => fm6PtchName(i));
 }
 function fm6Show() {
   const on = fm6On();
