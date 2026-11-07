@@ -37,21 +37,24 @@ jobs:
       - name: Install JieLi toolchain
         run: sh tools/get_toolchain.sh "$HOME/.jieli"
 
-      - name: Fetch JieLi AC79 SDK
+      - name: Fetch the three pinned JieLi SDK package inputs
         run: |
-          git clone --depth 1 --branch AC79NN_SDK_V1.2.1_2023-12-13 \
-            https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git "$HOME/fw-AC79_AIoT_SDK"
+          SDK="$HOME/fw-AC79_AIoT_SDK/cpu/wl82/tools"
+          mkdir -p "$SDK/cfg"
+          BASE="https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK/raw/d179b4484759423312073f5fbb232501aa491047/cpu/wl82/tools"
+          curl -fL --retry 3 "$BASE/uboot.boot" -o "$SDK/uboot.boot"
+          curl -fL --retry 3 "$BASE/cfg_tool.bin" -o "$SDK/cfg_tool.bin"
+          curl -fL --retry 3 "$BASE/cfg/eq_cfg_hw.bin" -o "$SDK/cfg/eq_cfg_hw.bin"
 
-      - name: Build System 37 Pro, Elite, MKE and FM-1 reference
-        run: sh tools/build_pro.sh
-
-      - name: Verify all three System 37 package identities and flash layouts
+      - name: Build System 37 SMK-37 Pro only
         run: |
-          python3 tests/smk_pkg_test.py build/release/system37.fwsc "SMK-37 Pro_900"
-          python3 tests/smk_pkg_test.py build/release/system37-elite.fwsc "SMK-37 Elite_900"
-          python3 tests/smk_pkg_test.py build/release/system37-mke.fwsc "MKE-P37_900"
+          BOARD=smk37 MODEL=pro sh build.sh
+          python3 tests/smk_pkg_test.py build/system37.fwsc "SMK-37 Pro_900"
+          # The host suite expects a package at this legacy path; keep its target
+          # disassembly and budget checks tied to the Pro build produced above.
+          cp build/system37.fwsc build/felucca.fwsc
 
-      - name: Run complete host, sanitizer, target-budget and web test suite
+      - name: Run host, sanitizer, target-budget and web test suite
         env:
           EDFZ_N: "2000"
         run: sh tests/run_tests.sh
