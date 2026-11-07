@@ -47,11 +47,18 @@ static void arrangement_apply(uint32_t scene)
 
 /* ---- song mode keeps the loop you made: PLAY in song mode puts it aside (each section then plays
  * over the tracks), STOP (or the song's end) brings it back */
+#if BOARD_SMK37
+/* The working autosave buffer doubles as the song-mode return snapshot:
+ * autosave is paused for the entire time song playback owns this image. */
+static project_t *const song_keep_ptr = &autosave_buf;
+#else
 static project_t song_keep __attribute__((section(".pool")));
+#define song_keep_ptr (&song_keep)
+#endif
 static uint8_t song_kept;
 static void song_backup(void)                  /* (audio ISR: seq_start) */
 {
-    proj_capture(&song_keep);
+    proj_capture(song_keep_ptr);
     song_kept = 1;
 }
 static void song_restore(void)                 /* (audio ISR: seq_stop) */
@@ -66,8 +73,8 @@ static void song_restore(void)                 /* (audio ISR: seq_stop) */
         trk[i].nheld = trk[i].arp_phys = trk[i].arp_note = 0;
         trk[i].arp_ch[0] = trk[i].arp_ch[1] = trk[i].arp_ch[2] = 0;
     }
-    proj_apply(&song_keep, 1);
-    song.sel = (uint8_t)(song_keep.sel < NTRK ? song_keep.sel : 0u);
+    proj_apply(song_keep_ptr, 1);
+    song.sel = (uint8_t)(song_keep_ptr->sel < NTRK ? song_keep.sel : 0u);
     sync_reload = 1;
     ui.force = 1;
 }
