@@ -1713,19 +1713,19 @@ static void t_chain(void)
         trk[i].p[P_SDIV] = 2;
     }
     dstep_set(&TDRUM->dstep[0], 0, LV_NORM, 0);
-    proj_capture(&proj_slot[0]);                     /* A: one bar */
+    proj_capture(proj_slot[0]);                     /* A: one bar */
     TDRUM->p[P_SLEN] = 32;
     dstep_set(&TDRUM->dstep[16], 2, LV_NORM, 0);
-    proj_capture(&proj_slot[1]);                     /* B: two bars (the drum track) */
+    proj_capture(proj_slot[1]);                     /* B: two bars (the drum track) */
     trk[1].p[P_SLEN] = 3;
     trk[1].p[P_SDIV] = 7;                            /* 1BAR x 3: three bars */
-    proj_capture(&proj_slot[2]);                     /* C: three bars */
-    proj_slot[3].magic = 0;
+    proj_capture(proj_slot[2]);                     /* C: three bars */
+    proj_slot[3]->magic = 0;
     bars_a = section_bars(0);
     bars_b = section_bars(1);
     check(bars_a == 1u && bars_b == 2u && section_bars(2) == 3u && section_bars(3) == 1u && arrangement_ready() == 7u,
           "2.4: section_bars: A 1 bar, B 2 bars (32 x 1/16), C 3 bars (3 x 1BAR); an empty slot 1");
-    proj_apply(&proj_slot[2], 1);                    /* C is the loop */
+    proj_apply(proj_slot[2], 1);                    /* C is the loop */
     live_sec = 2;
     arrangement_enabled = 0;
     transport_req = 1;
@@ -1784,7 +1784,7 @@ static void t_chain(void)
         run_block();
     reset(120);
     for (i = 0; i < 4u; i++)
-        proj_slot[i].magic = 0;
+        proj_slot[i]->magic = 0;
     live_sec = -1;
 }
 
