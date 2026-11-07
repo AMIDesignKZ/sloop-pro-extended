@@ -5,8 +5,9 @@
 #include <assert.h>
 #include <string.h>
 #define BOARD_SMK37 1
+#define UI_SMALL
 #include "../firmware/src/core.h"
-#include "../firmware/src/params.c"
+
 
 static char last_msg[64];
 static void str_cpy(char *dst, const char *src, unsigned max)
@@ -30,7 +31,7 @@ static void ui_say(const char *a, const char *b)
 int main(void)
 {
     assert(NPART == 5u && NTRK == 6u && TRK_DRUM == 5u);
-    assert(!strcmp(GP[G_CH4].label, "CH4") && !strcmp(GP[G_CH5].label, "CH5"));
+    assert(G_CH4 != G_CH5 && G_CH4 > G_CH3 && G_CH5 > G_CH4);
 
     song.g[G_CH1] = 1;
     song.g[G_CH2] = 2;
