@@ -22,7 +22,7 @@ fm1_c1_entry:
 	reti = fm1_c1_main
 	rti
 
-	.section .bss.c1stack,"aw",@nobits
+	.section .pool.c1stack,"aw",@nobits
 	.balign 8
 	.globl _c1_ustack
 _c1_ustack:			/* after rti the core runs on this one: the render's (filled with a mark at start) */
