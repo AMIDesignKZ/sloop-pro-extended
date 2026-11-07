@@ -2,6 +2,17 @@
  * System 37: eight-section catalogue validation and streaming overlays.
  */
 #include <stddef.h>
+#if defined(__has_include)
+# if __has_include(<string.h>)
+#  include <string.h>
+# else
+extern void *memset(void *dst, int value, unsigned length);
+extern void *memcpy(void *dst, const void *src, unsigned length);
+# endif
+#else
+extern void *memset(void *dst, int value, unsigned length);
+extern void *memcpy(void *dst, const void *src, unsigned length);
+#endif
 #include "section_catalog.h"
 
 static uint32_t project_offset(uint32_t record)
