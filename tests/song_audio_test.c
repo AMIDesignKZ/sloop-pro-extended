@@ -59,6 +59,10 @@ int main(int argc, char **argv)
     arrangement.entry[0] = (arr_entry_t){0, 2};
     arrangement.entry[1] = (arr_entry_t){1, 2};
     arrangement_enabled = 1;
+    fprintf(stderr, "song_audio pre: valid=%d/%d/%d magic=%08x/%08x size=%u sum=%08x/%08x bars=%u/%u\\n",
+            project_valid(proj_slot[0]), project_valid(proj_slot[1]), project_valid(proj_slot[2]),
+            proj_slot[0]->magic, proj_slot[1]->magic, proj_slot[0]->size,
+            proj_slot[0]->sum, proj_sum(proj_slot[0]), section_bars(0), section_bars(1));
     transport_req = 1;
     if (f) wav_hdr(f, frames);
     for (frame = 0; frame < frames; frame += CTL) {
@@ -78,6 +82,8 @@ int main(int argc, char **argv)
         }
     }
     if (f) fclose(f);
+    fprintf(stderr, "song_audio post: playing=%u error=%u index=%u req=%u\\n",
+            song.playing, arrangement_clock.error, arrangement_clock.index, transport_req);
     fprintf(stderr, "song_audio metrics: active=0x%X simultaneous=%u energy=%llu\n",
             active_tracks, simultaneous, (unsigned long long)energy);
     assert(active_tracks == 15u && simultaneous > 100u && energy > 1000000u);
