@@ -42,6 +42,7 @@
 #include "lcd.c"
 #include "gfx.c"
 #include "core.h"
+#include "bootguard.c"     /* single retained boot-guard instance */
 #include "cpu1.h"           /* the second core's job API (defined in cpu1.c; the host tests have their own) */
 #include "engines.c"
 #include "eng_sample.c"       /* retained sample subsystem: drum kits and user-sample playback */
