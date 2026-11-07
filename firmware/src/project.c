@@ -181,9 +181,10 @@ static uint8_t s37_cat_ready, s37_migrate_pending, s37_cat_uncertain;
 static const sm_map_t s37_cat_map;
 static sm_state_t s37_cat_state;
 static s37_cat_header_t s37_cat_header;
-/* Legacy import staging uses a compact no-init union. Catalogue validation
- * borrows an unused section cache, then restores that cache from flash. */
+/* Import staging and catalogue validation share a no-init union. They are
+ * used in separate phases; the eight persistent section caches remain intact. */
 static union {
+    project_v7_t v7;
     project_v6_legacy_t v6;
     project_v5_t v5;
     project_v4_t v4;
@@ -191,6 +192,7 @@ static union {
     project_v2_t v2;
     project_v1_t v1;
 } s37_scratch __attribute__((section(".noinit")));
+#define s37_cat_scratch s37_scratch.v7
 #define proj_tmp s37_scratch
 static s37_cat_overlay_t s37_cat_overlay;
 static s37_cat_image_t s37_cat_image;
@@ -1102,79 +1104,43 @@ static int s37_catalog_write_full(void)
     return 0;
 }
 
-static uint32_t s37_catalog_scratch_slot(const project_t *avoid)
-{
-    uint32_t i;
-    for (i = 0; i < S37_CAT_SECTIONS; i++)
-        if (proj_slot[i] != avoid)
-            return i;
-    return 0u;
-}
-
-static void s37_catalog_scratch_restore(uint32_t slot)
-{
-    if (s37_cat_header.present_mask & (uint8_t)(1u << slot)) {
-        if (s37_cat_load_section(&s37_cat_io, &s37_cat_map, &s37_cat_state,
-                                 (uint8_t)slot, proj_slot[slot], &s37_cat_header))
-            memset(proj_slot[slot], 0, sizeof *proj_slot[slot]);
-    } else {
-        memset(proj_slot[slot], 0, sizeof *proj_slot[slot]);
-    }
-}
-
 static int s37_catalog_store_section(uint32_t slot, const project_t *p)
 {
     uint16_t bars;
     uint8_t def;
-    uint32_t scratch_slot;
-    project_t *scratch;
     if (slot >= S37_CAT_SECTIONS || !p || !proj_v7_valid(p) || s37_cat_uncertain)
         return -1;
-    if (!s37_cat_ready) {
-        if (s37_catalog_write_full())
-            return -1;
-        return s37_catalog_store_section(slot, p);
-    }
-    scratch_slot = s37_catalog_scratch_slot(p);
-    scratch = proj_slot[scratch_slot];
+    if (!s37_cat_ready)
+        return s37_catalog_write_full();
     bars = (uint16_t)section_bars(slot);
     if (!bars) bars = 1u;
     def = s37_cat_header.default_section;
     if (def >= S37_CAT_SECTIONS)
         def = (uint8_t)slot;
     if (s37_cat_prepare_overlay(&s37_cat_overlay, &s37_cat_io, &s37_cat_map,
-                                &s37_cat_state, scratch, (project_v7_t *)p,
+                                &s37_cat_state, &s37_cat_scratch, (project_v7_t *)p,
                                 (uint8_t)slot, bars, def) ||
         sm_save_stream(&s37_cat_io, &s37_cat_map, s37_cat_overlay_read,
                        &s37_cat_overlay, S37_CAT_PAYLOAD_SIZE, &s37_cat_state) ||
         s37_cat_validate(&s37_cat_io, &s37_cat_map, &s37_cat_state,
-                         scratch, &s37_cat_header))
+                         &s37_cat_scratch, &s37_cat_header))
         return -1;
-    s37_catalog_scratch_restore(scratch_slot);
     return 0;
 }
 
 static int s37_catalog_erase_section(uint32_t slot)
 {
-    uint32_t scratch_slot;
-    project_t *scratch;
     if (slot >= S37_CAT_SECTIONS || s37_cat_uncertain)
         return -1;
-    if (!s37_cat_ready) {
-        if (s37_catalog_write_full())
-            return -1;
-        return s37_catalog_erase_section(slot);
-    }
-    scratch_slot = (slot + 1u) & (S37_CAT_SECTIONS - 1u);
-    scratch = proj_slot[scratch_slot];
+    if (!s37_cat_ready)
+        return s37_catalog_write_full();
     if (s37_cat_prepare_erase_overlay(&s37_cat_overlay, &s37_cat_io, &s37_cat_map,
-                                      &s37_cat_state, scratch, (uint8_t)slot) ||
+                                      &s37_cat_state, &s37_cat_scratch, (uint8_t)slot) ||
         sm_save_stream(&s37_cat_io, &s37_cat_map, s37_cat_overlay_read,
                        &s37_cat_overlay, S37_CAT_PAYLOAD_SIZE, &s37_cat_state) ||
         s37_cat_validate(&s37_cat_io, &s37_cat_map, &s37_cat_state,
-                         scratch, &s37_cat_header))
+                         &s37_cat_scratch, &s37_cat_header))
         return -1;
-    s37_catalog_scratch_restore(scratch_slot);
     return 0;
 }
 
@@ -1188,22 +1154,17 @@ static int s37_catalog_load_section(uint32_t slot, project_t *p)
 
 static int s37_catalog_store_working(const project_t *p)
 {
-    uint32_t scratch_slot;
-    project_t *scratch;
     if (!p || !proj_v7_valid(p) || s37_cat_uncertain)
         return -1;
     if (!s37_cat_ready)
         return s37_catalog_write_full();
-    scratch_slot = s37_catalog_scratch_slot(p);
-    scratch = proj_slot[scratch_slot];
     if (s37_cat_prepare_working_overlay(&s37_cat_overlay, &s37_cat_io, &s37_cat_map,
-                                        &s37_cat_state, scratch, (project_v7_t *)p) ||
+                                        &s37_cat_state, &s37_cat_scratch, (project_v7_t *)p) ||
         sm_save_stream(&s37_cat_io, &s37_cat_map, s37_cat_overlay_read,
                        &s37_cat_overlay, S37_CAT_PAYLOAD_SIZE, &s37_cat_state) ||
         s37_cat_validate(&s37_cat_io, &s37_cat_map, &s37_cat_state,
-                         scratch, &s37_cat_header))
+                         &s37_cat_scratch, &s37_cat_header))
         return -1;
-    s37_catalog_scratch_restore(scratch_slot);
     return 0;
 }
 
